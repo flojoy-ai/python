@@ -10,7 +10,10 @@ import networkx as nx
 
 from redis import Redis
 from rq.job import Job
+import os
 
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
 class CtrlPanel():
     '''
     A class for the flojoy dashboard UI
@@ -147,7 +150,7 @@ def fetch_inputs(previous_job_ids, mock=False):
 
     try:
         for ea in previous_job_ids:
-            job = Job.fetch(ea, connection=Redis())
+            job = Job.fetch(ea, connection=Redis(host=REDIS_HOST, port=REDIS_PORT))
             inputs.append(job.result)
     except Exception:
         print(traceback.format_exc())
@@ -216,7 +219,7 @@ def flojoy(func):
 
         node_inputs = fetch_inputs(previous_job_ids, mock)
 
-        print('Executing function ', FN, ' where  pjs = ', previous_job_ids)
+        # print('Executing function ', FN, ' where  pjs = ', previous_job_ids)
 
         return func(node_inputs, func_params)
     
@@ -268,6 +271,13 @@ def reactflow_to_networkx(elems):
                     
     nx.set_node_attributes(DG, labels, 'cmd')
     nx.draw(DG, pos, with_labels=True, labels = labels)
-    return nx.topological_sort(DG);
 
-
+    def get_node_data_by_id():
+        nodes_by_id = dict()
+        for n, nd in DG.nodes().items():
+            if n is not None:
+                nodes_by_id[n] = nd
+        return nodes_by_id
+    sort = nx.topological_sort(DG)
+    
+    return {'topological_sort':sort,'getNode':get_node_data_by_id, 'DG':DG};
