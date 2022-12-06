@@ -1,8 +1,8 @@
 from distutils.core import setup
 setup(
-  name = 'flojoy',         
-  packages = ['flojoy'],   
-  version = '0.0.1',      
+  name = 'joyflo-sma',         
+  packages = ['joyflo'],   
+  version = '0.2.2',   
   license='MIT',        
   description = 'Some description',  
   author = 'flojoy',                 
