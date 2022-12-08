@@ -45,7 +45,7 @@ class VectorXY(Box):
     '''
 
     @staticmethod
-    def _ndarrayify(value):
+    def _ndarrayify(value, allow_dict=True):
         s = str(type(value))
         v_type = s.split("'")[1]
 
@@ -54,6 +54,11 @@ class VectorXY(Box):
                 value = np.array([value])
             case 'list':
                 value = np.array(value)
+            case 'dict':
+                if not allow_dict:
+                  raise ValueError(value, 'y cannot be a dictionary')
+                for k, v in value.items():
+                  value[k] = np.array(v)
             case 'numpy.ndarray':
                 pass
             case 'NoneType':
@@ -69,7 +74,7 @@ class VectorXY(Box):
             self['x'] = np.array([])
 
         if 'y' in kwargs:
-            self['y'] = self._ndarrayify(kwargs['y'])
+            self['y'] = self._ndarrayify(kwargs['y'], False)
         else:
             self['y'] = np.array([])
 
@@ -85,7 +90,10 @@ class VectorXY(Box):
         if key not in ['x', 'y']:
             raise KeyError(key)
         else:
-            value = self._ndarrayify(value)
+            if key == 'x':
+              value = self._ndarrayify(value)
+            elif key == 'y':
+              value = self._ndarrayify(value, False)
             super().__setitem__(key, value)
 
 
