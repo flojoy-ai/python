@@ -54,6 +54,9 @@ class VectorXY(Box):
                 value = np.array([value])
             case 'list':
                 value = np.array(value)
+            case 'dict':
+                for k, v in value.items():
+                  value[k] = np.array(v)
             case 'numpy.ndarray':
                 pass
             case 'NoneType':
