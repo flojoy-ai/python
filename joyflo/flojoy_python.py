@@ -30,22 +30,47 @@ REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
 r = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 
-class VectorXY(Box):
+class DataContainer(Box):
     '''
+    A user can explicitly set a VectorXY type so that nodes can define different logic - depending on the vector's type.
+
+Allowed type values:
+
+image # color image (subset of a matrix)
+grayscale # BW image (subset of a matrix)
+matrix Any numpy matrix of N dimensions
+dataframe Tabular data encoded as rows of numpy arrays
+ordered_pair (eg, an x and y numpy array or Python list)
+ordered_triple(eg, x, y, and z numpy arrays/lists)
+scalar (a Python integer or float)
+parametric_[TYPE]
+Getting a type (eg print(v.type)) is inferred for the user by the Getter if type has not been explicitly set. Eg,
+
+ordered_pair - only x and y are set
+ordered_triple only x, y, and z are set
+parametric_ordered_pair only x, y, and t are set
+etc
+Explicitly setting a vector's type, then setting a key that does not belong to that type should result in an error.
+
+For example,
+
+v.type = `image`
+v.x = [1,2,3]
+should throw and error, since the vector has been defined as an image, but the x key instead of the m key is subsequently set
     A class for x-y paired numpy arrays that supports dot assignment
 
     Usage
     -----
     import numpy as np
 
-    v = VectorXY()
+    v = DataContainer()
 
     v.x = np.linspace(1,20,0.1)
     v.y = np.sin(v.x)
     '''
 
     @staticmethod
-    def _ndarrayify(value, allow_dict=True):
+    def _ndarrayify(value):
         s = str(type(value))
         v_type = s.split("'")[1]
 
@@ -55,10 +80,8 @@ class VectorXY(Box):
             case 'list':
                 value = np.array(value)
             case 'dict':
-                if not allow_dict:
-                  raise ValueError(value, 'y cannot be a dictionary')
                 for k, v in value.items():
-                  value[k] = np.array(v)
+                    value[k] = np.array(v)
             case 'numpy.ndarray':
                 pass
             case 'NoneType':
@@ -67,6 +90,62 @@ class VectorXY(Box):
                 raise ValueError(value)
         return value
 
+    def match_data_types(self, data_type, obj):
+        match data_type:
+            case 'image' | 'grayscale' | 'matrix' | 'dataframe':
+                if 'm' not in obj:
+                    raise KeyError(
+                        'm key must be provided for type "{}"'.format(self.type))
+                else:
+                    self['m'] = self._ndarrayify(obj['m'])
+            case 'ordered_pair':
+                if 'x' and 'y' not in obj.keys():
+                    raise KeyError(
+                        'x and y keys must be provided for "{}"'.format(self.type))
+                else:
+                    self['x'] = self._ndarrayify(obj['x'])
+                    self['y'] = self._ndarrayify(obj['y'])
+            case 'ordered_triple':
+                if 'x' and 'y' and 'z' not in obj:
+                    raise KeyError(
+                        'x, y and z keys must be provided for "{}"'.format(self.type))
+                else:
+                    self['x'] = self._ndarrayify(obj['x'])
+                    self['y'] = self._ndarrayify(obj['y'])
+                    self['z'] = self._ndarrayify(obj['z'])
+            case 'scalar':
+                if 'c' not in obj:
+                    raise KeyError(
+                        'Invalid key provided for type "{}"'.format(self.type))
+                else:
+                    self['c'] = self._ndarrayify(obj['c'])
+            case _:
+                if self.type.startswith('parametric_'):
+                    if 't' not in obj:
+                        raise KeyError(
+                            't key must be provided for "{}"'.format(self.type))
+                    else:
+                        self['t'] = obj['t']
+                        t = obj['t']
+                        is_ascending_order = all(
+                            t[i] <= t[i+1] for i in range(len(t) - 1))
+                        if is_ascending_order is not True:
+                            raise ValueError(
+                                't key must be in ascending order')
+                        parametric_data_type = self.type.split('parametric_')[
+                            1]
+                        self.match_data_types(parametric_data_type, obj)
+                        exclude_keys = ['type', 't']
+                        for key in obj:
+                            if key not in exclude_keys:
+                                arr = []
+                                for i in range(len(t)):
+                                    arr.append(self[key])
+                                self[key] = arr
+                else:
+                    raise ValueError(
+                        'Invalid data type "{}"'.format(self.type))
+
     def __init__(self, **kwargs):
         if 'x' in kwargs:
             self['x'] = self._ndarrayify(kwargs['x'])
@@ -74,7 +153,7 @@ class VectorXY(Box):
             self['x'] = np.array([])
 
         if 'y' in kwargs:
-            self['y'] = self._ndarrayify(kwargs['y'], False)
+            self['y'] = self._ndarrayify(kwargs['y'])
         else:
             self['y'] = np.array([])
 
@@ -91,9 +170,9 @@ class VectorXY(Box):
             raise KeyError(key)
         else:
             if key == 'x':
-              value = self._ndarrayify(value)
+                value = self._ndarrayify(value)
             elif key == 'y':
-              value = self._ndarrayify(value, False)
+                value = self._ndarrayify(value)
             super().__setitem__(key, value)
 
 
@@ -142,10 +221,10 @@ def fetch_inputs(previous_job_ids, mock=False):
 
     Returns
     -------
-    inputs : list of VectorXY objects
+    inputs : list of DataContainer objects
     '''
     if mock is True:
-        return [VectorXY(x=np.linspace(0, 10, 100))]
+        return [DataContainer(x=np.linspace(0, 10, 100))]
 
     inputs = []
 
