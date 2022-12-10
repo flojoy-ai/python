@@ -32,31 +32,6 @@ r = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 class DataContainer(Box):
     '''
-    A user can explicitly set a VectorXY type so that nodes can define different logic - depending on the vector's type.
-
-Allowed type values:
-
-image # color image (subset of a matrix)
-grayscale # BW image (subset of a matrix)
-matrix Any numpy matrix of N dimensions
-dataframe Tabular data encoded as rows of numpy arrays
-ordered_pair (eg, an x and y numpy array or Python list)
-ordered_triple(eg, x, y, and z numpy arrays/lists)
-scalar (a Python integer or float)
-parametric_[TYPE]
-Getting a type (eg print(v.type)) is inferred for the user by the Getter if type has not been explicitly set. Eg,
-
-ordered_pair - only x and y are set
-ordered_triple only x, y, and z are set
-parametric_ordered_pair only x, y, and t are set
-etc
-Explicitly setting a vector's type, then setting a key that does not belong to that type should result in an error.
-
-For example,
-
-v.type = `image`
-v.x = [1,2,3]
-should throw and error, since the vector has been defined as an image, but the x key instead of the m key is subsequently set
     A class for x-y paired numpy arrays that supports dot assignment
 
     Usage
@@ -68,6 +43,7 @@ should throw and error, since the vector has been defined as an image, but the x
     v.x = np.linspace(1,20,0.1)
     v.y = np.sin(v.x)
     '''
+    all_keys = ['x', 'y', 'z', 't', 'm', 'c']
 
     @staticmethod
     def _ndarrayify(value):
@@ -91,24 +67,25 @@ should throw and error, since the vector has been defined as an image, but the x
         return value
 
     def match_data_types(self, data_type, obj):
+        print('data_type iin match :', data_type)
         match data_type:
             case 'image' | 'grayscale' | 'matrix' | 'dataframe':
                 if 'm' not in obj:
                     raise KeyError(
-                        'm key must be provided for type "{}"'.format(self.type))
+                        'm key must be provided for type "{}"'.format(data_type))
                 else:
                     self['m'] = self._ndarrayify(obj['m'])
             case 'ordered_pair':
                 if 'x' and 'y' not in obj.keys():
                     raise KeyError(
-                        'x and y keys must be provided for "{}"'.format(self.type))
+                        'x and y keys must be provided for "{}"'.format(data_type))
                 else:
                     self['x'] = self._ndarrayify(obj['x'])
                     self['y'] = self._ndarrayify(obj['y'])
             case 'ordered_triple':
                 if 'x' and 'y' and 'z' not in obj:
                     raise KeyError(
-                        'x, y and z keys must be provided for "{}"'.format(self.type))
+                        'x, y and z keys must be provided for "{}"'.format(data_type))
                 else:
                     self['x'] = self._ndarrayify(obj['x'])
                     self['y'] = self._ndarrayify(obj['y'])
@@ -116,14 +93,15 @@ should throw and error, since the vector has been defined as an image, but the x
             case 'scalar':
                 if 'c' not in obj:
                     raise KeyError(
-                        'Invalid key provided for type "{}"'.format(self.type))
+                        'c key must be provided for type "{}"'.format(data_type))
                 else:
                     self['c'] = self._ndarrayify(obj['c'])
             case _:
-                if self.type.startswith('parametric_'):
+                if data_type.startswith('parametric_'):
+                    print('type startswith parametric_')
                     if 't' not in obj:
                         raise KeyError(
-                            't key must be provided for "{}"'.format(self.type))
+                            't key must be provided for "{}"'.format(data_type))
                     else:
                         self['t'] = obj['t']
                         t = obj['t']
@@ -132,48 +110,57 @@ should throw and error, since the vector has been defined as an image, but the x
                         if is_ascending_order is not True:
                             raise ValueError(
                                 't key must be in ascending order')
-                        parametric_data_type = self.type.split('parametric_')[
+                        parametric_data_type = data_type.split('parametric_')[
                             1]
+                        print(' parametric_ data type: ', parametric_data_type)
                         self.match_data_types(parametric_data_type, obj)
                         exclude_keys = ['type', 't']
                         for key in obj:
                             if key not in exclude_keys:
-                                arr = []
+                                array = []
                                 for i in range(len(t)):
-                                    arr.append(self[key])
-                                self[key] = arr
+                                    array.append(self[key])
+                                self[key] = array
                 else:
                     raise ValueError(
-                        'Invalid data type "{}"'.format(self.type))
+                        'Invalid data type "{}"'.format(data_type))
 
     def __init__(self, **kwargs):
-        if 'x' in kwargs:
-            self['x'] = self._ndarrayify(kwargs['x'])
-        else:
-            self['x'] = np.array([])
-
-        if 'y' in kwargs:
-            self['y'] = self._ndarrayify(kwargs['y'])
-        else:
-            self['y'] = np.array([])
+        if 'type' in kwargs:
+            self['type'] = kwargs['type']
+            self.match_data_types(kwargs['type'], kwargs)
 
     def __getitem__(self, key, **kwargs):
-        if key not in ['x', 'y']:
-            raise KeyError(key)
-        elif key == '_ignore_default':
-            pass
-        else:
-            return super().__getitem__(key)
+        return super().__getitem__(key)
+
+    def check_combination(self, key, keys, allowed_keys):
+        for i in keys:
+            if str(i) in self and i not in allowed_keys:
+                raise ValueError('You cant have %s with %s' % (key, i))
 
     def __setitem__(self, key, value):
-        if key not in ['x', 'y']:
-            raise KeyError(key)
+        keys = []
+        if key != 'type':
+            keys = [*self.all_keys]
+            keys.remove(key)
+            combinations = {
+                'x': ['y', 't', 'z'],
+                'y': ['x', 't', 'z'],
+                'z': ['x', 'y', 't'],
+                'c': ['t'],
+                'm': ['t'],
+                't': ['x', 'y', 'z', 'm']
+            }
+            if key in combinations.keys():
+                self.check_combination(key, keys, combinations[key])
         else:
-            if key == 'x':
-                value = self._ndarrayify(value)
-            elif key == 'y':
-                value = self._ndarrayify(value)
-            super().__setitem__(key, value)
+            has_any_key = False
+            for i in self.all_keys:
+                if str(i) in self:
+                    has_any_key = True
+            if has_any_key:
+                self.match_data_types(value, self)
+        super().__setitem__(key, value)
 
 
 def get_flojoy_root_dir():
