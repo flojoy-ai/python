@@ -45,7 +45,7 @@ class VectorXY(Box):
     '''
 
     @staticmethod
-    def _ndarrayify(value, allow_dict=True):
+    def _ndarrayify(value):
         s = str(type(value))
         v_type = s.split("'")[1]
 
@@ -54,11 +54,6 @@ class VectorXY(Box):
                 value = np.array([value])
             case 'list':
                 value = np.array(value)
-            case 'dict':
-                if not allow_dict:
-                  raise ValueError(value, 'y cannot be a dictionary')
-                for k, v in value.items():
-                  value[k] = np.array(v)
             case 'numpy.ndarray':
                 pass
             case 'NoneType':
@@ -74,7 +69,7 @@ class VectorXY(Box):
             self['x'] = np.array([])
 
         if 'y' in kwargs:
-            self['y'] = self._ndarrayify(kwargs['y'], False)
+            self['y'] = self._ndarrayify(kwargs['y'])
         else:
             self['y'] = np.array([])
 
@@ -90,10 +85,7 @@ class VectorXY(Box):
         if key not in ['x', 'y']:
             raise KeyError(key)
         else:
-            if key == 'x':
-              value = self._ndarrayify(value)
-            elif key == 'y':
-              value = self._ndarrayify(value, False)
+            value = self._ndarrayify(value)
             super().__setitem__(key, value)
 
 
@@ -172,7 +164,7 @@ def flojoy(func):
     values into Flojoy nodes.
 
     @flojoy is intended to eliminate  boilerplate in connecting
-    Python scripts as visual nodes 
+    Python scripts as visual nodes
 
     Into whatever function it wraps, @flojoy injects
     1. the last node's input as an XYVector
@@ -184,7 +176,7 @@ def flojoy(func):
 
     Returns
     -------
-    VectorYX object 
+    VectorYX object
 
     Usage Example
     -------------
@@ -195,7 +187,7 @@ def flojoy(func):
         print('params passed to SINE', params)
 
         output = VectorXY(
-            x=v[0].x, 
+            x=v[0].x,
             y=np.sin(v[0].x)
         )
         return output
@@ -203,7 +195,7 @@ def flojoy(func):
     pj_ids = [123, 456]
 
     # equivalent to: decorated_sin = flojoy(SINE)
-    print(SINE(previous_job_ids = pj_ids, mock = True))    
+    print(SINE(previous_job_ids = pj_ids, mock = True))
     '''
     @wraps(func)
     # def wrapper(previous_job_ids, mock):
@@ -290,11 +282,23 @@ def reactflow_to_networkx(elems):
     pos = nx.get_node_attributes(DG, 'pos')
 
     # Add edges to networkx directed graph
+    edge_label_dict = {}
 
     def get_tuple(edge):
         e = [-1, -1]
         src_id = edge['source']
         tgt_id = edge['target']
+
+        if tgt_id not in edge_label_dict.keys():
+            edge_label_dict[tgt_id] = []
+
+        edge_label_dict[tgt_id].append({
+            'source': src_id,
+            'label':edge['label'],
+            'sourceHandle':edge['sourceHandle'],
+            'targetHandle':edge['targetHandle']
+        })
+
         # iterate through all nodes looking for matching edge
         for el in elems:
             if 'id' in el:
@@ -331,4 +335,6 @@ def reactflow_to_networkx(elems):
         return nodes_by_id
     sort = nx.topological_sort(DG)
 
-    return {'topological_sort': sort, 'getNode': get_node_data_by_id, 'DG': DG}
+
+
+    return {'topological_sort': sort, 'getNode': get_node_data_by_id, 'DG': DG,'edgeInfo':edge_label_dict}
