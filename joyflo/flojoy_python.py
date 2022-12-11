@@ -42,8 +42,10 @@ class DataContainer(Box):
 
     v.x = np.linspace(1,20,0.1)
     v.y = np.sin(v.x)
+    v.type = 'ordered pair'
+
     '''
-    all_keys = ['x', 'y', 'z', 't', 'm', 'c']
+    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b']
 
     @staticmethod
     def _ndarrayify(value):
@@ -66,45 +68,51 @@ class DataContainer(Box):
                 raise ValueError(value)
         return value
 
-    def match_data_types(self, data_type, obj):
-        print('data_type iin match :', data_type)
+    def match_data_types(self, data_type: str, kwargs: dict):
         match data_type:
-            case 'image' | 'grayscale' | 'matrix' | 'dataframe':
-                if 'm' not in obj:
+            case 'grayscale' | 'matrix' | 'dataframe':
+                if 'm' not in kwargs:
                     raise KeyError(
                         'm key must be provided for type "{}"'.format(data_type))
                 else:
-                    self['m'] = self._ndarrayify(obj['m'])
+                    self['m'] = kwargs['m']
+            case 'image':
+                if 'r' and 'g' and 'b' not in kwargs:
+                    raise KeyError(
+                        'r g b keys must be provided for type "{}"'.format(data_type))
+                else:
+                    self['r'] = kwargs['r']
+                    self['g'] = kwargs['g']
+                    self['b'] = kwargs['b']
             case 'ordered_pair':
-                if 'x' and 'y' not in obj.keys():
+                if 'x' and 'y' not in kwargs.keys():
                     raise KeyError(
                         'x and y keys must be provided for "{}"'.format(data_type))
                 else:
-                    self['x'] = self._ndarrayify(obj['x'])
-                    self['y'] = self._ndarrayify(obj['y'])
+                    self['x'] = kwargs['x']
+                    self['y'] = kwargs['y']
             case 'ordered_triple':
-                if 'x' and 'y' and 'z' not in obj:
+                if 'x' and 'y' and 'z' not in kwargs:
                     raise KeyError(
                         'x, y and z keys must be provided for "{}"'.format(data_type))
                 else:
-                    self['x'] = self._ndarrayify(obj['x'])
-                    self['y'] = self._ndarrayify(obj['y'])
-                    self['z'] = self._ndarrayify(obj['z'])
+                    self['x'] = kwargs['x']
+                    self['y'] = kwargs['y']
+                    self['z'] = kwargs['z']
             case 'scalar':
-                if 'c' not in obj:
+                if 'c' not in kwargs:
                     raise KeyError(
                         'c key must be provided for type "{}"'.format(data_type))
                 else:
-                    self['c'] = self._ndarrayify(obj['c'])
+                    self['c'] = kwargs['c']
             case _:
                 if data_type.startswith('parametric_'):
-                    print('type startswith parametric_')
-                    if 't' not in obj:
+                    if 't' not in kwargs:
                         raise KeyError(
                             't key must be provided for "{}"'.format(data_type))
                     else:
-                        self['t'] = obj['t']
-                        t = obj['t']
+                        self['t'] = kwargs['t']
+                        t = kwargs['t']
                         is_ascending_order = all(
                             t[i] <= t[i+1] for i in range(len(t) - 1))
                         if is_ascending_order is not True:
@@ -112,15 +120,91 @@ class DataContainer(Box):
                                 't key must be in ascending order')
                         parametric_data_type = data_type.split('parametric_')[
                             1]
+                        self.match_data_types(parametric_data_type, kwargs)
+                else:
+                    raise ValueError(
+                        'Invalid data type "{}"'.format(data_type))
+
+
+# For __setter__ function only
+
+
+    def match_setter_data_type(self, data_type: str, key: str, value, isType: bool):
+        def error_text(key: str, data_type: str):
+            return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
+        match data_type:
+            case 'ordered_pair':
+                if key not in ['x', 'y']:
+                    raise KeyError(error_text(key, data_type))
+                else:
+                    if isType:
+                        pass
+                        return
+                    super().__setitem__(key, self._ndarrayify(value))
+            case 'grayscale' | 'matrix' | 'dataframe':
+                if key not in ['m']:
+                    raise KeyError(error_text(key, data_type))
+                else:
+                    if isType:
+                        pass
+                        return
+                    super().__setitem__(key, self._ndarrayify(value))
+            case 'image':
+                if key not in ['r', 'g', 'b']:
+                    raise KeyError(error_text(key, data_type))
+                else:
+                    if isType:
+                        pass
+                        return
+                    super().__setitem__(key, self._ndarrayify(value))
+            case 'ordered_triple':
+                if key not in ['x', 'y', 'z']:
+                    raise KeyError(error_text(key, data_type))
+                else:
+                    if isType:
+                        pass
+                        return
+                    super().__setitem__(key, self._ndarrayify(value))
+            case 'scalar':
+                if key not in ['c']:
+                    raise KeyError(error_text(key, data_type))
+                else:
+                    if isType:
+                        pass
+                        return
+                    super().__setitem__(key, self._ndarrayify(value))
+            case _:
+                if data_type.startswith('parametric_'):
+                    if 't' not in self:
+                        if key != 't':
+                            raise KeyError(
+                                't key must be provided for "{}"'.format(data_type))
+                        else:
+                            is_ascending_order = all(
+                                value[i] <= value[i+1] for i in range(len(value) - 1))
+                            if is_ascending_order is not True:
+                                raise ValueError(
+                                    't key must be in ascending order')
+                            else:
+                                if isType:
+                                    pass
+                                    return
+                                super().__setitem__(key, value)
+                    else:
+                        parametric_data_type = data_type.split('parametric_')[
+                            1]
                         print(' parametric_ data type: ', parametric_data_type)
-                        self.match_data_types(parametric_data_type, obj)
-                        exclude_keys = ['type', 't']
-                        for key in obj:
-                            if key not in exclude_keys:
-                                array = []
-                                for i in range(len(t)):
-                                    array.append(self[key])
-                                self[key] = array
+                        if key != 't':
+                            self.match_setter_data_type(
+                                parametric_data_type, key, value, isType)
+                        if isType:
+                            pass
+                            return
+                        array = []
+                        for i in range(len(self['t'])):
+                            array.append(self._ndarrayify(value))
+
+                        super().__setitem__(key, array)
                 else:
                     raise ValueError(
                         'Invalid data type "{}"'.format(data_type))
@@ -133,34 +217,74 @@ class DataContainer(Box):
     def __getitem__(self, key, **kwargs):
         return super().__getitem__(key)
 
-    def check_combination(self, key, keys, allowed_keys):
-        for i in keys:
-            if str(i) in self and i not in allowed_keys:
-                raise ValueError('You cant have %s with %s' % (key, i))
+    def check_combination(self, key, keys, allowed_keys, value):
+        if key == 't':
+            for i in keys:
+                array = []
+                for k in range(len(value)):
+                    array.append(self._ndarrayify(self[i]))
+                super().__setitem__(i, array)
+                super().__setitem__(key, value)
+        else:
+            for i in keys:
+                if i not in allowed_keys:
+                    raise ValueError('You cant have %s with %s' % (key, i))
+                else:
+                    if i == 't':
+                        print('i -- t', self['t'], key,
+                              self._ndarrayify(value))
+                        array = []
+                        for i in range(len(self['t'])):
+                            array.append(self._ndarrayify(value))
+                        super().__setitem__(key, array)
+                    else:
+                        super().__setitem__(key, value)
 
     def __setitem__(self, key, value):
         keys = []
         if key != 'type':
-            keys = [*self.all_keys]
-            keys.remove(key)
-            combinations = {
-                'x': ['y', 't', 'z'],
-                'y': ['x', 't', 'z'],
-                'z': ['x', 'y', 't'],
-                'c': ['t'],
-                'm': ['t'],
-                't': ['x', 'y', 'z', 'm']
-            }
-            if key in combinations.keys():
-                self.check_combination(key, keys, combinations[key])
+            if 'type' in self:
+                self.match_setter_data_type(self.type, key, value, False)
+                return
+            else:
+                keys = [*self.allowed_keys]
+                keys.remove(key)
+                has_keys = []
+                has_other_keys = False
+                for i in keys:
+                    if hasattr(self, i):
+                        has_keys.append(i)
+                        has_other_keys = True
+                if has_other_keys:
+                    combinations = {
+                        'x': ['y', 't', 'z'],
+                        'y': ['x', 't', 'z'],
+                        'z': ['x', 'y', 't'],
+                        'c': ['t'],
+                        'm': ['t'],
+                        't': ['x', 'y', 'z', 'm', 'r', 'g', 'b', 'c'],
+                        'r': ['g', 'b', 't'],
+                        'g': ['r', 'b', 't'],
+                        'b': ['r', 'g', 't']
+                    }
+                    if key in combinations.keys():
+                        self.check_combination(
+                            key, has_keys, combinations[key], value)
+                        return
+                else:
+                    super().__setitem__(key, self._ndarrayify(value))
+                    return
         else:
             has_any_key = False
-            for i in self.all_keys:
+            has_keys = []
+            for i in self.allowed_keys:
                 if str(i) in self:
+                    has_keys.append(i)
                     has_any_key = True
             if has_any_key:
-                self.match_data_types(value, self)
-        super().__setitem__(key, value)
+                for i in has_keys:
+                    self.match_setter_data_type(value, i, self[i], True)
+            super().__setitem__(key, value)
 
 
 def get_flojoy_root_dir():
