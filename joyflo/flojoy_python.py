@@ -32,7 +32,9 @@ r = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 class DataContainer(Box):
     '''
-    A class for x-y paired numpy arrays that supports dot assignment
+    A class that processes various types of data and supports dot assignment
+
+    Learn more: https://github.com/flojoy-io/flojoy-python/issues/4
 
     Usage
     -----
@@ -42,7 +44,7 @@ class DataContainer(Box):
 
     v.x = np.linspace(1,20,0.1)
     v.y = np.sin(v.x)
-    v.type = 'ordered pair'
+    v.type = 'ordered_pair'
 
     '''
     allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b']
@@ -68,7 +70,7 @@ class DataContainer(Box):
                 raise ValueError(value)
         return value
 
-    def match_data_types(self, data_type: str, kwargs: dict):
+    def init_data(self, data_type: str, kwargs: dict):
         match data_type:
             case 'grayscale' | 'matrix' | 'dataframe':
                 if 'm' not in kwargs:
@@ -110,67 +112,61 @@ class DataContainer(Box):
                     if 't' not in kwargs:
                         raise KeyError(
                             't key must be provided for "{}"'.format(data_type))
-                    else:
-                        self['t'] = kwargs['t']
-                        t = kwargs['t']
-                        is_ascending_order = all(
-                            t[i] <= t[i+1] for i in range(len(t) - 1))
-                        if is_ascending_order is not True:
-                            raise ValueError(
-                                't key must be in ascending order')
-                        parametric_data_type = data_type.split('parametric_')[
-                            1]
-                        self.match_data_types(parametric_data_type, kwargs)
+                    self['t'] = kwargs['t']
+                    t = kwargs['t']
+                    is_ascending_order = all(
+                        t[i] <= t[i+1] for i in range(len(t) - 1))
+                    if is_ascending_order is not True:
+                        raise ValueError(
+                            't key must be in ascending order')
+                    parametric_data_type = data_type.split('parametric_')[
+                        1]
+                    self.init_data(parametric_data_type, kwargs)
                 else:
                     raise ValueError(
                         'Invalid data type "{}"'.format(data_type))
 
+    def error_text(key: str, data_type: str):
+        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
 
-# For __setter__ function only
+# This function compares data type with the provided key and assigns it to class attribute if matches
 
+    def set_data(self, data_type: str, key: str, value, isType: bool):
 
-    def match_setter_data_type(self, data_type: str, key: str, value, isType: bool):
-        def error_text(key: str, data_type: str):
-            return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
         match data_type:
             case 'ordered_pair':
                 if key not in ['x', 'y']:
-                    raise KeyError(error_text(key, data_type))
+                    raise KeyError(self.error_text(key, data_type))
                 else:
                     if isType:
-                        pass
                         return
                     super().__setitem__(key, self._ndarrayify(value))
             case 'grayscale' | 'matrix' | 'dataframe':
                 if key not in ['m']:
-                    raise KeyError(error_text(key, data_type))
+                    raise KeyError(self.error_text(key, data_type))
                 else:
                     if isType:
-                        pass
                         return
                     super().__setitem__(key, self._ndarrayify(value))
             case 'image':
                 if key not in ['r', 'g', 'b']:
-                    raise KeyError(error_text(key, data_type))
+                    raise KeyError(self.error_text(key, data_type))
                 else:
                     if isType:
-                        pass
                         return
                     super().__setitem__(key, self._ndarrayify(value))
             case 'ordered_triple':
                 if key not in ['x', 'y', 'z']:
-                    raise KeyError(error_text(key, data_type))
+                    raise KeyError(self.error_text(key, data_type))
                 else:
                     if isType:
-                        pass
                         return
                     super().__setitem__(key, self._ndarrayify(value))
             case 'scalar':
                 if key not in ['c']:
-                    raise KeyError(error_text(key, data_type))
+                    raise KeyError(self.error_text(key, data_type))
                 else:
                     if isType:
-                        pass
                         return
                     super().__setitem__(key, self._ndarrayify(value))
             case _:
@@ -179,23 +175,21 @@ class DataContainer(Box):
                         if key != 't':
                             raise KeyError(
                                 't key must be provided for "{}"'.format(data_type))
-                        else:
-                            is_ascending_order = all(
-                                value[i] <= value[i+1] for i in range(len(value) - 1))
-                            if is_ascending_order is not True:
-                                raise ValueError(
-                                    't key must be in ascending order')
-                            else:
-                                if isType:
-                                    pass
-                                    return
-                                super().__setitem__(key, value)
+                        is_ascending_order = all(
+                            value[i] <= value[i+1] for i in range(len(value) - 1))
+                        if is_ascending_order is not True:
+                            raise ValueError(
+                                't key must be in ascending order')
+                        if isType:
+                            pass
+                            return
+                        super().__setitem__(key, value)
                     else:
                         parametric_data_type = data_type.split('parametric_')[
                             1]
                         print(' parametric_ data type: ', parametric_data_type)
                         if key != 't':
-                            self.match_setter_data_type(
+                            self.set_data(
                                 parametric_data_type, key, value, isType)
                         if isType:
                             pass
@@ -212,7 +206,7 @@ class DataContainer(Box):
     def __init__(self, **kwargs):
         if 'type' in kwargs:
             self['type'] = kwargs['type']
-            self.match_data_types(kwargs['type'], kwargs)
+            self.init_data(kwargs['type'], kwargs)
 
     def __getitem__(self, key, **kwargs):
         return super().__getitem__(key)
@@ -224,7 +218,7 @@ class DataContainer(Box):
                 for k in range(len(value)):
                     array.append(self._ndarrayify(self[i]))
                 super().__setitem__(i, array)
-                super().__setitem__(key, value)
+            super().__setitem__(key, value)
         else:
             for i in keys:
                 if i not in allowed_keys:
@@ -240,11 +234,12 @@ class DataContainer(Box):
                     else:
                         super().__setitem__(key, value)
 
+# This function is called when a attribute is assigning to this class
     def __setitem__(self, key, value):
         keys = []
         if key != 'type':
             if 'type' in self:
-                self.match_setter_data_type(self.type, key, value, False)
+                self.set_data(self.type, key, value, False)
                 return
             else:
                 keys = [*self.allowed_keys]
@@ -278,12 +273,12 @@ class DataContainer(Box):
             has_any_key = False
             has_keys = []
             for i in self.allowed_keys:
-                if str(i) in self:
+                if hasattr(self, i):
                     has_keys.append(i)
                     has_any_key = True
             if has_any_key:
                 for i in has_keys:
-                    self.match_setter_data_type(value, i, self[i], True)
+                    self.set_data(value, i, self[i], True)
             super().__setitem__(key, value)
 
 
