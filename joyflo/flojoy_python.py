@@ -47,7 +47,21 @@ class DataContainer(Box):
     v.type = 'ordered_pair'
 
     '''
-    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b']
+    allowed_types = ['grayscale', 'matrix', 'dataframe',
+                     'image', 'ordered_pair', 'ordered_triple', 'scalar']
+    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b', 'a']
+    combinations = {
+        'x': ['y', 't', 'z'],
+        'y': ['x', 't', 'z'],
+        'z': ['x', 'y', 't'],
+        'c': ['t'],
+        'm': ['t'],
+        't':  [value for value in allowed_keys if value not in ['t']],
+        'r': ['g', 'b', 't', 'a'],
+        'g': ['r', 'b', 't', 'a'],
+        'b': ['r', 'g', 't', 'a'],
+        'a': ['r', 'g', 'b', 't']
+    }
 
     @staticmethod
     def _ndarrayify(value):
@@ -79,13 +93,14 @@ class DataContainer(Box):
                 else:
                     self['m'] = kwargs['m']
             case 'image':
-                if 'r' and 'g' and 'b' not in kwargs:
+                if 'r' and 'g' and 'b' and 'a' not in kwargs:
                     raise KeyError(
-                        'r g b keys must be provided for type "{}"'.format(data_type))
+                        'r g b a keys must be provided for type "{}"'.format(data_type))
                 else:
                     self['r'] = kwargs['r']
                     self['g'] = kwargs['g']
                     self['b'] = kwargs['b']
+                    self['a'] = kwargs['a']
             case 'ordered_pair':
                 if 'x' and 'y' not in kwargs.keys():
                     raise KeyError(
@@ -126,82 +141,66 @@ class DataContainer(Box):
                     raise ValueError(
                         'Invalid data type "{}"'.format(data_type))
 
-    def error_text(key: str, data_type: str):
+    def error_text(self, key: str, data_type: str):
         return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
 
 # This function compares data type with the provided key and assigns it to class attribute if matches
-
-    def set_data(self, data_type: str, key: str, value, isType: bool):
-
+    def validate_key(self, data_type, key):
         match data_type:
             case 'ordered_pair':
                 if key not in ['x', 'y']:
                     raise KeyError(self.error_text(key, data_type))
-                else:
-                    if isType:
-                        return
-                    super().__setitem__(key, self._ndarrayify(value))
             case 'grayscale' | 'matrix' | 'dataframe':
                 if key not in ['m']:
                     raise KeyError(self.error_text(key, data_type))
-                else:
-                    if isType:
-                        return
-                    super().__setitem__(key, self._ndarrayify(value))
             case 'image':
-                if key not in ['r', 'g', 'b']:
+                if key not in ['r', 'g', 'b', 'a']:
                     raise KeyError(self.error_text(key, data_type))
-                else:
-                    if isType:
-                        return
-                    super().__setitem__(key, self._ndarrayify(value))
             case 'ordered_triple':
                 if key not in ['x', 'y', 'z']:
                     raise KeyError(self.error_text(key, data_type))
-                else:
-                    if isType:
-                        return
-                    super().__setitem__(key, self._ndarrayify(value))
             case 'scalar':
                 if key not in ['c']:
                     raise KeyError(self.error_text(key, data_type))
-                else:
-                    if isType:
-                        return
-                    super().__setitem__(key, self._ndarrayify(value))
-            case _:
-                if data_type.startswith('parametric_'):
-                    if 't' not in self:
-                        if key != 't':
-                            raise KeyError(
-                                't key must be provided for "{}"'.format(data_type))
-                        is_ascending_order = all(
-                            value[i] <= value[i+1] for i in range(len(value) - 1))
-                        if is_ascending_order is not True:
-                            raise ValueError(
-                                't key must be in ascending order')
-                        if isType:
-                            pass
-                            return
-                        super().__setitem__(key, value)
-                    else:
-                        parametric_data_type = data_type.split('parametric_')[
-                            1]
-                        print(' parametric_ data type: ', parametric_data_type)
-                        if key != 't':
-                            self.set_data(
-                                parametric_data_type, key, value, isType)
-                        if isType:
-                            pass
-                            return
-                        array = []
-                        for i in range(len(self['t'])):
-                            array.append(self._ndarrayify(value))
 
-                        super().__setitem__(key, array)
-                else:
+    def set_data(self, data_type: str, key: str, value, isType: bool):
+        if data_type not in self.allowed_types and data_type.startswith('parametric_'):
+            if 't' not in self:
+                if key != 't':
+                    raise KeyError(
+                        't key must be provided for "{}"'.format(data_type))
+                is_ascending_order = all(
+                    value[i] <= value[i+1] for i in range(len(value) - 1))
+                if is_ascending_order is not True:
                     raise ValueError(
-                        'Invalid data type "{}"'.format(data_type))
+                        't key must be in ascending order')
+                if isType:
+                    return
+                super().__setitem__(key, value)
+                return
+            else:
+                parametric_data_type = data_type.split('parametric_')[
+                    1]
+                if key != 't':
+                    self.validate_key(
+                        parametric_data_type, key)
+                if isType:
+                    return
+                array = []
+                for i in range(len(self['t'])):
+                    array.append(self._ndarrayify(value))
+
+                super().__setitem__(key, array)
+                return
+        elif data_type in self.allowed_types:
+            self.validate_key(data_type, key)
+            if isType:
+                return
+            super().__setitem__(key, self._ndarrayify(value))
+        else:
+            raise ValueError(
+                'Invalid data type "{}"'.format(data_type))
+
 
     def __init__(self, **kwargs):
         if 'type' in kwargs:
@@ -225,8 +224,6 @@ class DataContainer(Box):
                     raise ValueError('You cant have %s with %s' % (key, i))
                 else:
                     if i == 't':
-                        print('i -- t', self['t'], key,
-                              self._ndarrayify(value))
                         array = []
                         for i in range(len(self['t'])):
                             array.append(self._ndarrayify(value))
@@ -251,20 +248,10 @@ class DataContainer(Box):
                         has_keys.append(i)
                         has_other_keys = True
                 if has_other_keys:
-                    combinations = {
-                        'x': ['y', 't', 'z'],
-                        'y': ['x', 't', 'z'],
-                        'z': ['x', 'y', 't'],
-                        'c': ['t'],
-                        'm': ['t'],
-                        't': ['x', 'y', 'z', 'm', 'r', 'g', 'b', 'c'],
-                        'r': ['g', 'b', 't'],
-                        'g': ['r', 'b', 't'],
-                        'b': ['r', 'g', 't']
-                    }
-                    if key in combinations.keys():
+
+                    if key in self.combinations.keys():
                         self.check_combination(
-                            key, has_keys, combinations[key], value)
+                            key, has_keys, self.combinations[key], value)
                         return
                 else:
                     super().__setitem__(key, self._ndarrayify(value))
