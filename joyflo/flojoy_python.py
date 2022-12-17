@@ -462,7 +462,7 @@ def reactflow_to_networkx(elems):
 
         edge_label_dict[tgt_id].append({
             'source': src_id,
-            'label':edge['label'],
+            'label': edge['label'] if 'label' in edge else "default",
             'sourceHandle':edge['sourceHandle'],
             'targetHandle':edge['targetHandle']
         })
@@ -482,7 +482,6 @@ def reactflow_to_networkx(elems):
             # element is an edge
             e = get_tuple(el)
             DG.add_edge(*e)
-
     # Add labels (commands) to networkx nodes
 
     labels = {}
