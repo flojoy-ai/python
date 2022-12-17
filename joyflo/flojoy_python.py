@@ -141,27 +141,24 @@ class DataContainer(Box):
                     raise ValueError(
                         'Invalid data type "{}"'.format(data_type))
 
-    def error_text(self, key: str, data_type: str):
-        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
-
 # This function compares data type with the provided key and assigns it to class attribute if matches
     def validate_key(self, data_type, key):
         match data_type:
             case 'ordered_pair':
                 if key not in ['x', 'y']:
-                    raise KeyError(self.error_text(key, data_type))
+                    raise KeyError(self.build_error_text(key, data_type))
             case 'grayscale' | 'matrix' | 'dataframe':
                 if key not in ['m']:
-                    raise KeyError(self.error_text(key, data_type))
+                    raise KeyError(self.build_error_text(key, data_type))
             case 'image':
                 if key not in ['r', 'g', 'b', 'a']:
-                    raise KeyError(self.error_text(key, data_type))
+                    raise KeyError(self.build_error_text(key, data_type))
             case 'ordered_triple':
                 if key not in ['x', 'y', 'z']:
-                    raise KeyError(self.error_text(key, data_type))
+                    raise KeyError(self.build_error_text(key, data_type))
             case 'scalar':
                 if key not in ['c']:
-                    raise KeyError(self.error_text(key, data_type))
+                    raise KeyError(self.build_error_text(key, data_type))
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
         if data_type not in self.allowed_types and data_type.startswith('parametric_'):
@@ -201,37 +198,20 @@ class DataContainer(Box):
             raise ValueError(
                 'Invalid data type "{}"'.format(data_type))
 
-
     def __init__(self, **kwargs):
-           if 'type' in kwargs:
-               self['type'] = kwargs['type']
-           else:
-               self['type'] = 'ordered_pair'
-           self.init_data(self['type'], kwargs)
+        if 'type' in kwargs:
+            self['type'] = kwargs['type']
+        else:
+            self['type'] = 'ordered_pair'
+        self.init_data(self['type'], kwargs)
 
     def __getitem__(self, key, **kwargs):
         return super().__getitem__(key)
 
-    def check_combination(self, key, keys, allowed_keys, value):
-        if key == 't':
-            for i in keys:
-                array = []
-                for k in range(len(value)):
-                    array.append(self._ndarrayify(self[i]))
-                super().__setitem__(i, array)
-            super().__setitem__(key, value)
-        else:
-            for i in keys:
-                if i not in allowed_keys:
-                    raise ValueError('You cant have %s with %s' % (key, i))
-                else:
-                    if i == 't':
-                        array = []
-                        for i in range(len(self['t'])):
-                            array.append(self._ndarrayify(value))
-                        super().__setitem__(key, array)
-                    else:
-                        super().__setitem__(key, value)
+    def check_combination(self, key, keys, allowed_keys):
+        for i in keys:
+            if i not in allowed_keys:
+                raise ValueError('You cant have %s with %s' % (key, i))
 
 # This function is called when a attribute is assigning to this class
     def __setitem__(self, key, value):
@@ -253,7 +233,8 @@ class DataContainer(Box):
 
                     if key in self.combinations.keys():
                         self.check_combination(
-                            key, has_keys, self.combinations[key], value)
+                            key, has_keys, self.combinations[key])
+                        super().__setitem__(key, value)
                         return
                 else:
                     super().__setitem__(key, self._ndarrayify(value))
@@ -269,6 +250,9 @@ class DataContainer(Box):
                 for i in has_keys:
                     self.set_data(value, i, self[i], True)
             super().__setitem__(key, value)
+
+    def build_error_text(self, key: str, data_type: str):
+        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type) 
 
 
 def get_flojoy_root_dir():
