@@ -239,8 +239,10 @@ def flojoy(func):
                     if key not in func_params.keys():
                         func_params[key] = default_params[key]
 
+            func_params['jobset_id'] = jobset_id
+
             node_inputs = fetch_inputs(previous_job_ids, mock)
-            result = func(node_inputs, func_params,jobset_id)
+            result = func(node_inputs, func_params)
             send_to_socket(json.dumps({
                 'NODE_RESULTS': {'cmd': FN, 'id': node_id, 'result': result},
                 'jobsetId': jobset_id
