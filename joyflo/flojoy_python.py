@@ -203,9 +203,11 @@ class DataContainer(Box):
 
 
     def __init__(self, **kwargs):
-        if 'type' in kwargs:
-            self['type'] = kwargs['type']
-            self.init_data(kwargs['type'], kwargs)
+           if 'type' in kwargs:
+               self['type'] = kwargs['type']
+           else:
+               self['type'] = 'ordered_pair'
+           self.init_data(self['type'], kwargs)
 
     def __getitem__(self, key, **kwargs):
         return super().__getitem__(key)
