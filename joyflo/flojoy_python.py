@@ -30,19 +30,38 @@ REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
 r = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 
-class VectorXY(Box):
+class DataContainer(Box):
     '''
-    A class for x-y paired numpy arrays that supports dot assignment
+    A class that processes various types of data and supports dot assignment
+
+    Learn more: https://github.com/flojoy-io/flojoy-python/issues/4
 
     Usage
     -----
     import numpy as np
 
-    v = VectorXY()
+    v = DataContainer()
 
     v.x = np.linspace(1,20,0.1)
     v.y = np.sin(v.x)
+    v.type = 'ordered_pair'
+
     '''
+    allowed_types = ['grayscale', 'matrix', 'dataframe',
+                     'image', 'ordered_pair', 'ordered_triple', 'scalar']
+    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b', 'a']
+    combinations = {
+        'x': ['y', 't', 'z'],
+        'y': ['x', 't', 'z'],
+        'z': ['x', 'y', 't'],
+        'c': ['t'],
+        'm': ['t'],
+        't':  [value for value in allowed_keys if value not in ['t']],
+        'r': ['g', 'b', 't', 'a'],
+        'g': ['r', 'b', 't', 'a'],
+        'b': ['r', 'g', 't', 'a'],
+        'a': ['r', 'g', 'b', 't']
+    }
 
     @staticmethod
     def _ndarrayify(value):
@@ -54,6 +73,9 @@ class VectorXY(Box):
                 value = np.array([value])
             case 'list':
                 value = np.array(value)
+            case 'dict':
+                for k, v in value.items():
+                    value[k] = np.array(v)
             case 'numpy.ndarray':
                 pass
             case 'NoneType':
@@ -62,31 +84,175 @@ class VectorXY(Box):
                 raise ValueError(value)
         return value
 
-    def __init__(self, **kwargs):
-        if 'x' in kwargs:
-            self['x'] = self._ndarrayify(kwargs['x'])
-        else:
-            self['x'] = np.array([])
+    def init_data(self, data_type: str, kwargs: dict):
+        match data_type:
+            case 'grayscale' | 'matrix' | 'dataframe':
+                if 'm' not in kwargs:
+                    raise KeyError(
+                        'm key must be provided for type "{}"'.format(data_type))
+                else:
+                    self['m'] = kwargs['m']
+            case 'image':
+                if 'r' and 'g' and 'b' and 'a' not in kwargs:
+                    raise KeyError(
+                        'r g b a keys must be provided for type "{}"'.format(data_type))
+                else:
+                    self['r'] = kwargs['r']
+                    self['g'] = kwargs['g']
+                    self['b'] = kwargs['b']
+                    self['a'] = kwargs['a']
+            case 'ordered_pair':
+                if 'x' and 'y' not in kwargs.keys():
+                    raise KeyError(
+                        'x and y keys must be provided for "{}"'.format(data_type))
+                else:
+                    self['x'] = kwargs['x']
+                    self['y'] = kwargs['y']
+            case 'ordered_triple':
+                if 'x' and 'y' and 'z' not in kwargs:
+                    raise KeyError(
+                        'x, y and z keys must be provided for "{}"'.format(data_type))
+                else:
+                    self['x'] = kwargs['x']
+                    self['y'] = kwargs['y']
+                    self['z'] = kwargs['z']
+            case 'scalar':
+                if 'c' not in kwargs:
+                    raise KeyError(
+                        'c key must be provided for type "{}"'.format(data_type))
+                else:
+                    self['c'] = kwargs['c']
+            case _:
+                if data_type.startswith('parametric_'):
+                    if 't' not in kwargs:
+                        raise KeyError(
+                            't key must be provided for "{}"'.format(data_type))
+                    self['t'] = kwargs['t']
+                    t = kwargs['t']
+                    is_ascending_order = all(
+                        t[i] <= t[i+1] for i in range(len(t) - 1))
+                    if is_ascending_order is not True:
+                        raise ValueError(
+                            't key must be in ascending order')
+                    parametric_data_type = data_type.split('parametric_')[
+                        1]
+                    self.init_data(parametric_data_type, kwargs)
+                else:
+                    raise ValueError(
+                        'Invalid data type "{}"'.format(data_type))
 
-        if 'y' in kwargs:
-            self['y'] = self._ndarrayify(kwargs['y'])
+# This function compares data type with the provided key and assigns it to class attribute if matches
+    def validate_key(self, data_type, key):
+        match data_type:
+            case 'ordered_pair':
+                if key not in ['x', 'y']:
+                    raise KeyError(self.build_error_text(key, data_type))
+            case 'grayscale' | 'matrix' | 'dataframe':
+                if key not in ['m']:
+                    raise KeyError(self.build_error_text(key, data_type))
+            case 'image':
+                if key not in ['r', 'g', 'b', 'a']:
+                    raise KeyError(self.build_error_text(key, data_type))
+            case 'ordered_triple':
+                if key not in ['x', 'y', 'z']:
+                    raise KeyError(self.build_error_text(key, data_type))
+            case 'scalar':
+                if key not in ['c']:
+                    raise KeyError(self.build_error_text(key, data_type))
+
+    def set_data(self, data_type: str, key: str, value, isType: bool):
+        if data_type not in self.allowed_types and data_type.startswith('parametric_'):
+            if 't' not in self:
+                if key != 't':
+                    raise KeyError(
+                        't key must be provided for "{}"'.format(data_type))
+                is_ascending_order = all(
+                    value[i] <= value[i+1] for i in range(len(value) - 1))
+                if is_ascending_order is not True:
+                    raise ValueError(
+                        't key must be in ascending order')
+                if isType:
+                    return
+                super().__setitem__(key, value)
+                return
+            else:
+                parametric_data_type = data_type.split('parametric_')[
+                    1]
+                if key != 't':
+                    self.validate_key(
+                        parametric_data_type, key)
+                if isType:
+                    return
+                array = []
+                for i in range(len(self['t'])):
+                    array.append(self._ndarrayify(value))
+
+                super().__setitem__(key, array)
+                return
+        elif data_type in self.allowed_types:
+            self.validate_key(data_type, key)
+            if isType:
+                return
+            super().__setitem__(key, self._ndarrayify(value))
         else:
-            self['y'] = np.array([])
+            raise ValueError(
+                'Invalid data type "{}"'.format(data_type))
+
+    def __init__(self, **kwargs):
+        if 'type' in kwargs:
+            self['type'] = kwargs['type']
+        else:
+            self['type'] = 'ordered_pair'
+        self.init_data(self['type'], kwargs)
 
     def __getitem__(self, key, **kwargs):
-        if key not in ['x', 'y']:
-            raise KeyError(key)
-        elif key == '_ignore_default':
-            pass
-        else:
-            return super().__getitem__(key)
+        return super().__getitem__(key)
 
+    def check_combination(self, key, keys, allowed_keys):
+        for i in keys:
+            if i not in allowed_keys:
+                raise ValueError('You cant have %s with %s' % (key, i))
+
+# This function is called when a attribute is assigning to this class
     def __setitem__(self, key, value):
-        if key not in ['x', 'y']:
-            raise KeyError(key)
+        keys = []
+        if key != 'type':
+            if 'type' in self:
+                self.set_data(self.type, key, value, False)
+                return
+            else:
+                keys = [*self.allowed_keys]
+                keys.remove(key)
+                has_keys = []
+                has_other_keys = False
+                for i in keys:
+                    if hasattr(self, i):
+                        has_keys.append(i)
+                        has_other_keys = True
+                if has_other_keys:
+
+                    if key in self.combinations.keys():
+                        self.check_combination(
+                            key, has_keys, self.combinations[key])
+                        super().__setitem__(key, value)
+                        return
+                else:
+                    super().__setitem__(key, self._ndarrayify(value))
+                    return
         else:
-            value = self._ndarrayify(value)
+            has_any_key = False
+            has_keys = []
+            for i in self.allowed_keys:
+                if hasattr(self, i):
+                    has_keys.append(i)
+                    has_any_key = True
+            if has_any_key:
+                for i in has_keys:
+                    self.set_data(value, i, self[i], True)
             super().__setitem__(key, value)
+
+    def build_error_text(self, key: str, data_type: str):
+        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
 
 
 def get_flojoy_root_dir():
@@ -134,10 +300,10 @@ def fetch_inputs(previous_job_ids, mock=False):
 
     Returns
     -------
-    inputs : list of VectorXY objects
+    inputs : list of DataContainer objects
     '''
     if mock is True:
-        return [VectorXY(x=np.linspace(0, 10, 100))]
+        return [DataContainer(x=np.linspace(0, 10, 100))]
 
     inputs = []
 
