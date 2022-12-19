@@ -1,1 +1,1 @@
-from .flojoy_python import flojoy, reactflow_to_networkx, fetch_inputs, VectorXY
+from .flojoy_python import flojoy, reactflow_to_networkx, fetch_inputs, DataContainer
