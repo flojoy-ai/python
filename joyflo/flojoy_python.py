@@ -27,6 +27,7 @@ port = get_port()
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
+BACKEND_HOST = os.environ.get('BACKEND_HOST', 'localhost')
 r = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 
@@ -252,7 +253,7 @@ class DataContainer(Box):
             super().__setitem__(key, value)
 
     def build_error_text(self, key: str, data_type: str):
-        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type) 
+        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
 
 
 def get_flojoy_root_dir():
@@ -367,8 +368,8 @@ def flojoy(func):
     # def wrapper(previous_job_ids, mock):
     def wrapper(*args, **kwargs):
         def send_to_socket(data):
-            requests.post('http://localhost:'+port +
-                          '/worker_response', json=data)
+            requests.post(
+                'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
         try:
             previous_job_ids, mock = {}, False
             if 'previous_job_ids' in kwargs:
