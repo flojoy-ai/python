@@ -252,7 +252,7 @@ class DataContainer(Box):
             super().__setitem__(key, value)
 
     def build_error_text(self, key: str, data_type: str):
-        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type) 
+        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
 
 
 def get_flojoy_root_dir():
@@ -330,7 +330,7 @@ def flojoy(func):
     values into Flojoy nodes.
 
     @flojoy is intended to eliminate  boilerplate in connecting
-    Python scripts as visual nodes 
+    Python scripts as visual nodes
 
     Into whatever function it wraps, @flojoy injects
     1. the last node's input as an XYVector
@@ -342,7 +342,7 @@ def flojoy(func):
 
     Returns
     -------
-    VectorYX object 
+    VectorYX object
 
     Usage Example
     -------------
@@ -353,7 +353,7 @@ def flojoy(func):
         print('params passed to SINE', params)
 
         output = VectorXY(
-            x=v[0].x, 
+            x=v[0].x,
             y=np.sin(v[0].x)
         )
         return output
@@ -361,7 +361,7 @@ def flojoy(func):
     pj_ids = [123, 456]
 
     # equivalent to: decorated_sin = flojoy(SINE)
-    print(SINE(previous_job_ids = pj_ids, mock = True))    
+    print(SINE(previous_job_ids = pj_ids, mock = True))
     '''
     @wraps(func)
     # def wrapper(previous_job_ids, mock):
@@ -384,7 +384,7 @@ def flojoy(func):
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': sys_status,
                 'jobsetId': jobset_id,
-                'RUNNING_NODE': FN
+                'RUNNING_NODE': node_id
             }))
             # Get default command paramaters
             default_params = {}
