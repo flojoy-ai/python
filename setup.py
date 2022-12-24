@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
     name='joyflo-sma',
     packages=['joyflo'],
-    version='0.3.5',
+    version='0.3.7-dev',
     license='MIT',
     description='Some description',
     author='flojoy',
