@@ -27,6 +27,7 @@ port = get_port()
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
+BACKEND_HOST = os.environ.get('BACKEND_HOST', 'localhost')
 r = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 
@@ -320,9 +321,70 @@ def fetch_inputs(previous_job_ids, mock=False):
 
 def get_redis_obj(id):
     get_obj = r.get(id)
-    parse_obj = json.loads(get_obj) if get_obj is not None else None
+    parse_obj = json.loads(get_obj) if get_obj is not None else {}
     return parse_obj
 
+def handle_loop_params(result,jobset_id):
+    '''
+        {
+            "data": DataContainer(x=v[0].x,y=v[0].y),
+            "type": 'LOOP',
+            "params":{
+                "initial_value" : initial_value + step,
+                "total_iterations": total_iterations
+            },
+            "verdict": 'finished',
+            "direction": True
+        }
+    '''
+    data = result['data']
+    initial_value = result['params']['initial_value']
+    total_iterations = result['params']['total_iterations']
+    step = result['params']['step']
+    verdict = result['verdict']
+    direction = result['direction']
+
+    r_obj = get_redis_obj(jobset_id)
+    if len(r_obj):
+        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {}
+        loop_jobs = {
+            "status":verdict,
+            "is_loop_body_execution_finished":False,
+            "params":{
+                    "initial_value":initial_value,
+                    "total_iterations":total_iterations,
+                    "step":step
+                }
+        }
+
+        conditional_jobs = {
+            "direction":direction
+        }
+
+        r.set(jobset_id, json.dumps({
+            **r_obj,
+            'SPECIAL_TYPE_JOBS':{
+                **special_type_jobs,
+                'LOOP':loop_jobs,
+                'CONDITIONAL':conditional_jobs
+            }
+        }))
+    return data
+
+def check_if_loop_exists(params,jobset_id):
+    r_obj = get_redis_obj(jobset_id)
+
+    loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
+                    (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+                        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
+                            (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'] == 'ongoing' else False)
+    if loop_status:
+        params['loop_current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['initial_value']
+        params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['total_iterations']
+        params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['step']
+        params['type'] = 'loop'
+
+    return params
 
 def flojoy(func):
     '''
@@ -367,8 +429,8 @@ def flojoy(func):
     # def wrapper(previous_job_ids, mock):
     def wrapper(*args, **kwargs):
         def send_to_socket(data):
-            requests.post('http://localhost:'+port +
-                          '/worker_response', json=data)
+            requests.post(
+                'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
         try:
             previous_job_ids, mock = {}, False
             if 'previous_job_ids' in kwargs:
@@ -384,7 +446,7 @@ def flojoy(func):
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': sys_status,
                 'jobsetId': jobset_id,
-                'RUNNING_NODE': FN
+                'RUNNING_NODE': node_id
             }))
             # Get default command paramaters
             default_params = {}
@@ -406,9 +468,17 @@ def flojoy(func):
                         func_params[key] = default_params[key]
 
             func_params['jobset_id'] = jobset_id
+            func_params['type'] = 'default'
+
+            if FN == 'CONDITIONAL':
+                func_params = check_if_loop_exists(func_params,jobset_id)
 
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
+
+            if 'type' in result and result['type'] == 'LOOP':
+                result = handle_loop_params(result,jobset_id)
+
             send_to_socket(json.dumps({
                 'NODE_RESULTS': {'cmd': FN, 'id': node_id, 'result': result},
                 'jobsetId': jobset_id
