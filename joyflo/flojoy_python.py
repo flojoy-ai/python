@@ -64,8 +64,7 @@ class DataContainer(Box):
         'a': ['r', 'g', 'b', 't']
     }
 
-    @staticmethod
-    def _ndarrayify(self, value):
+    def _ndarrayify(self,value):
         s = str(type(value))
         v_type = s.split("'")[1]
 
