@@ -312,6 +312,7 @@ def fetch_inputs(previous_job_ids, mock=False):
         for ea in previous_job_ids:
             job = Job.fetch(ea, connection=Redis(
                 host=REDIS_HOST, port=REDIS_PORT))
+
             inputs.append(job.result)
     except Exception:
         print(traceback.format_exc())
@@ -325,21 +326,11 @@ def get_redis_obj(id):
     return parse_obj
 
 def handle_loop_params(result,jobset_id):
-    '''
-        {
-            "data": DataContainer(x=v[0].x,y=v[0].y),
-            "type": 'LOOP',
-            "params":{
-                "initial_value" : initial_value + step,
-                "total_iterations": total_iterations
-            },
-            "verdict": 'finished',
-            "direction": True
-        }
-    '''
+
     data = result['data']
     initial_value = result['params']['initial_value']
     total_iterations = result['params']['total_iterations']
+    current_iteration = result['params']['current_iteration']
     step = result['params']['step']
     verdict = result['verdict']
     direction = result['direction']
@@ -353,6 +344,7 @@ def handle_loop_params(result,jobset_id):
             "params":{
                     "initial_value":initial_value,
                     "total_iterations":total_iterations,
+                    "current_iteration":current_iteration,
                     "step":step
                 }
         }
@@ -383,6 +375,7 @@ def check_if_loop_exists(params,jobset_id):
         params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['total_iterations']
         params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['step']
         params['type'] = 'loop'
+        params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
 
     return params
 
