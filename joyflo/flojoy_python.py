@@ -333,7 +333,6 @@ def handle_loop_params(result,jobset_id):
     current_iteration = result['params']['current_iteration']
     step = result['params']['step']
     verdict = result['verdict']
-    direction = result['direction']
 
     r_obj = get_redis_obj(jobset_id)
     if len(r_obj):
@@ -348,17 +347,11 @@ def handle_loop_params(result,jobset_id):
                     "step":step
                 }
         }
-
-        conditional_jobs = {
-            "direction":direction
-        }
-
         r.set(jobset_id, json.dumps({
             **r_obj,
             'SPECIAL_TYPE_JOBS':{
                 **special_type_jobs,
                 'LOOP':loop_jobs,
-                'CONDITIONAL':conditional_jobs
             }
         }))
     return data
@@ -506,8 +499,9 @@ def reactflow_to_networkx(elems):
         if 'source' not in el:
             data = el['data']
             ctrls = data['ctrls'] if 'ctrls' in data else {}
+            inputs = data['inputs'] if 'inputs' in data else {}
             DG.add_node(
-                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls)
+                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs = inputs)
             elems[i]['index'] = i+1
             elems[i]['label'] = el['id'].split('-')[0]
     pos = nx.get_node_attributes(DG, 'pos')
