@@ -354,6 +354,30 @@ def handle_loop_params(result,jobset_id):
                 'LOOP':loop_jobs,
             }
         }))
+    return data,{
+        "status":verdict,
+        "current_iteration":current_iteration
+    }
+
+def handle_conditional_params(result,jobset_id):
+    data = result['data']
+    direction = result['direction']
+    r_obj = get_redis_obj(jobset_id)
+
+    if len(r_obj):
+        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {}
+        conditional_jobs = {
+            "direction":bool(direction)
+        }
+
+        r.set(jobset_id, json.dumps({
+            **r_obj,
+            'SPECIAL_TYPE_JOBS':{
+                **special_type_jobs,
+                'CONDITIONAL':conditional_jobs
+            }
+        }))
+
     return data
 
 def check_if_loop_exists(params,jobset_id):
@@ -371,6 +395,19 @@ def check_if_loop_exists(params,jobset_id):
         params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
 
     return params
+
+def get_additional_info(jobset_id):
+    r_obj = get_redis_obj(jobset_id)
+    loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
+                    (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+                        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False)
+
+    if loop_status:
+        return {
+            'status':r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'],
+            "current_iteration":r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
+        }
+    return {}
 
 def flojoy(func):
     '''
@@ -462,11 +499,21 @@ def flojoy(func):
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
 
+            additional_info = get_additional_info(jobset_id)
+
             if 'type' in result and result['type'] == 'LOOP':
-                result = handle_loop_params(result,jobset_id)
+                result,additional_info = handle_loop_params(result,jobset_id)
+
+            if 'type' in result and result['type'] == 'CONDITIONAL':
+                result = handle_conditional_params(result,jobset_id)
 
             send_to_socket(json.dumps({
-                'NODE_RESULTS': {'cmd': FN, 'id': node_id, 'result': result},
+                'NODE_RESULTS': {
+                    'cmd': FN,
+                    'id': node_id,
+                    'result': result,
+                    'additional_info':additional_info
+                },
                 'jobsetId': jobset_id
             }, cls=PlotlyJSONEncoder))
             all_nodes_length = r.llen(jobset_id + '_ALL_NODES')
