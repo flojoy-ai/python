@@ -409,6 +409,11 @@ def get_additional_info(jobset_id):
         }
     return {}
 
+def send_to_socket(data):
+    requests.post(
+        'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
+
+
 def flojoy(func):
     '''
     Decorator to turn Python functions with numerical return
@@ -449,22 +454,20 @@ def flojoy(func):
     print(SINE(previous_job_ids = pj_ids, mock = True))
     '''
     @wraps(func)
-    # def wrapper(previous_job_ids, mock):
     def wrapper(*args, **kwargs):
-        def send_to_socket(data):
-            requests.post(
-                'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
-        try:
-            previous_job_ids, mock = {}, False
-            if 'previous_job_ids' in kwargs:
-                previous_job_ids = kwargs['previous_job_ids']
-            if 'ctrls' in kwargs:
-                ctrls = kwargs['ctrls']
+        node_id, previous_job_ids, mock = '', {}, False
+        if 'node_id' in kwargs:
             node_id = kwargs['node_id']
-            jobset_id = kwargs['jobset_id']
-            FN = func.__name__
+        if 'previous_job_ids' in kwargs:
+            previous_job_ids = kwargs['previous_job_ids']
+        if 'ctrls' in kwargs:
+            ctrls = kwargs['ctrls']
+        node_id = kwargs['node_id']
+        jobset_id = kwargs['jobset_id']
+        FN = func.__name__
+        try:
             # remove this node from redis ALL_NODES key
-            r.lrem(jobset_id+'_ALL_NODES', 1, FN)
+            r.lrem(jobset_id+'_ALL_NODES', 1, node_id)
             sys_status = '🏃‍♀️ Running python job: ' + FN
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': sys_status,
@@ -518,6 +521,7 @@ def flojoy(func):
             }, cls=PlotlyJSONEncoder))
             all_nodes_length = r.llen(jobset_id + '_ALL_NODES')
             if all_nodes_length == 0:
+                r.set(jobset_id, json.dumps({'ALL_JOBS': {}}))
                 send_to_socket(json.dumps({
                     'SYSTEM_STATUS': '🤙 python script run successful',
                     'RUNNING_NODE': '',
@@ -527,10 +531,10 @@ def flojoy(func):
         except Exception:
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': 'Failed to run: ' + func.__name__,
-                'FAILED_NODES': func.__name__,
+                'FAILED_NODES': node_id,
                 'jobsetId': jobset_id
             }))
-            print(traceback.format_exc())
+            print('@flojoy run failed: ', Exception, traceback.format_exc())
             raise
 
     wrapper.original = func
