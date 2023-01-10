@@ -563,8 +563,9 @@ def reactflow_to_networkx(elems):
             data = el['data']
             ctrls = data['ctrls'] if 'ctrls' in data else {}
             inputs = data['inputs'] if 'inputs' in data else {}
+            label = data['label'] if 'label' in data else {}
             DG.add_node(
-                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs = inputs)
+                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs = inputs,label=label)
             elems[i]['index'] = i+1
             elems[i]['label'] = el['id'].split('-')[0]
     pos = nx.get_node_attributes(DG, 'pos')
