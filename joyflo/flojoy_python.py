@@ -543,7 +543,7 @@ def flojoy(func):
         except Exception:
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': 'Failed to run: ' + func.__name__,
-                'FAILED_NODES': func.__name__,
+                'FAILED_NODES': node_id,
                 'jobsetId': jobset_id
             }))
             print(traceback.format_exc())
