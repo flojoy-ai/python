@@ -1,15 +1,15 @@
 from distutils.core import setup
 setup(
-    name='joyflo-sma',
-    packages=['joyflo'],
-    version='0.3.8-dev4',
+    name='flojoy',
+    packages=['flojoy'],
+    version='0.1.0',
     license='MIT',
-    description='Some description',
+    description='Python client library for Flojoy.',
     author='flojoy',
-    author_email='example@email.com',
+    author_email='jack.parmer@proton.me',
     url='https://github.com/flojoy-io/flojoy-python',
     download_url='https://github.com/flojoy-io/flojoy-python/archive/refs/heads/main.zip',
-    keywords=['flojoy', 'visual', 'python-visual'],
+    keywords=['data-acquisition', 'lab-automation', 'low-code', 'python', 'scheduler', 'topic'],
     install_requires=[
         'python-box',
         'networkx',
@@ -25,9 +25,6 @@ setup(
         'Intended Audience :: Developers',
         'Topic :: Software Development :: Build Tools',
         'License :: OSI Approved :: MIT License',
-        'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.10',
     ],
 )

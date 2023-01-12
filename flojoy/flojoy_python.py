@@ -64,7 +64,7 @@ class DataContainer(Box):
         'a': ['r', 'g', 'b', 't']
     }
 
-    def _ndarrayify(self,value):
+    def _ndarrayify(self, value):
         s = str(type(value))
         v_type = s.split("'")[1]
 
@@ -324,7 +324,8 @@ def get_redis_obj(id):
     parse_obj = json.loads(get_obj) if get_obj is not None else {}
     return parse_obj
 
-def handle_loop_params(result,jobset_id):
+
+def handle_loop_params(result, jobset_id):
 
     data = result['data']
     initial_value = result['params']['initial_value']
@@ -335,51 +336,55 @@ def handle_loop_params(result,jobset_id):
 
     r_obj = get_redis_obj(jobset_id)
     if len(r_obj):
-        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {}
+        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {
+        }
         loop_jobs = {
-            "status":verdict,
-            "is_loop_body_execution_finished":False,
-            "params":{
-                    "initial_value":initial_value,
-                    "total_iterations":total_iterations,
-                    "current_iteration":current_iteration,
-                    "step":step
-                }
+            "status": verdict,
+            "is_loop_body_execution_finished": False,
+            "params": {
+                "initial_value": initial_value,
+                "total_iterations": total_iterations,
+                "current_iteration": current_iteration,
+                "step": step
+            }
         }
         r.set(jobset_id, json.dumps({
             **r_obj,
-            'SPECIAL_TYPE_JOBS':{
+            'SPECIAL_TYPE_JOBS': {
                 **special_type_jobs,
-                'LOOP':loop_jobs,
+                'LOOP': loop_jobs,
             }
         }))
-    return data,{
-        "status":verdict,
-        "current_iteration":current_iteration
+    return data, {
+        "status": verdict,
+        "current_iteration": current_iteration
     }
 
-def handle_conditional_params(result,jobset_id):
+
+def handle_conditional_params(result, jobset_id):
     data = result['data']
     direction = result['direction']
     r_obj = get_redis_obj(jobset_id)
 
     if len(r_obj):
-        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {}
+        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {
+        }
         conditional_jobs = {
-            "direction":bool(direction)
+            "direction": bool(direction)
         }
 
         r.set(jobset_id, json.dumps({
             **r_obj,
-            'SPECIAL_TYPE_JOBS':{
+            'SPECIAL_TYPE_JOBS': {
                 **special_type_jobs,
-                'CONDITIONAL':conditional_jobs
+                'CONDITIONAL': conditional_jobs
             }
         }))
 
     return data
 
-def check_if_loop_exists(params,jobset_id):
+
+def check_if_loop_exists(params, jobset_id):
     r_obj = get_redis_obj(jobset_id)
 
     print(r_obj)
@@ -387,19 +392,20 @@ def check_if_loop_exists(params,jobset_id):
     check_special_type_job_status = True if 'SPECIAL_TYPE_JOBS' in r_obj else False
 
     loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-                    (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-                        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
-                            (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'] == 'ongoing' else False)
+        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
+        (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']
+         ['status'] == 'ongoing' else False)
 
     conditional_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-                            (True if 'CONDITIONAL' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-                                (True if 'type' in r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL'] else False) and \
-                                    r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
+        (True if 'CONDITIONAL' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+        (True if 'type' in r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL'] else False) and \
+        r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
 
     # conditional_status = conditional_status and r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
 
-    print("loop status: ",loop_status)
-    print("conditional status: ",conditional_status)
+    print("loop status: ", loop_status)
+    print("conditional status: ", conditional_status)
 
     if loop_status and not conditional_status:
 
@@ -411,18 +417,25 @@ def check_if_loop_exists(params,jobset_id):
 
     return params
 
+
 def get_additional_info(jobset_id):
     r_obj = get_redis_obj(jobset_id)
     loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-                    (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-                        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False)
+        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False)
 
     if loop_status:
         return {
-            'status':r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'],
-            "current_iteration":r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
+            'status': r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'],
+            "current_iteration": r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
         }
     return {}
+
+
+def send_to_socket(data):
+    requests.post(
+        'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
+
 
 def flojoy(func):
     '''
@@ -466,9 +479,6 @@ def flojoy(func):
     @wraps(func)
     # def wrapper(previous_job_ids, mock):
     def wrapper(*args, **kwargs):
-        def send_to_socket(data):
-            requests.post(
-                'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
         try:
             previous_job_ids, mock = {}, False
             if 'previous_job_ids' in kwargs:
@@ -509,7 +519,7 @@ def flojoy(func):
             func_params['type'] = 'default'
 
             if FN == 'CONDITIONAL':
-                func_params = check_if_loop_exists(func_params,jobset_id)
+                func_params = check_if_loop_exists(func_params, jobset_id)
 
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
@@ -517,17 +527,17 @@ def flojoy(func):
             additional_info = get_additional_info(jobset_id)
 
             if 'type' in result and result['type'] == 'LOOP':
-                result,additional_info = handle_loop_params(result,jobset_id)
+                result, additional_info = handle_loop_params(result, jobset_id)
 
             if 'type' in result and result['type'] == 'CONDITIONAL':
-                result = handle_conditional_params(result,jobset_id)
+                result = handle_conditional_params(result, jobset_id)
 
             send_to_socket(json.dumps({
                 'NODE_RESULTS': {
                     'cmd': FN,
                     'id': node_id,
                     'result': result,
-                    'additional_info':additional_info
+                    'additional_info': additional_info
                 },
                 'jobsetId': jobset_id
             }, cls=PlotlyJSONEncoder))
@@ -564,7 +574,7 @@ def reactflow_to_networkx(elems):
             inputs = data['inputs'] if 'inputs' in data else {}
             label = data['label'] if 'label' in data else {}
             DG.add_node(
-                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs = inputs,label=label)
+                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs=inputs, label=label)
             elems[i]['index'] = i+1
             elems[i]['label'] = el['id'].split('-')[0]
     pos = nx.get_node_attributes(DG, 'pos')
@@ -583,8 +593,8 @@ def reactflow_to_networkx(elems):
         edge_label_dict[tgt_id].append({
             'source': src_id,
             'label': edge['label'] if 'label' in edge else "default",
-            'sourceHandle':edge['sourceHandle'],
-            'targetHandle':edge['targetHandle']
+            'sourceHandle': edge['sourceHandle'],
+            'targetHandle': edge['targetHandle']
         })
 
         # iterate through all nodes looking for matching edge
@@ -622,6 +632,4 @@ def reactflow_to_networkx(elems):
         return nodes_by_id
     sort = nx.topological_sort(DG)
 
-
-
-    return {'topological_sort': sort, 'getNode': get_node_data_by_id, 'DG': DG,'edgeInfo':edge_label_dict}
+    return {'topological_sort': sort, 'getNode': get_node_data_by_id, 'DG': DG, 'edgeInfo': edge_label_dict}
