@@ -311,6 +311,7 @@ def fetch_inputs(previous_job_ids, mock=False):
         for ea in previous_job_ids:
             job = Job.fetch(ea, connection=Redis(
                 host=REDIS_HOST, port=REDIS_PORT))
+
             inputs.append(job.result)
     except Exception:
         print(traceback.format_exc())
@@ -320,14 +321,108 @@ def fetch_inputs(previous_job_ids, mock=False):
 
 def get_redis_obj(id):
     get_obj = r.get(id)
-    parse_obj = json.loads(get_obj) if get_obj is not None else None
+    parse_obj = json.loads(get_obj) if get_obj is not None else {}
     return parse_obj
 
+def handle_loop_params(result,jobset_id):
 
-def send_to_socket(data):
-    requests.post(
-        'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
+    data = result['data']
+    initial_value = result['params']['initial_value']
+    total_iterations = result['params']['total_iterations']
+    current_iteration = result['params']['current_iteration']
+    step = result['params']['step']
+    verdict = result['verdict']
 
+    r_obj = get_redis_obj(jobset_id)
+    if len(r_obj):
+        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {}
+        loop_jobs = {
+            "status":verdict,
+            "is_loop_body_execution_finished":False,
+            "params":{
+                    "initial_value":initial_value,
+                    "total_iterations":total_iterations,
+                    "current_iteration":current_iteration,
+                    "step":step
+                }
+        }
+        r.set(jobset_id, json.dumps({
+            **r_obj,
+            'SPECIAL_TYPE_JOBS':{
+                **special_type_jobs,
+                'LOOP':loop_jobs,
+            }
+        }))
+    return data,{
+        "status":verdict,
+        "current_iteration":current_iteration
+    }
+
+def handle_conditional_params(result,jobset_id):
+    data = result['data']
+    direction = result['direction']
+    r_obj = get_redis_obj(jobset_id)
+
+    if len(r_obj):
+        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {}
+        conditional_jobs = {
+            "direction":bool(direction)
+        }
+
+        r.set(jobset_id, json.dumps({
+            **r_obj,
+            'SPECIAL_TYPE_JOBS':{
+                **special_type_jobs,
+                'CONDITIONAL':conditional_jobs
+            }
+        }))
+
+    return data
+
+def check_if_loop_exists(params,jobset_id):
+    r_obj = get_redis_obj(jobset_id)
+
+    print(r_obj)
+
+    check_special_type_job_status = True if 'SPECIAL_TYPE_JOBS' in r_obj else False
+
+    loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
+                    (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+                        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
+                            (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'] == 'ongoing' else False)
+
+    conditional_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
+                            (True if 'CONDITIONAL' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+                                (True if 'type' in r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL'] else False) and \
+                                    r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
+
+    # conditional_status = conditional_status and r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
+
+    print("loop status: ",loop_status)
+    print("conditional status: ",conditional_status)
+
+    if loop_status and not conditional_status:
+
+        params['loop_current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['initial_value']
+        params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['total_iterations']
+        params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['step']
+        params['type'] = 'loop'
+        params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
+
+    return params
+
+def get_additional_info(jobset_id):
+    r_obj = get_redis_obj(jobset_id)
+    loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
+                    (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+                        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False)
+
+    if loop_status:
+        return {
+            'status':r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'],
+            "current_iteration":r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
+        }
+    return {}
 
 def flojoy(func):
     '''
@@ -335,7 +430,7 @@ def flojoy(func):
     values into Flojoy nodes.
 
     @flojoy is intended to eliminate  boilerplate in connecting
-    Python scripts as visual nodes 
+    Python scripts as visual nodes
 
     Into whatever function it wraps, @flojoy injects
     1. the last node's input as an XYVector
@@ -347,7 +442,7 @@ def flojoy(func):
 
     Returns
     -------
-    VectorYX object 
+    VectorYX object
 
     Usage Example
     -------------
@@ -358,7 +453,7 @@ def flojoy(func):
         print('params passed to SINE', params)
 
         output = VectorXY(
-            x=v[0].x, 
+            x=v[0].x,
             y=np.sin(v[0].x)
         )
         return output
@@ -366,21 +461,23 @@ def flojoy(func):
     pj_ids = [123, 456]
 
     # equivalent to: decorated_sin = flojoy(SINE)
-    print(SINE(previous_job_ids = pj_ids, mock = True))    
+    print(SINE(previous_job_ids = pj_ids, mock = True))
     '''
     @wraps(func)
+    # def wrapper(previous_job_ids, mock):
     def wrapper(*args, **kwargs):
-        node_id, previous_job_ids, mock = '', {}, False
-        if 'node_id' in kwargs:
-            node_id = kwargs['node_id']
-        if 'previous_job_ids' in kwargs:
-            previous_job_ids = kwargs['previous_job_ids']
-        if 'ctrls' in kwargs:
-            ctrls = kwargs['ctrls']
-        node_id = kwargs['node_id']
-        jobset_id = kwargs['jobset_id']
-        FN = func.__name__
+        def send_to_socket(data):
+            requests.post(
+                'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
         try:
+            previous_job_ids, mock = {}, False
+            if 'previous_job_ids' in kwargs:
+                previous_job_ids = kwargs['previous_job_ids']
+            if 'ctrls' in kwargs:
+                ctrls = kwargs['ctrls']
+            node_id = kwargs['node_id']
+            jobset_id = kwargs['jobset_id']
+            FN = func.__name__
             # remove this node from redis ALL_NODES key
             r.lrem(jobset_id+'_ALL_NODES', 1, node_id)
             sys_status = '🏃‍♀️ Running python job: ' + FN
@@ -408,15 +505,34 @@ def flojoy(func):
                     if key not in func_params.keys():
                         func_params[key] = default_params[key]
 
+            func_params['jobset_id'] = jobset_id
+            func_params['type'] = 'default'
+
+            if FN == 'CONDITIONAL':
+                func_params = check_if_loop_exists(func_params,jobset_id)
+
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
+
+            additional_info = get_additional_info(jobset_id)
+
+            if 'type' in result and result['type'] == 'LOOP':
+                result,additional_info = handle_loop_params(result,jobset_id)
+
+            if 'type' in result and result['type'] == 'CONDITIONAL':
+                result = handle_conditional_params(result,jobset_id)
+
             send_to_socket(json.dumps({
-                'NODE_RESULTS': {'cmd': FN, 'id': node_id, 'result': result},
+                'NODE_RESULTS': {
+                    'cmd': FN,
+                    'id': node_id,
+                    'result': result,
+                    'additional_info':additional_info
+                },
                 'jobsetId': jobset_id
             }, cls=PlotlyJSONEncoder))
             all_nodes_length = r.llen(jobset_id + '_ALL_NODES')
             if all_nodes_length == 0:
-                r.set(jobset_id, json.dumps({'ALL_JOBS': {}}))
                 send_to_socket(json.dumps({
                     'SYSTEM_STATUS': '🤙 python script run successful',
                     'RUNNING_NODE': '',
@@ -429,7 +545,7 @@ def flojoy(func):
                 'FAILED_NODES': node_id,
                 'jobsetId': jobset_id
             }))
-            print('@flojoy run failed: ', Exception, traceback.format_exc())
+            print(traceback.format_exc())
             raise
 
     wrapper.original = func
@@ -445,18 +561,32 @@ def reactflow_to_networkx(elems):
         if 'source' not in el:
             data = el['data']
             ctrls = data['ctrls'] if 'ctrls' in data else {}
+            inputs = data['inputs'] if 'inputs' in data else {}
+            label = data['label'] if 'label' in data else {}
             DG.add_node(
-                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls)
+                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs = inputs,label=label)
             elems[i]['index'] = i+1
             elems[i]['label'] = el['id'].split('-')[0]
     pos = nx.get_node_attributes(DG, 'pos')
 
     # Add edges to networkx directed graph
+    edge_label_dict = {}
 
     def get_tuple(edge):
         e = [-1, -1]
         src_id = edge['source']
         tgt_id = edge['target']
+
+        if tgt_id not in edge_label_dict.keys():
+            edge_label_dict[tgt_id] = []
+
+        edge_label_dict[tgt_id].append({
+            'source': src_id,
+            'label': edge['label'] if 'label' in edge else "default",
+            'sourceHandle':edge['sourceHandle'],
+            'targetHandle':edge['targetHandle']
+        })
+
         # iterate through all nodes looking for matching edge
         for el in elems:
             if 'id' in el:
@@ -472,7 +602,6 @@ def reactflow_to_networkx(elems):
             # element is an edge
             e = get_tuple(el)
             DG.add_edge(*e)
-
     # Add labels (commands) to networkx nodes
 
     labels = {}
@@ -493,4 +622,6 @@ def reactflow_to_networkx(elems):
         return nodes_by_id
     sort = nx.topological_sort(DG)
 
-    return {'topological_sort': sort, 'getNode': get_node_data_by_id, 'DG': DG}
+
+
+    return {'topological_sort': sort, 'getNode': get_node_data_by_id, 'DG': DG,'edgeInfo':edge_label_dict}
