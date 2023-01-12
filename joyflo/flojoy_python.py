@@ -64,8 +64,7 @@ class DataContainer(Box):
         'a': ['r', 'g', 'b', 't']
     }
 
-    @staticmethod
-    def _ndarrayify(value):
+    def _ndarrayify(self,value):
         s = str(type(value))
         v_type = s.split("'")[1]
 
@@ -74,9 +73,9 @@ class DataContainer(Box):
                 value = np.array([value])
             case 'list':
                 value = np.array(value)
-            case 'dict':
+            case 'dict' | 'box.box.Box':
                 for k, v in value.items():
-                    value[k] = np.array(v)
+                    value[k] = self._ndarrayify(v)
             case 'numpy.ndarray':
                 pass
             case 'NoneType':
