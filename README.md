@@ -30,7 +30,7 @@ The `@flojoy` decorator automatically injects vector(s) passed from the previous
 
 Please see https://github.com/flojoy-io/flojoy-desktop/tree/main/PYTHON/FUNCTIONS for more usage examples.
 
-## Supported types
+## Supported data types
 
-TODO
+See https://github.com/flojoy-io/flojoy-python/issues/4
 
