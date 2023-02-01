@@ -49,11 +49,12 @@ class DataContainer(Box):
 
     '''
     allowed_types = ['grayscale', 'matrix', 'dataframe',
-                     'image', 'ordered_pair', 'ordered_triple', 'scalar']
-    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b', 'a']
+                     'image', 'ordered_pair', 'ordered_triple', 'scalar',
+                     'file']
+    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b', 'a', 'file_type']
     combinations = {
         'x': ['y', 't', 'z'],
-        'y': ['x', 't', 'z'],
+        'y': ['x', 't', 'z', 'file_type'],
         'z': ['x', 'y', 't'],
         'c': ['t'],
         'm': ['t'],
@@ -61,7 +62,8 @@ class DataContainer(Box):
         'r': ['g', 'b', 't', 'a'],
         'g': ['r', 'b', 't', 'a'],
         'b': ['r', 'g', 't', 'a'],
-        'a': ['r', 'g', 'b', 't']
+        'a': ['r', 'g', 'b', 't'],
+        'file_type': ['y']
     }
 
     def _ndarrayify(self, value):
@@ -122,6 +124,13 @@ class DataContainer(Box):
                         'c key must be provided for type "{}"'.format(data_type))
                 else:
                     self['c'] = kwargs['c']
+            case 'file':
+                if 'file_type' not in kwargs:
+                    raise KeyError(
+                        'file_type key must be provided for type "{}"'.format(data_type))
+                else:
+                    self['file_type'] = kwargs['file_type']
+                    self['y'] = kwargs['y']
             case _:
                 if data_type.startswith('parametric_'):
                     if 't' not in kwargs:
@@ -159,6 +168,9 @@ class DataContainer(Box):
             case 'scalar':
                 if key not in ['c']:
                     raise KeyError(self.build_error_text(key, data_type))
+            case 'file':
+                if key not in ['y', 'file_type']:
+                    raise KeyError(self.build_error_text(key, data_type))                    
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
         if data_type not in self.allowed_types and data_type.startswith('parametric_'):
