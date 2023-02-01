@@ -576,19 +576,18 @@ def flojoy(func):
     return wrapper
 
 
-def reactflow_to_networkx(elems):
+def reactflow_to_networkx(elems, edges):
     DG = nx.DiGraph()
     for i in range(len(elems)):
         el = elems[i]
-        if 'source' not in el:
-            data = el['data']
-            ctrls = data['ctrls'] if 'ctrls' in data else {}
-            inputs = data['inputs'] if 'inputs' in data else {}
-            label = data['label'] if 'label' in data else {}
-            DG.add_node(
-                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs=inputs, label=label)
-            elems[i]['index'] = i+1
-            elems[i]['label'] = el['id'].split('-')[0]
+        data = el['data']
+        ctrls = data['ctrls'] if 'ctrls' in data else {}
+        inputs = data['inputs'] if 'inputs' in data else {}
+        label = data['label'] if 'label' in data else {}
+        DG.add_node(
+            i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs=inputs, label=label)
+        elems[i]['index'] = i+1
+        elems[i]['label'] = el['id'].split('-')[0]
     pos = nx.get_node_attributes(DG, 'pos')
 
     # Add edges to networkx directed graph
@@ -618,20 +617,19 @@ def reactflow_to_networkx(elems):
                     e[1] = el['index']
         return tuple(e)
 
-    for i in range(len(elems)):
-        el = elems[i]
-        if 'source' in el:
-            # element is an edge
-            e = get_tuple(el)
-            DG.add_edge(*e)
+    for i in range(len(edges)):
+        el = edges[i]
+
+        # element is an edge
+        e = get_tuple(el)
+        DG.add_edge(*e)
     # Add labels (commands) to networkx nodes
 
     labels = {}
 
     for el in elems:
         # if element is not a node
-        if 'source' not in el:
-            labels[el['index']] = el['data']['func']
+        labels[el['index']] = el['data']['func']
 
     nx.set_node_attributes(DG, labels, 'cmd')
     nx.draw(DG, pos, with_labels=True, labels=labels)
