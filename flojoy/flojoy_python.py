@@ -170,7 +170,7 @@ class DataContainer(Box):
                     raise KeyError(self.build_error_text(key, data_type))
             case 'file':
                 if key not in ['y', 'file_type']:
-                    raise KeyError(self.build_error_text(key, data_type))                    
+                    raise KeyError(self.build_error_text(key, data_type))
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
         if data_type not in self.allowed_types and data_type.startswith('parametric_'):
@@ -337,7 +337,7 @@ def get_redis_obj(id):
     return parse_obj
 
 
-def handle_loop_params(result, jobset_id):
+def  handle_loop_params(result, jobset_id, loop_id, node_id):
 
     data = result['data']
     initial_value = result['params']['initial_value']
@@ -350,7 +350,10 @@ def handle_loop_params(result, jobset_id):
     if len(r_obj):
         special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {
         }
-        loop_jobs = {
+
+        loop_jobs = special_type_jobs['LOOP']
+
+        loop_job = {
             "status": verdict,
             "is_loop_body_execution_finished": False,
             "params": {
@@ -358,8 +361,14 @@ def handle_loop_params(result, jobset_id):
                 "total_iterations": total_iterations,
                 "current_iteration": current_iteration,
                 "step": step
-            }
+            },
+            'conditional_node':node_id
         }
+
+        for key,value in loop_jobs.items():
+            if key == loop_id:
+                loop_jobs[key] = loop_job
+
         r.set(jobset_id, json.dumps({
             **r_obj,
             'SPECIAL_TYPE_JOBS': {
@@ -396,7 +405,7 @@ def handle_conditional_params(result, jobset_id):
     return data
 
 
-def check_if_loop_exists(params, jobset_id):
+def check_if_loop_exists(params, jobset_id,node_id):
     r_obj = get_redis_obj(jobset_id)
 
     print(r_obj)
@@ -404,10 +413,11 @@ def check_if_loop_exists(params, jobset_id):
     check_special_type_job_status = True if 'SPECIAL_TYPE_JOBS' in r_obj else False
 
     loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
-        (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']
-         ['status'] == 'ongoing' else False)
+        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False)
+        # and \
+        # (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
+        # (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']
+        #  ['status'] == 'ongoing' else False)
 
     conditional_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
         (True if 'CONDITIONAL' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
@@ -418,16 +428,27 @@ def check_if_loop_exists(params, jobset_id):
 
     print("loop status: ", loop_status)
     print("conditional status: ", conditional_status)
+    loop_id = None
 
+    print("node id: ",node_id)
     if loop_status and not conditional_status:
 
-        params['loop_current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['initial_value']
-        params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['total_iterations']
-        params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['step']
-        params['type'] = 'loop'
-        params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
+        loop_jobs = r_obj['SPECIAL_TYPE_JOBS']['LOOP']
 
-    return params
+        print('Loop Jobs: ',loop_jobs)
+
+        for key,value in loop_jobs.items():
+            if value['conditional_node'] == node_id:
+
+                params['loop_current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP'][key]['params']['initial_value']
+                params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP'][key]['params']['total_iterations']
+                params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP'][key]['params']['step']
+                params['type'] = 'loop'
+                params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP'][key]['params']['current_iteration']
+                loop_id = key
+                break
+
+    return loop_id,params
 
 
 def get_additional_info(jobset_id):
@@ -531,7 +552,7 @@ def flojoy(func):
             func_params['type'] = 'default'
 
             if FN == 'CONDITIONAL':
-                func_params = check_if_loop_exists(func_params, jobset_id)
+                loop_id,func_params = check_if_loop_exists(func_params, jobset_id,node_id)
 
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
@@ -539,7 +560,7 @@ def flojoy(func):
             additional_info = get_additional_info(jobset_id)
 
             if 'type' in result and result['type'] == 'LOOP':
-                result, additional_info = handle_loop_params(result, jobset_id)
+                result, additional_info = handle_loop_params(result, jobset_id,loop_id,node_id)
 
             if 'type' in result and result['type'] == 'CONDITIONAL':
                 result = handle_conditional_params(result, jobset_id)
