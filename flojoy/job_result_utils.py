@@ -16,8 +16,8 @@ def get_next_nodes(result):
 
 
 def get_data(result):
-    if "__result__field__" in result:
-        data = result[result["__result__field__"]]
+    if result and result.get(FLOJOY_INSTRUCTION.RESULT_FIELD):
+        data = result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]]
     else:
         data = result
 

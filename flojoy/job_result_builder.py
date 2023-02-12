@@ -18,9 +18,10 @@ class JobResultBuilder:
         }
     
     def from_params(self, params):
+        inp = params[0]
         try:
-            x = params[0].x
-            y = params[0].y
+            x = inp.x
+            y = inp.y
         except Exception:
             print(traceback.format_exc())
 

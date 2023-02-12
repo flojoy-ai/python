@@ -322,9 +322,10 @@ def fetch_inputs(previous_job_ids, mock=False):
     redis_connection = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
     try:
-        for ea in previous_job_ids:
-            job = Job.fetch(ea, connection=redis_connection)
+        for prev_job_id in previous_job_ids:
+            job = Job.fetch(prev_job_id, connection=redis_connection)
             result = get_data(job.result)
+            print('fetch input from prev job id:', prev_job_id, ' result:', str(result)[:100])
             inputs.append(result)
     except Exception:
         print(traceback.format_exc())
@@ -510,10 +511,11 @@ def flojoy(func):
             # if FN == 'CONDITIONAL':
             #     func_params = check_if_loop_exists(func_params, jobset_id)
 
+            print('executing node_id:', node_id, 'previous_job_ids:', previous_job_ids)
+            print(node_id, ' params: ', func_params)
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
             result_data = get_data(result)
-            print('result_data:', result_data)
 
             additional_info = get_additional_info(jobset_id)
 
@@ -543,7 +545,7 @@ def flojoy(func):
                     'jobsetId': jobset_id
                 }))
 
-            print('final result:', result)
+            print('final result:', str(result)[:150])
 
             return result
         except:
