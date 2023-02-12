@@ -13,6 +13,7 @@ from functools import wraps
 from .utils import PlotlyJSONEncoder
 import requests
 from dotenv import dotenv_values
+from .job_result_utils import get_data
 
 
 def get_port():
@@ -170,7 +171,7 @@ class DataContainer(Box):
                     raise KeyError(self.build_error_text(key, data_type))
             case 'file':
                 if key not in ['y', 'file_type']:
-                    raise KeyError(self.build_error_text(key, data_type))
+                    raise KeyError(self.build_error_text(key, data_type))                    
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
         if data_type not in self.allowed_types and data_type.startswith('parametric_'):
@@ -318,13 +319,13 @@ def fetch_inputs(previous_job_ids, mock=False):
         return [DataContainer(x=np.linspace(0, 10, 100))]
 
     inputs = []
+    redis_connection = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
     try:
         for ea in previous_job_ids:
-            job = Job.fetch(ea, connection=Redis(
-                host=REDIS_HOST, port=REDIS_PORT))
-
-            inputs.append(job.result)
+            job = Job.fetch(ea, connection=redis_connection)
+            result = get_data(job.result)
+            inputs.append(result)
     except Exception:
         print(traceback.format_exc())
 
@@ -337,7 +338,7 @@ def get_redis_obj(id):
     return parse_obj
 
 
-def  handle_loop_params(result, jobset_id, loop_id, node_id):
+def handle_loop_params(result, jobset_id):
 
     data = result['data']
     initial_value = result['params']['initial_value']
@@ -350,10 +351,7 @@ def  handle_loop_params(result, jobset_id, loop_id, node_id):
     if len(r_obj):
         special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {
         }
-
-        loop_jobs = special_type_jobs['LOOP']
-
-        loop_job = {
+        loop_jobs = {
             "status": verdict,
             "is_loop_body_execution_finished": False,
             "params": {
@@ -361,14 +359,8 @@ def  handle_loop_params(result, jobset_id, loop_id, node_id):
                 "total_iterations": total_iterations,
                 "current_iteration": current_iteration,
                 "step": step
-            },
-            'conditional_node':node_id
+            }
         }
-
-        for key,value in loop_jobs.items():
-            if key == loop_id:
-                loop_jobs[key] = loop_job
-
         r.set(jobset_id, json.dumps({
             **r_obj,
             'SPECIAL_TYPE_JOBS': {
@@ -381,31 +373,7 @@ def  handle_loop_params(result, jobset_id, loop_id, node_id):
         "current_iteration": current_iteration
     }
 
-
-def handle_conditional_params(result, jobset_id):
-    data = result['data']
-    direction = result['direction']
-    r_obj = get_redis_obj(jobset_id)
-
-    if len(r_obj):
-        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {
-        }
-        conditional_jobs = {
-            "direction": bool(direction)
-        }
-
-        r.set(jobset_id, json.dumps({
-            **r_obj,
-            'SPECIAL_TYPE_JOBS': {
-                **special_type_jobs,
-                'CONDITIONAL': conditional_jobs
-            }
-        }))
-
-    return data
-
-
-def check_if_loop_exists(params, jobset_id,node_id):
+def check_if_loop_exists(params, jobset_id):
     r_obj = get_redis_obj(jobset_id)
 
     print(r_obj)
@@ -413,11 +381,10 @@ def check_if_loop_exists(params, jobset_id,node_id):
     check_special_type_job_status = True if 'SPECIAL_TYPE_JOBS' in r_obj else False
 
     loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False)
-        # and \
-        # (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
-        # (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']
-        #  ['status'] == 'ongoing' else False)
+        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
+        (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']
+         ['status'] == 'ongoing' else False)
 
     conditional_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
         (True if 'CONDITIONAL' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
@@ -428,40 +395,29 @@ def check_if_loop_exists(params, jobset_id,node_id):
 
     print("loop status: ", loop_status)
     print("conditional status: ", conditional_status)
-    loop_id = None
 
-    print("node id: ",node_id)
     if loop_status and not conditional_status:
 
-        loop_jobs = r_obj['SPECIAL_TYPE_JOBS']['LOOP']
+        params['loop_current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['initial_value']
+        params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['total_iterations']
+        params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['step']
+        params['type'] = 'loop'
+        params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
 
-        print('Loop Jobs: ',loop_jobs)
-
-        for key,value in loop_jobs.items():
-            if value['conditional_node'] == node_id:
-
-                params['loop_current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP'][key]['params']['initial_value']
-                params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP'][key]['params']['total_iterations']
-                params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP'][key]['params']['step']
-                params['type'] = 'loop'
-                params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP'][key]['params']['current_iteration']
-                loop_id = key
-                break
-
-    return loop_id,params
+    return params
 
 
 def get_additional_info(jobset_id):
-    r_obj = get_redis_obj(jobset_id)
-    loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False)
+    # r_obj = get_redis_obj(jobset_id)
+    # loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
+    #     (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
+    #     (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False)
 
-    if loop_status:
-        return {
-            'status': r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'],
-            "current_iteration": r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
-        }
+    # if loop_status:
+    #     return {
+    #         'status': r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'],
+    #         "current_iteration": r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
+    #     }
     return {}
 
 
@@ -551,29 +507,34 @@ def flojoy(func):
             func_params['jobset_id'] = jobset_id
             func_params['type'] = 'default'
 
-            if FN == 'CONDITIONAL':
-                loop_id,func_params = check_if_loop_exists(func_params, jobset_id,node_id)
+            # if FN == 'CONDITIONAL':
+            #     func_params = check_if_loop_exists(func_params, jobset_id)
 
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
+            result_data = get_data(result)
+            print('result_data:', result_data)
 
             additional_info = get_additional_info(jobset_id)
 
-            if 'type' in result and result['type'] == 'LOOP':
-                result, additional_info = handle_loop_params(result, jobset_id,loop_id,node_id)
 
-            if 'type' in result and result['type'] == 'CONDITIONAL':
-                result = handle_conditional_params(result, jobset_id)
+            # if 'type' in result and result['type'] == 'LOOP':
+            #     _, additional_info = handle_loop_params(result, jobset_id)
+
+            # if 'type' in result and result['type'] == 'CONDITIONAL':
+            #     processed_result = result['data']
+
 
             send_to_socket(json.dumps({
                 'NODE_RESULTS': {
                     'cmd': FN,
                     'id': node_id,
-                    'result': result,
+                    'result': result_data,
                     'additional_info': additional_info
                 },
                 'jobsetId': jobset_id
             }, cls=PlotlyJSONEncoder))
+
             all_nodes_length = r.llen(jobset_id + '_ALL_NODES')
             if all_nodes_length == 0:
                 send_to_socket(json.dumps({
@@ -581,13 +542,17 @@ def flojoy(func):
                     'RUNNING_NODE': '',
                     'jobsetId': jobset_id
                 }))
+
+            print('final result:', result)
+
             return result
-        except Exception:
+        except:
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': 'Failed to run: ' + func.__name__,
                 'FAILED_NODES': node_id,
                 'jobsetId': jobset_id
             }))
+            print('error occured while running the node')
             print(traceback.format_exc())
             raise
 
@@ -655,12 +620,28 @@ def reactflow_to_networkx(elems, edges):
     nx.set_node_attributes(DG, labels, 'cmd')
     nx.draw(DG, pos, with_labels=True, labels=labels)
 
-    def get_node_data_by_id():
-        nodes_by_id = dict()
+    def get_node_by_serial():
+        nodes_by_serial = dict()
         for n, nd in DG.nodes().items():
             if n is not None:
-                nodes_by_id[n] = nd
+                nodes_by_serial[n] = nd
+        return nodes_by_serial
+
+
+    def get_node_serial_by_id():
+        nodes_by_id = dict()
+        for n, nd in DG.nodes().items():
+            if nd is not None:
+                nodes_by_id[nd['id']] = n
         return nodes_by_id
+
     sort = nx.topological_sort(DG)
 
-    return {'topological_sort': sort, 'getNode': get_node_data_by_id, 'DG': DG, 'edgeInfo': edge_label_dict}
+    return {
+        'topological_sort': sort,
+        'get_node_by_serial': get_node_by_serial,
+        'get_node_serial_by_id': get_node_serial_by_id,
+        'DG': DG,
+        'edgeInfo': edge_label_dict
+        }
+    
