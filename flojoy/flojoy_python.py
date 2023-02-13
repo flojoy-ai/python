@@ -10,7 +10,7 @@ from redis import Redis
 from rq.job import Job
 import os
 from functools import wraps
-from .utils import PlotlyJSONEncoder
+from .utils import PlotlyJSONEncoder, dump_str
 import requests
 from dotenv import dotenv_values
 from .job_result_utils import get_data
@@ -325,7 +325,7 @@ def fetch_inputs(previous_job_ids, mock=False):
         for prev_job_id in previous_job_ids:
             job = Job.fetch(prev_job_id, connection=redis_connection)
             result = get_data(job.result)
-            print('fetch input from prev job id:', prev_job_id, ' result:', str(result)[:100])
+            print('fetch input from prev job id:', prev_job_id, ' result:', dump_str(result, limit=100))
             inputs.append(result)
     except Exception:
         print(traceback.format_exc())
@@ -545,7 +545,7 @@ def flojoy(func):
                     'jobsetId': jobset_id
                 }))
 
-            print('final result:', str(result)[:150])
+            print('final result:', dump_str(result, limit=100))
 
             return result
         except:
