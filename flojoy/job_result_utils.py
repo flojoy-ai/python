@@ -1,5 +1,4 @@
 from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
-import traceback
 
 
 def is_flow_controled(result):

@@ -302,7 +302,6 @@ def get_parameter_manifest():
     param_manifest = json.load(f)
     return param_manifest['parameters']
 
-
 def fetch_inputs(previous_job_ids, mock=False):
     '''
     Queries Redis for job results
@@ -337,75 +336,6 @@ def get_redis_obj(id):
     get_obj = r.get(id)
     parse_obj = json.loads(get_obj) if get_obj is not None else {}
     return parse_obj
-
-
-def handle_loop_params(result, jobset_id):
-
-    data = result['data']
-    initial_value = result['params']['initial_value']
-    total_iterations = result['params']['total_iterations']
-    current_iteration = result['params']['current_iteration']
-    step = result['params']['step']
-    verdict = result['verdict']
-
-    r_obj = get_redis_obj(jobset_id)
-    if len(r_obj):
-        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {
-        }
-        loop_jobs = {
-            "status": verdict,
-            "is_loop_body_execution_finished": False,
-            "params": {
-                "initial_value": initial_value,
-                "total_iterations": total_iterations,
-                "current_iteration": current_iteration,
-                "step": step
-            }
-        }
-        r.set(jobset_id, json.dumps({
-            **r_obj,
-            'SPECIAL_TYPE_JOBS': {
-                **special_type_jobs,
-                'LOOP': loop_jobs,
-            }
-        }))
-    return data, {
-        "status": verdict,
-        "current_iteration": current_iteration
-    }
-
-def check_if_loop_exists(params, jobset_id):
-    r_obj = get_redis_obj(jobset_id)
-
-    print(r_obj)
-
-    check_special_type_job_status = True if 'SPECIAL_TYPE_JOBS' in r_obj else False
-
-    loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
-        (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']
-         ['status'] == 'ongoing' else False)
-
-    conditional_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-        (True if 'CONDITIONAL' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-        (True if 'type' in r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL'] else False) and \
-        r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
-
-    # conditional_status = conditional_status and r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
-
-    print("loop status: ", loop_status)
-    print("conditional status: ", conditional_status)
-
-    if loop_status and not conditional_status:
-
-        params['loop_current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['initial_value']
-        params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['total_iterations']
-        params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['step']
-        params['type'] = 'loop'
-        params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
-
-    return params
 
 
 def get_additional_info(jobset_id):
@@ -476,10 +406,11 @@ def flojoy(func):
             if 'ctrls' in kwargs:
                 ctrls = kwargs['ctrls']
             node_id = kwargs['node_id']
+            job_id = kwargs['job_id']
             jobset_id = kwargs['jobset_id']
             FN = func.__name__
             # remove this node from redis ALL_NODES key
-            r.lrem(jobset_id+'_ALL_NODES', 1, node_id)
+            r.lrem(jobset_id+'_ALL_NODES', 1, job_id)
             sys_status = '🏃‍♀️ Running python job: ' + FN
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': sys_status,
@@ -507,6 +438,8 @@ def flojoy(func):
 
             func_params['jobset_id'] = jobset_id
             func_params['type'] = 'default'
+            func_params['node_id'] = node_id
+            func_params['job_id'] = job_id
 
             # if FN == 'CONDITIONAL':
             #     func_params = check_if_loop_exists(func_params, jobset_id)
