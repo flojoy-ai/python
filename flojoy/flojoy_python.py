@@ -322,7 +322,17 @@ def fetch_inputs(previous_job_ids, mock=False):
 
     try:
         for prev_job_id in previous_job_ids:
+            print('fetching input from prev job id:', prev_job_id)
+            # first_run_id = prev_job_id + "___1"
+            # job = Job.fetch(first_run_id, connection=redis_connection)
             job = Job.fetch(prev_job_id, connection=redis_connection)
+
+            # meta = job.get_meta()
+            # latest_run = meta.get('run', 1)
+
+            # if latest_run != 1:
+            #     job = Job.fetch(prev_job_id + '___' + str(latest_run), redis_connection)
+
             result = get_data(job.result)
             print('fetch input from prev job id:', prev_job_id, ' result:', dump_str(result, limit=100))
             inputs.append(result)
@@ -555,28 +565,50 @@ def reactflow_to_networkx(elems, edges):
     nx.set_node_attributes(DG, labels, 'cmd')
     nx.draw(DG, pos, with_labels=True, labels=labels)
 
-    def get_node_by_serial():
-        nodes_by_serial = dict()
-        for n, nd in DG.nodes().items():
-            if n is not None:
-                nodes_by_serial[n] = nd
-        return nodes_by_serial
+    node_by_serial = get_dict_node_by_serial(DG)
+    node_serial_by_id = get_dict_node_serial_by_id(DG)
+    node_id_by_serial = get_dict_id_by_serial(DG)
+    node_by_id = get_dict_node_by_id(DG)
 
-
-    def get_node_serial_by_id():
-        nodes_by_id = dict()
-        for n, nd in DG.nodes().items():
-            if nd is not None:
-                nodes_by_id[nd['id']] = n
-        return nodes_by_id
-
-    sort = nx.topological_sort(DG)
+    sorted_node_serials = list(nx.topological_sort(DG))
+    sorted_job_ids = list(map(lambda serial: node_id_by_serial[serial], sorted_node_serials))
 
     return {
-        'topological_sort': sort,
-        'get_node_by_serial': get_node_by_serial,
-        'get_node_serial_by_id': get_node_serial_by_id,
+        'sorted_node_serials': sorted_node_serials,
+        'sorted_job_ids': sorted_job_ids,
+        'node_by_serial': node_by_serial,
+        'node_serial_by_id': node_serial_by_id,
+        'node_id_by_serial': node_id_by_serial,
+        'node_by_id': node_by_id,
         'DG': DG,
         'edgeInfo': edge_label_dict
         }
-    
+
+def get_dict_node_by_serial(DG):
+    nodes_by_serial = dict()
+    for n, nd in DG.nodes().items():
+        if n is not None:
+            nodes_by_serial[n] = nd
+    return nodes_by_serial
+
+
+def get_dict_node_serial_by_id(DG):
+    node_serial_by_id = dict()
+    for n, nd in DG.nodes().items():
+        if nd is not None:
+            node_serial_by_id[nd['id']] = n
+    return node_serial_by_id
+
+def get_dict_id_by_serial(DG):
+    node_id_by_serial = dict()
+    for n, nd in DG.nodes().items():
+        if nd is not None:
+            node_id_by_serial[n] = nd['id']
+    return node_id_by_serial
+
+def get_dict_node_by_id(DG):
+    nodes_by_id = dict()
+    for _, nd in DG.nodes().items():
+        if nd is not None:
+            nodes_by_id[nd['id']] = nd
+    return nodes_by_id
