@@ -455,7 +455,7 @@ def flojoy(func):
             #     func_params = check_if_loop_exists(func_params, jobset_id)
 
             print('executing node_id:', node_id, 'previous_job_ids:', previous_job_ids)
-            print(node_id, ' params: ', func_params)
+            print(node_id, ' params: ', json.dumps(func_params, indent=2))
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
             result_data = get_data(result)

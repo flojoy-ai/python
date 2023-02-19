@@ -7,8 +7,8 @@ def is_flow_controled(result):
 
 
 def get_next_directions(result):
-    if result is None: return []
-    return result.get(FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS, [])
+    if result is None: return ['main']
+    return result.get(FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS, ['main'])
 
 
 def get_next_nodes(result):
