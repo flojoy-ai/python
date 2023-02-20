@@ -2,5 +2,8 @@
 setup.cfg
 setup.py
 flojoy/__init__.py
+flojoy/flojoy_instruction.py
 flojoy/flojoy_python.py
+flojoy/job_result_builder.py
+flojoy/job_result_utils.py
 flojoy/utils.py
