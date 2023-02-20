@@ -16,15 +16,7 @@ from dotenv import dotenv_values
 from .job_result_utils import get_data
 
 
-def get_port():
-    try:
-        p = dotenv_values()['REACT_APP_BACKEND_PORT']
-    except:
-        p = '8000'
-    return p
-
-
-port = get_port()
+port = dotenv_values().get('REACT_APP_BACKEND_PORT', '8000')
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
@@ -52,7 +44,8 @@ class DataContainer(Box):
     allowed_types = ['grayscale', 'matrix', 'dataframe',
                      'image', 'ordered_pair', 'ordered_triple', 'scalar',
                      'file']
-    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b', 'a', 'file_type']
+    allowed_keys = ['x', 'y', 'z', 't', 'm',
+                    'c', 'r', 'g', 'b', 'a', 'file_type']
     combinations = {
         'x': ['y', 't', 'z'],
         'y': ['x', 't', 'z', 'file_type'],
@@ -92,13 +85,13 @@ class DataContainer(Box):
             case 'grayscale' | 'matrix' | 'dataframe':
                 if 'm' not in kwargs:
                     raise KeyError(
-                        'm key must be provided for type "{}"'.format(data_type))
+                        f'm key must be provided for type "{data_type}"')
                 else:
                     self['m'] = kwargs['m']
             case 'image':
                 if 'r' and 'g' and 'b' and 'a' not in kwargs:
                     raise KeyError(
-                        'r g b a keys must be provided for type "{}"'.format(data_type))
+                        f'r g b a keys must be provided for type "{data_type}"')
                 else:
                     self['r'] = kwargs['r']
                     self['g'] = kwargs['g']
@@ -107,14 +100,14 @@ class DataContainer(Box):
             case 'ordered_pair':
                 if 'x' and 'y' not in kwargs.keys():
                     raise KeyError(
-                        'x and y keys must be provided for "{}"'.format(data_type))
+                        f'x and y keys must be provided for "{data_type}"')
                 else:
                     self['x'] = kwargs['x']
                     self['y'] = kwargs['y']
             case 'ordered_triple':
                 if 'x' and 'y' and 'z' not in kwargs:
                     raise KeyError(
-                        'x, y and z keys must be provided for "{}"'.format(data_type))
+                        f'x, y and z keys must be provided for "{data_type}"')
                 else:
                     self['x'] = kwargs['x']
                     self['y'] = kwargs['y']
@@ -122,13 +115,13 @@ class DataContainer(Box):
             case 'scalar':
                 if 'c' not in kwargs:
                     raise KeyError(
-                        'c key must be provided for type "{}"'.format(data_type))
+                        f'c key must be provided for type "{data_type}"')
                 else:
                     self['c'] = kwargs['c']
             case 'file':
                 if 'file_type' not in kwargs:
                     raise KeyError(
-                        'file_type key must be provided for type "{}"'.format(data_type))
+                        f'file_type key must be provided for type "{data_type}"')
                 else:
                     self['file_type'] = kwargs['file_type']
                     self['y'] = kwargs['y']
@@ -136,7 +129,7 @@ class DataContainer(Box):
                 if data_type.startswith('parametric_'):
                     if 't' not in kwargs:
                         raise KeyError(
-                            't key must be provided for "{}"'.format(data_type))
+                            f't key must be provided for "{data_type}"')
                     self['t'] = kwargs['t']
                     t = kwargs['t']
                     is_ascending_order = all(
@@ -149,7 +142,7 @@ class DataContainer(Box):
                     self.init_data(parametric_data_type, kwargs)
                 else:
                     raise ValueError(
-                        'Invalid data type "{}"'.format(data_type))
+                        f'Invalid data type "{data_type}"')
 
 # This function compares data type with the provided key and assigns it to class attribute if matches
     def validate_key(self, data_type, key):
@@ -171,14 +164,14 @@ class DataContainer(Box):
                     raise KeyError(self.build_error_text(key, data_type))
             case 'file':
                 if key not in ['y', 'file_type']:
-                    raise KeyError(self.build_error_text(key, data_type))                    
+                    raise KeyError(self.build_error_text(key, data_type))
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
         if data_type not in self.allowed_types and data_type.startswith('parametric_'):
             if 't' not in self:
                 if key != 't':
                     raise KeyError(
-                        't key must be provided for "{}"'.format(data_type))
+                        f't key must be provided for "{data_type}"')
                 is_ascending_order = all(
                     value[i] <= value[i+1] for i in range(len(value) - 1))
                 if is_ascending_order is not True:
@@ -209,7 +202,7 @@ class DataContainer(Box):
             super().__setitem__(key, self._ndarrayify(value))
         else:
             raise ValueError(
-                'Invalid data type "{}"'.format(data_type))
+                f'Invalid data type "{data_type}"')
 
     def __init__(self, **kwargs):
         if 'type' in kwargs:
@@ -224,7 +217,7 @@ class DataContainer(Box):
     def check_combination(self, key, keys, allowed_keys):
         for i in keys:
             if i not in allowed_keys:
-                raise ValueError('You cant have %s with %s' % (key, i))
+                raise ValueError(f'You cant have {key} with {i}')
 
 # This function is called when a attribute is assigning to this class
     def __setitem__(self, key, value):
@@ -265,7 +258,7 @@ class DataContainer(Box):
             super().__setitem__(key, value)
 
     def build_error_text(self, key: str, data_type: str):
-        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
+        return f'Invalid key "{key}" provided for data type "{data_type}"'
 
 
 def get_flojoy_root_dir():
@@ -302,6 +295,7 @@ def get_parameter_manifest():
     param_manifest = json.load(f)
     return param_manifest['parameters']
 
+
 def fetch_inputs(previous_job_ids, mock=False):
     '''
     Queries Redis for job results
@@ -334,7 +328,8 @@ def fetch_inputs(previous_job_ids, mock=False):
             #     job = Job.fetch(prev_job_id + '___' + str(latest_run), redis_connection)
 
             result = get_data(job.result)
-            print('fetch input from prev job id:', prev_job_id, ' result:', dump_str(result, limit=100))
+            print('fetch input from prev job id:', prev_job_id,
+                  ' result:', dump_str(result, limit=100))
             inputs.append(result)
     except Exception:
         print(traceback.format_exc())
@@ -348,23 +343,9 @@ def get_redis_obj(id):
     return parse_obj
 
 
-def get_additional_info(jobset_id):
-    # r_obj = get_redis_obj(jobset_id)
-    # loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-    #     (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-    #     (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False)
-
-    # if loop_status:
-    #     return {
-    #         'status': r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'],
-    #         "current_iteration": r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
-    #     }
-    return {}
-
-
 def send_to_socket(data):
     requests.post(
-        'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
+        f'http://{BACKEND_HOST}:{port}/worker_response', json=data)
 
 
 def flojoy(func):
@@ -411,13 +392,11 @@ def flojoy(func):
     def wrapper(*args, **kwargs):
         try:
             previous_job_ids, mock = {}, False
-            if 'previous_job_ids' in kwargs:
-                previous_job_ids = kwargs['previous_job_ids']
-            if 'ctrls' in kwargs:
-                ctrls = kwargs['ctrls']
-            node_id = kwargs['node_id']
-            job_id = kwargs['job_id']
-            jobset_id = kwargs['jobset_id']
+            previous_job_ids = kwargs.get('previous_job_ids', [])
+            ctrls = kwargs.get('ctrls', None)
+            node_id = kwargs.get('node_id')
+            job_id = kwargs.get('job_id')
+            jobset_id = kwargs.get('jobset_id')
             FN = func.__name__
             # remove this node from redis ALL_NODES key
             r.lrem(jobset_id+'_ALL_NODES', 1, job_id)
@@ -454,28 +433,18 @@ def flojoy(func):
             # if FN == 'CONDITIONAL':
             #     func_params = check_if_loop_exists(func_params, jobset_id)
 
-            print('executing node_id:', node_id, 'previous_job_ids:', previous_job_ids)
+            print('executing node_id:', node_id,
+                  'previous_job_ids:', previous_job_ids)
             print(node_id, ' params: ', json.dumps(func_params, indent=2))
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
             result_data = get_data(result)
-
-            additional_info = get_additional_info(jobset_id)
-
-
-            # if 'type' in result and result['type'] == 'LOOP':
-            #     _, additional_info = handle_loop_params(result, jobset_id)
-
-            # if 'type' in result and result['type'] == 'CONDITIONAL':
-            #     processed_result = result['data']
-
 
             send_to_socket(json.dumps({
                 'NODE_RESULTS': {
                     'cmd': FN,
                     'id': node_id,
                     'result': result_data,
-                    'additional_info': additional_info
                 },
                 'jobsetId': jobset_id
             }, cls=PlotlyJSONEncoder))
@@ -571,7 +540,8 @@ def reactflow_to_networkx(elems, edges):
     node_by_id = get_dict_node_by_id(DG)
 
     sorted_node_serials = list(nx.topological_sort(DG))
-    sorted_job_ids = list(map(lambda serial: node_id_by_serial[serial], sorted_node_serials))
+    sorted_job_ids = list(
+        map(lambda serial: node_id_by_serial[serial], sorted_node_serials))
 
     return {
         'sorted_node_serials': sorted_node_serials,
@@ -582,7 +552,8 @@ def reactflow_to_networkx(elems, edges):
         'node_by_id': node_by_id,
         'DG': DG,
         'edgeInfo': edge_label_dict
-        }
+    }
+
 
 def get_dict_node_by_serial(DG):
     nodes_by_serial = dict()
@@ -599,12 +570,14 @@ def get_dict_node_serial_by_id(DG):
             node_serial_by_id[nd['id']] = n
     return node_serial_by_id
 
+
 def get_dict_id_by_serial(DG):
     node_id_by_serial = dict()
     for n, nd in DG.nodes().items():
         if nd is not None:
             node_id_by_serial[n] = nd['id']
     return node_id_by_serial
+
 
 def get_dict_node_by_id(DG):
     nodes_by_id = dict()
