@@ -36,12 +36,16 @@ class JobResultBuilder:
         return self
 
     def flow_to_nodes(self, nodes):
+        if not nodes:
+            return self
         self._add_instructions({
             FLOJOY_INSTRUCTION.FLOW_TO_NODES: nodes
         })
         return self
 
     def flow_to_directions(self, directions):
+        if not directions:
+            return self
         self._add_instructions({
             FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions
         })

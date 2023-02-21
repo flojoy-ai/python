@@ -449,8 +449,7 @@ def flojoy(func):
                 'jobsetId': jobset_id
             }, cls=PlotlyJSONEncoder))
 
-            all_nodes_length = r.llen(jobset_id + '_ALL_NODES')
-            if all_nodes_length == 0:
+            if func.__name__ == 'END':
                 send_to_socket(json.dumps({
                     'SYSTEM_STATUS': '🤙 python script run successful',
                     'RUNNING_NODE': '',
