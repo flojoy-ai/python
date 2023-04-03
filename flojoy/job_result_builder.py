@@ -1,8 +1,8 @@
 from flojoy import DataContainer
-import traceback
 import numpy as np
 
 from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
+from flojoy.plotly_utils import data_container_to_plotly, get_plot_fig_by_type
 
 
 class JobResultBuilder:
@@ -16,8 +16,8 @@ class JobResultBuilder:
             **self.instructions,
             **instruction,
         }
-    
-    def from_inputs(self, inputs):
+
+    def from_inputs(self, inputs: list[DataContainer]):
         # if no inputs were provided, construct fake output
         if len(inputs) == 0 or np.any(inputs[0].y) == None:
             x = list()
@@ -50,7 +50,7 @@ class JobResultBuilder:
             FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions
         })
         return self
-    
+
     def flow_by_flag(self, flag, directionsWhenTrue, directionsWhenFalse):
         self._add_instructions({
             FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directionsWhenTrue if flag else directionsWhenFalse
@@ -61,8 +61,27 @@ class JobResultBuilder:
         result = self.data
         if self.instructions:
             result = {
-                **self.instructions, # instructions to job scheduler (watch.py)                
-                FLOJOY_INSTRUCTION.RESULT_FIELD: "data", # instruction to fetch_input method in flojoy.py
+                # instructions to job scheduler (watch.py)
+                **self.instructions,
+                # instruction to fetch_input method in flojoy.py
+                FLOJOY_INSTRUCTION.RESULT_FIELD: "data",
                 'data': result,
             }
         return result
+
+    def to_plot(self, plot_type: str, **kwargs):
+        if not self.instructions:
+            self.instructions = {}
+        if len(kwargs.items()) == 0:
+            output = data_container_to_plotly(self.data, plot_type=plot_type)
+        else:
+            fig = get_plot_fig_by_type(plot_type=plot_type, **kwargs)
+            output = fig.to_dict()
+
+        return {
+            **self.instructions,
+            FLOJOY_INSTRUCTION.DATACONTAINER_FILED: 'result',
+            'result': self.data,
+            FLOJOY_INSTRUCTION.RESULT_FIELD: 'data',
+            'data': output
+        }
