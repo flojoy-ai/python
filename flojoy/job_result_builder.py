@@ -19,7 +19,7 @@ class JobResultBuilder:
 
     def from_inputs(self, inputs: list[DataContainer]):
         # if no inputs were provided, construct fake output
-        if len(inputs) == 0 or np.any(inputs[0].y) == None:
+        if len(inputs) == 0:
             x = list()
             for i in range(1000):
                 x.append(i)
@@ -80,7 +80,7 @@ class JobResultBuilder:
 
         return {
             **self.instructions,
-            FLOJOY_INSTRUCTION.DATACONTAINER_FILED: 'result',
+            FLOJOY_INSTRUCTION.DATACONTAINER_FIELD: 'result',
             'result': self.data,
             FLOJOY_INSTRUCTION.RESULT_FIELD: 'data',
             'data': output

@@ -18,8 +18,8 @@ def get_next_nodes(result):
 def get_data_container_output(result):
     if not result:
         return {}
-    if result.get(FLOJOY_INSTRUCTION.DATACONTAINER_FILED): # to_plot is used
-        return result[result[FLOJOY_INSTRUCTION.DATACONTAINER_FILED]]
+    if result.get(FLOJOY_INSTRUCTION.DATACONTAINER_FIELD): # to_plot is used
+        return result[result[FLOJOY_INSTRUCTION.DATACONTAINER_FIELD]]
     if result.get(FLOJOY_INSTRUCTION.RESULT_FIELD):
         return result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]]
     return result
@@ -33,8 +33,8 @@ def get_data(result):
             'output': result,
             'result': result
         }
-    if result.get(FLOJOY_INSTRUCTION.DATACONTAINER_FILED): # to_plot is used
-        # output = result[result[FLOJOY_INSTRUCTION.DATACONTAINER_FILED]]
+    if result.get(FLOJOY_INSTRUCTION.DATACONTAINER_FIELD): # to_plot is used
+        # output = result[result[FLOJOY_INSTRUCTION.DATACONTAINER_FIELD]]
         data = result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]] # already processed for plotly
         return {
             'output': result,
