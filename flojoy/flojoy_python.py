@@ -436,10 +436,11 @@ def flojoy(func):
             print('final result:', dump_str(data['output'], limit=100))
 
             return data['output']
-        except:
+        except Exception as e:
             send_to_socket(json.dumps({
-                'SYSTEM_STATUS': 'Failed to run: ' + func.__name__,
+                'SYSTEM_STATUS': f'Failed to run: {func.__name__}',
                 'FAILED_NODES': node_id,
+                'FAILURE_REASON': e.args[0],
                 'jobsetId': jobset_id
             }))
             print('error occured while running the node')
