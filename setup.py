@@ -2,7 +2,7 @@ from setuptools import setup
 setup(
     name='flojoy',
     packages=['flojoy'],
-    version='0.2.2.dev2',
+    version='0.2.2.dev3',
     license='MIT',
     description='Python client library for Flojoy.',
     author='flojoy',
