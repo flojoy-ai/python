@@ -5,46 +5,52 @@ dtypes = ['grayscale', 'matrix', 'dataframe',
           'image', 'ordered_pair', 'ordered_triple', 'scalar']
 
 
-def data_container_to_plotly(data, plot_type):
-    d_type = data.type
+def data_container_to_plotly(data:dict, plot_type=None):
+    value = data.copy()
+    d_type = value.type
     fig = {}
-    if 'x' in data and isinstance(data.x, dict):
-        data.x = data.x.a
+    if 'x' in value and isinstance(value.x, dict):
+        # value.x = []
+        # for k, v in data.x.items():
+        #     value.x.append(v)
+        dict_keys = list(value.x.keys())
+        value.x = value.x[dict_keys[0]]
         
     match d_type:
         case 'image':
-            if data.a is None:
-                img_combined = np.stack((data.r, data.g, data.b), axis=2)
+            if value.a is None:
+                img_combined = np.stack((value.r, value.g, value.b), axis=2)
             else:
                 img_combined = np.stack(
-                    (data.r, data.g, data.b, data.a), axis=2)
+                    (value.r, value.g, value.b, value.a), axis=2)
             fig = px.imshow(img=img_combined)
         case 'ordered_pair':
             if plot_type:
                 fig = get_plot_fig_by_type(
-                    plot_type=plot_type, x=data.x, y=data.y)
+                    plot_type=plot_type, x=value.x, y=value.y)
             else:
-                fig = px.line(x=data.x, y=data.y)
+                fig = px.line(x=value.x, y=value.y)
         case 'ordered_triple':
             if plot_type:
                 fig = get_plot_fig_by_type(
-                    plot_type=plot_type, x=data.x, y=data.y, z=data.z)
+                    plot_type=plot_type, x=value.x, y=value.y, z=value.z)
             else:
-                fig = px.scatter_3d(x=data.x, y=data.y, z=data.z)
+                fig = px.scatter_3d(x=value.x, y=value.y, z=value.z)
         case 'scalar':
             if plot_type:
                 fig = get_plot_fig_by_type(
-                    plot_type=plot_type, x=data.c)  # x or y ?
+                    plot_type=plot_type, x=value.c)  # x or y ?
             else:
-                fig = px.histogram(x=data.c)
+                fig = px.histogram(x=value.c)
         case 'grayscale' | 'matrix' | 'dataframe':
             if plot_type:
-                fig = get_plot_fig_by_type(plot_type=plot_type, x=data.m)
+                fig = get_plot_fig_by_type(plot_type=plot_type, x=value.m)
             else:
-                fig = px.histogram(x=data.m)
+                fig = px.histogram(x=value.m)
+        case 'plotly':
+            fig = data.f
         case _:
             raise ValueError('Not supported DataContainer type!')
-
     return fig.to_dict()
 
 

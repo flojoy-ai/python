@@ -1,5 +1,12 @@
 from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
 from flojoy.plotly_utils import data_container_to_plotly
+from rq.job import Job
+from redis import Redis
+import os
+
+REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
+REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
+redis_connection = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
 def is_flow_controled(result):
     if FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS in result or FLOJOY_INSTRUCTION.FLOW_TO_NODES in result:
@@ -23,6 +30,12 @@ def get_data_container_output(result):
     if result.get(FLOJOY_INSTRUCTION.RESULT_FIELD):
         return result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]]
     return result
+
+def get_job_result(job_id: str):
+        job = Job.fetch(job_id, connection=Redis(
+            host=REDIS_HOST, port=REDIS_PORT))
+        result = get_data_container_output(job.result)
+        return result
     
 
 
@@ -34,7 +47,6 @@ def get_data(result):
             'result': result
         }
     if result.get(FLOJOY_INSTRUCTION.DATACONTAINER_FIELD): # to_plot is used
-        # output = result[result[FLOJOY_INSTRUCTION.DATACONTAINER_FIELD]]
         data = result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]] # already processed for plotly
         return {
             'output': result,

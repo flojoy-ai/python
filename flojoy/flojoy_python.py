@@ -42,9 +42,9 @@ class DataContainer(Box):
 
     '''
     allowed_types = ['grayscale', 'matrix', 'dataframe',
-                     'image', 'ordered_pair', 'ordered_triple', 'scalar']
+                     'image', 'ordered_pair', 'ordered_triple', 'scalar', 'plotly']
     allowed_keys = ['x', 'y', 'z', 't', 'm',
-                    'c', 'r', 'g', 'b', 'a']
+                    'c', 'r', 'g', 'b', 'a','f']
     combinations = {
         'x': ['y', 't', 'z'],
         'y': ['x', 't', 'z'],
@@ -56,6 +56,7 @@ class DataContainer(Box):
         'g': ['r', 'b', 't', 'a'],
         'b': ['r', 'g', 't', 'a'],
         'a': ['r', 'g', 'b', 't'],
+        'f': []
     }
 
     def _ndarrayify(self, value):
@@ -118,6 +119,12 @@ class DataContainer(Box):
                         f'c key must be provided for type "{data_type}"')
                 else:
                     self['c'] = kwargs['c']
+            case 'plotly':
+                if 'f' not in kwargs:
+                    raise KeyError(
+                        f'f key must be provided for type "{data_type}"')
+                else:
+                    self['f'] = kwargs['f']
             case _:
                 if data_type.startswith('parametric_'):
                     if 't' not in kwargs:
@@ -155,6 +162,9 @@ class DataContainer(Box):
             case 'scalar':
                 if key not in ['c']:
                     raise KeyError(self.build_error_text(key, data_type))
+            case 'plotly':
+                if key not in ['f']:
+                    raise KeyError(self.build_error_text(key, data_type))
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
         if data_type not in self.allowed_types and data_type.startswith('parametric_'):
@@ -189,7 +199,8 @@ class DataContainer(Box):
             self.validate_key(data_type, key)
             if isType:
                 return
-            super().__setitem__(key, self._ndarrayify(value))
+            formatted_value = self._ndarrayify(value) if data_type != 'plotly' else value
+            super().__setitem__(key, formatted_value)
         else:
             raise ValueError(
                 f'Invalid data type "{data_type}"')
@@ -233,7 +244,8 @@ class DataContainer(Box):
                         super().__setitem__(key, value)
                         return
                 else:
-                    super().__setitem__(key, self._ndarrayify(value))
+                    formatted_value = self._ndarrayify(value) if key != 'f' else value
+                    super().__setitem__(key, formatted_value)
                     return
         else:
             has_any_key = False

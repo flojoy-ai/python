@@ -1,14 +1,17 @@
 from flojoy import DataContainer
 import numpy as np
-
+from typing import TypedDict
 from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
-from flojoy.plotly_utils import data_container_to_plotly, get_plot_fig_by_type
+from flojoy.plotly_utils import data_container_to_plotly
+from plotly.graph_objects import Figure
 
 
 class JobResultBuilder:
 
+
     def __init__(self) -> None:
-        self.data = self.instructions = None
+        self.instructions = None
+        self.data = self.get_default_data()
 
     def _add_instructions(self, instruction):
         self.instructions = self.instructions if self.instructions is not None else {}
@@ -20,12 +23,7 @@ class JobResultBuilder:
     def from_inputs(self, inputs: list[DataContainer]):
         # if no inputs were provided, construct fake output
         if len(inputs) == 0:
-            x = list()
-            for i in range(1000):
-                x.append(i)
-            y = np.full(1000, 1)
-
-            self.data = DataContainer(x=x, y=y)
+            self.data = self.get_default_data()
         else:
             self.data = inputs[0]
 
@@ -68,15 +66,21 @@ class JobResultBuilder:
                 'data': result,
             }
         return result
-
-    def to_plot(self, plot_type: str, **kwargs):
+    class To_plot_args(TypedDict):
+        plot_type: str
+        fig: Figure
+        data_container_plotly: DataContainer
+        
+    def to_plot(self, args: To_plot_args):
         if not self.instructions:
             self.instructions = {}
-        if len(kwargs.items()) == 0:
-            output = data_container_to_plotly(self.data, plot_type=plot_type)
-        else:
-            fig = get_plot_fig_by_type(plot_type=plot_type, **kwargs)
+        if args.get('fig', None) is not None:
+            fig = args['fig'] # get_plot_fig_by_type(plot_type=plot_type, **kwargs)
             output = fig.to_dict()
+        elif args.get('data_container_plotly',None) is not None:
+            output = data_container_to_plotly(args['data_container_plotly'], None)
+        else:
+            output = data_container_to_plotly(self.data, plot_type=args['plot_type'])
 
         return {
             **self.instructions,
@@ -85,3 +89,7 @@ class JobResultBuilder:
             FLOJOY_INSTRUCTION.RESULT_FIELD: 'data',
             'data': output
         }
+    def get_default_data(self):
+        x = np.arange(0,1000,1)
+        y = np.ones_like(x)
+        return DataContainer(x=x, y=y)
