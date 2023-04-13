@@ -66,29 +66,7 @@ class JobResultBuilder:
                 'data': result,
             }
         return result
-    class To_plot_args(TypedDict):
-        plot_type: str
-        fig: Figure
-        data_container_plotly: DataContainer
-        
-    def to_plot(self, args: To_plot_args):
-        if not self.instructions:
-            self.instructions = {}
-        if args.get('fig', None) is not None:
-            fig = args['fig'] # get_plot_fig_by_type(plot_type=plot_type, **kwargs)
-            output = fig.to_dict()
-        elif args.get('data_container_plotly',None) is not None:
-            output = data_container_to_plotly(args['data_container_plotly'], None)
-        else:
-            output = data_container_to_plotly(self.data, plot_type=args['plot_type'])
 
-        return {
-            **self.instructions,
-            FLOJOY_INSTRUCTION.DATACONTAINER_FIELD: 'result',
-            'result': self.data,
-            FLOJOY_INSTRUCTION.RESULT_FIELD: 'data',
-            'data': output
-        }
     def get_default_data(self):
         x = np.arange(0,1000,1)
         y = np.ones_like(x)

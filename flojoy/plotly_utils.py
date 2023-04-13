@@ -1,11 +1,8 @@
 import plotly.express as px
 import numpy as np
 
-dtypes = ['grayscale', 'matrix', 'dataframe',
-          'image', 'ordered_pair', 'ordered_triple', 'scalar']
 
-
-def data_container_to_plotly(data:dict, plot_type=None):
+def data_container_to_plotly(data: dict):
     value = data.copy()
     d_type = value.type
     fig = {}
@@ -15,7 +12,7 @@ def data_container_to_plotly(data:dict, plot_type=None):
         #     value.x.append(v)
         dict_keys = list(value.x.keys())
         value.x = value.x[dict_keys[0]]
-        
+
     match d_type:
         case 'image':
             if value.a is None:
@@ -25,47 +22,15 @@ def data_container_to_plotly(data:dict, plot_type=None):
                     (value.r, value.g, value.b, value.a), axis=2)
             fig = px.imshow(img=img_combined)
         case 'ordered_pair':
-            if plot_type:
-                fig = get_plot_fig_by_type(
-                    plot_type=plot_type, x=value.x, y=value.y)
-            else:
-                fig = px.line(x=value.x, y=value.y)
+            fig = px.line(x=value.x, y=value.y)
         case 'ordered_triple':
-            if plot_type:
-                fig = get_plot_fig_by_type(
-                    plot_type=plot_type, x=value.x, y=value.y, z=value.z)
-            else:
-                fig = px.scatter_3d(x=value.x, y=value.y, z=value.z)
+            fig = px.scatter_3d(x=value.x, y=value.y, z=value.z)
         case 'scalar':
-            if plot_type:
-                fig = get_plot_fig_by_type(
-                    plot_type=plot_type, x=value.c)  # x or y ?
-            else:
-                fig = px.histogram(x=value.c)
+            fig = px.histogram(x=value.c)
         case 'grayscale' | 'matrix' | 'dataframe':
-            if plot_type:
-                fig = get_plot_fig_by_type(plot_type=plot_type, x=value.m)
-            else:
-                fig = px.histogram(x=value.m)
+            fig = px.histogram(x=value.m)
         case 'plotly':
-            fig = data.f
+            fig = data.fig
         case _:
             raise ValueError('Not supported DataContainer type!')
     return fig.to_dict()
-
-
-def get_plot_fig_by_type(plot_type, **kwargs):
-    match plot_type:
-        case 'bar':
-            fig = px.bar(**kwargs)
-        case 'histogram':
-            fig = px.histogram(**kwargs)
-        case 'scatter':
-            fig = px.scatter(**kwargs)
-        case 'scatter_3d':
-            fig = px.scatter_3d(**kwargs)
-        case 'image':
-            fig = px.imshow(**kwargs)
-        case _:
-            fig = px.line(**kwargs)
-    return fig
