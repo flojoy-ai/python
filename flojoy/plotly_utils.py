@@ -22,6 +22,8 @@ def data_container_to_plotly(data: dict):
                     (value.r, value.g, value.b, value.a), axis=2)
             fig = px.imshow(img=img_combined)
         case 'ordered_pair':
+            if len(value.x) != len(value.y):
+                value.x = np.arange(0, len(value.y), 1)
             fig = px.line(x=value.x, y=value.y)
         case 'ordered_triple':
             fig = px.scatter_3d(x=value.x, y=value.y, z=value.z)
