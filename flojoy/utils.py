@@ -171,3 +171,8 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
 
 class NotEncodable(Exception):
     pass
+
+
+def dump_str(result, limit=None):
+    result_str = str(result)
+    return result_str if limit is None or len(result_str) <= limit else result_str[:limit] + '...'

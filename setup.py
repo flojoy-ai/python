@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
     name='flojoy',
     packages=['flojoy'],
-    version='0.1.3-dev',
+    version='0.2.1-dev',
     license='MIT',
     description='Python client library for Flojoy.',
     author='flojoy',

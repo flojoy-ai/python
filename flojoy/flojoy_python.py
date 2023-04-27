@@ -10,20 +10,13 @@ from redis import Redis
 from rq.job import Job
 import os
 from functools import wraps
-from .utils import PlotlyJSONEncoder
+from .utils import PlotlyJSONEncoder, dump_str
 import requests
 from dotenv import dotenv_values
+from .job_result_utils import get_data
 
 
-def get_port():
-    try:
-        p = dotenv_values()['REACT_APP_BACKEND_PORT']
-    except:
-        p = '8000'
-    return p
-
-
-port = get_port()
+port = dotenv_values().get('REACT_APP_BACKEND_PORT', '8000')
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
@@ -51,7 +44,8 @@ class DataContainer(Box):
     allowed_types = ['grayscale', 'matrix', 'dataframe',
                      'image', 'ordered_pair', 'ordered_triple', 'scalar',
                      'file']
-    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b', 'a', 'file_type']
+    allowed_keys = ['x', 'y', 'z', 't', 'm',
+                    'c', 'r', 'g', 'b', 'a', 'file_type']
     combinations = {
         'x': ['y', 't', 'z'],
         'y': ['x', 't', 'z', 'file_type'],
@@ -91,13 +85,13 @@ class DataContainer(Box):
             case 'grayscale' | 'matrix' | 'dataframe':
                 if 'm' not in kwargs:
                     raise KeyError(
-                        'm key must be provided for type "{}"'.format(data_type))
+                        f'm key must be provided for type "{data_type}"')
                 else:
                     self['m'] = kwargs['m']
             case 'image':
                 if 'r' and 'g' and 'b' and 'a' not in kwargs:
                     raise KeyError(
-                        'r g b a keys must be provided for type "{}"'.format(data_type))
+                        f'r g b a keys must be provided for type "{data_type}"')
                 else:
                     self['r'] = kwargs['r']
                     self['g'] = kwargs['g']
@@ -106,14 +100,14 @@ class DataContainer(Box):
             case 'ordered_pair':
                 if 'x' and 'y' not in kwargs.keys():
                     raise KeyError(
-                        'x and y keys must be provided for "{}"'.format(data_type))
+                        f'x and y keys must be provided for "{data_type}"')
                 else:
                     self['x'] = kwargs['x']
                     self['y'] = kwargs['y']
             case 'ordered_triple':
                 if 'x' and 'y' and 'z' not in kwargs:
                     raise KeyError(
-                        'x, y and z keys must be provided for "{}"'.format(data_type))
+                        f'x, y and z keys must be provided for "{data_type}"')
                 else:
                     self['x'] = kwargs['x']
                     self['y'] = kwargs['y']
@@ -121,13 +115,13 @@ class DataContainer(Box):
             case 'scalar':
                 if 'c' not in kwargs:
                     raise KeyError(
-                        'c key must be provided for type "{}"'.format(data_type))
+                        f'c key must be provided for type "{data_type}"')
                 else:
                     self['c'] = kwargs['c']
             case 'file':
                 if 'file_type' not in kwargs:
                     raise KeyError(
-                        'file_type key must be provided for type "{}"'.format(data_type))
+                        f'file_type key must be provided for type "{data_type}"')
                 else:
                     self['file_type'] = kwargs['file_type']
                     self['y'] = kwargs['y']
@@ -135,7 +129,7 @@ class DataContainer(Box):
                 if data_type.startswith('parametric_'):
                     if 't' not in kwargs:
                         raise KeyError(
-                            't key must be provided for "{}"'.format(data_type))
+                            f't key must be provided for "{data_type}"')
                     self['t'] = kwargs['t']
                     t = kwargs['t']
                     is_ascending_order = all(
@@ -148,7 +142,7 @@ class DataContainer(Box):
                     self.init_data(parametric_data_type, kwargs)
                 else:
                     raise ValueError(
-                        'Invalid data type "{}"'.format(data_type))
+                        f'Invalid data type "{data_type}"')
 
 # This function compares data type with the provided key and assigns it to class attribute if matches
     def validate_key(self, data_type, key):
@@ -170,14 +164,14 @@ class DataContainer(Box):
                     raise KeyError(self.build_error_text(key, data_type))
             case 'file':
                 if key not in ['y', 'file_type']:
-                    raise KeyError(self.build_error_text(key, data_type))                    
+                    raise KeyError(self.build_error_text(key, data_type))
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
         if data_type not in self.allowed_types and data_type.startswith('parametric_'):
             if 't' not in self:
                 if key != 't':
                     raise KeyError(
-                        't key must be provided for "{}"'.format(data_type))
+                        f't key must be provided for "{data_type}"')
                 is_ascending_order = all(
                     value[i] <= value[i+1] for i in range(len(value) - 1))
                 if is_ascending_order is not True:
@@ -208,7 +202,7 @@ class DataContainer(Box):
             super().__setitem__(key, self._ndarrayify(value))
         else:
             raise ValueError(
-                'Invalid data type "{}"'.format(data_type))
+                f'Invalid data type "{data_type}"')
 
     def __init__(self, **kwargs):
         if 'type' in kwargs:
@@ -223,7 +217,7 @@ class DataContainer(Box):
     def check_combination(self, key, keys, allowed_keys):
         for i in keys:
             if i not in allowed_keys:
-                raise ValueError('You cant have %s with %s' % (key, i))
+                raise ValueError(f'You cant have {key} with {i}')
 
 # This function is called when a attribute is assigning to this class
     def __setitem__(self, key, value):
@@ -264,7 +258,7 @@ class DataContainer(Box):
             super().__setitem__(key, value)
 
     def build_error_text(self, key: str, data_type: str):
-        return 'Invalid key "%s" provided for data type "%s"' % (key, data_type)
+        return f'Invalid key "{key}" provided for data type "{data_type}"'
 
 
 def get_flojoy_root_dir():
@@ -318,13 +312,25 @@ def fetch_inputs(previous_job_ids, mock=False):
         return [DataContainer(x=np.linspace(0, 10, 100))]
 
     inputs = []
+    redis_connection = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
     try:
-        for ea in previous_job_ids:
-            job = Job.fetch(ea, connection=Redis(
-                host=REDIS_HOST, port=REDIS_PORT))
+        for prev_job_id in previous_job_ids:
+            print('fetching input from prev job id:', prev_job_id)
+            # first_run_id = prev_job_id + "___1"
+            # job = Job.fetch(first_run_id, connection=redis_connection)
+            job = Job.fetch(prev_job_id, connection=redis_connection)
 
-            inputs.append(job.result)
+            # meta = job.get_meta()
+            # latest_run = meta.get('run', 1)
+
+            # if latest_run != 1:
+            #     job = Job.fetch(prev_job_id + '___' + str(latest_run), redis_connection)
+
+            result = get_data(job.result)
+            print('fetch input from prev job id:', prev_job_id,
+                  ' result:', dump_str(result, limit=100))
+            inputs.append(result)
     except Exception:
         print(traceback.format_exc())
 
@@ -337,116 +343,9 @@ def get_redis_obj(id):
     return parse_obj
 
 
-def handle_loop_params(result, jobset_id):
-
-    data = result['data']
-    initial_value = result['params']['initial_value']
-    total_iterations = result['params']['total_iterations']
-    current_iteration = result['params']['current_iteration']
-    step = result['params']['step']
-    verdict = result['verdict']
-
-    r_obj = get_redis_obj(jobset_id)
-    if len(r_obj):
-        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {
-        }
-        loop_jobs = {
-            "status": verdict,
-            "is_loop_body_execution_finished": False,
-            "params": {
-                "initial_value": initial_value,
-                "total_iterations": total_iterations,
-                "current_iteration": current_iteration,
-                "step": step
-            }
-        }
-        r.set(jobset_id, json.dumps({
-            **r_obj,
-            'SPECIAL_TYPE_JOBS': {
-                **special_type_jobs,
-                'LOOP': loop_jobs,
-            }
-        }))
-    return data, {
-        "status": verdict,
-        "current_iteration": current_iteration
-    }
-
-
-def handle_conditional_params(result, jobset_id):
-    data = result['data']
-    direction = result['direction']
-    r_obj = get_redis_obj(jobset_id)
-
-    if len(r_obj):
-        special_type_jobs = r_obj['SPECIAL_TYPE_JOBS'] if 'SPECIAL_TYPE_JOBS' in r_obj else {
-        }
-        conditional_jobs = {
-            "direction": bool(direction)
-        }
-
-        r.set(jobset_id, json.dumps({
-            **r_obj,
-            'SPECIAL_TYPE_JOBS': {
-                **special_type_jobs,
-                'CONDITIONAL': conditional_jobs
-            }
-        }))
-
-    return data
-
-
-def check_if_loop_exists(params, jobset_id):
-    r_obj = get_redis_obj(jobset_id)
-
-    print(r_obj)
-
-    check_special_type_job_status = True if 'SPECIAL_TYPE_JOBS' in r_obj else False
-
-    loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False) and \
-        (True if r_obj['SPECIAL_TYPE_JOBS']['LOOP']
-         ['status'] == 'ongoing' else False)
-
-    conditional_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-        (True if 'CONDITIONAL' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-        (True if 'type' in r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL'] else False) and \
-        r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
-
-    # conditional_status = conditional_status and r_obj['SPECIAL_TYPE_JOBS']['CONDITIONAL']['type'] == 'default'
-
-    print("loop status: ", loop_status)
-    print("conditional status: ", conditional_status)
-
-    if loop_status and not conditional_status:
-
-        params['loop_current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['initial_value']
-        params['loop_total_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['total_iterations']
-        params['loop_step'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['step']
-        params['type'] = 'loop'
-        params['current_iteration'] = r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
-
-    return params
-
-
-def get_additional_info(jobset_id):
-    r_obj = get_redis_obj(jobset_id)
-    loop_status = (True if 'SPECIAL_TYPE_JOBS' in r_obj else False) and \
-        (True if 'LOOP' in r_obj['SPECIAL_TYPE_JOBS'] else False) and \
-        (True if 'status' in r_obj['SPECIAL_TYPE_JOBS']['LOOP'] else False)
-
-    if loop_status:
-        return {
-            'status': r_obj['SPECIAL_TYPE_JOBS']['LOOP']['status'],
-            "current_iteration": r_obj['SPECIAL_TYPE_JOBS']['LOOP']['params']['current_iteration']
-        }
-    return {}
-
-
 def send_to_socket(data):
     requests.post(
-        'http://{}:{}/worker_response'.format(BACKEND_HOST, port), json=data)
+        f'http://{BACKEND_HOST}:{port}/worker_response', json=data)
 
 
 def flojoy(func):
@@ -493,15 +392,14 @@ def flojoy(func):
     def wrapper(*args, **kwargs):
         try:
             previous_job_ids, mock = {}, False
-            if 'previous_job_ids' in kwargs:
-                previous_job_ids = kwargs['previous_job_ids']
-            if 'ctrls' in kwargs:
-                ctrls = kwargs['ctrls']
-            node_id = kwargs['node_id']
-            jobset_id = kwargs['jobset_id']
+            previous_job_ids = kwargs.get('previous_job_ids', [])
+            ctrls = kwargs.get('ctrls', None)
+            node_id = kwargs.get('node_id')
+            job_id = kwargs.get('job_id')
+            jobset_id = kwargs.get('jobset_id')
             FN = func.__name__
             # remove this node from redis ALL_NODES key
-            r.lrem(jobset_id+'_ALL_NODES', 1, node_id)
+            r.lrem(jobset_id+'_ALL_NODES', 1, job_id)
             sys_status = '🏃‍♀️ Running python job: ' + FN
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': sys_status,
@@ -529,44 +427,45 @@ def flojoy(func):
 
             func_params['jobset_id'] = jobset_id
             func_params['type'] = 'default'
+            func_params['node_id'] = node_id
+            func_params['job_id'] = job_id
 
-            if FN == 'CONDITIONAL':
-                func_params = check_if_loop_exists(func_params, jobset_id)
+            # if FN == 'CONDITIONAL':
+            #     func_params = check_if_loop_exists(func_params, jobset_id)
 
+            print('executing node_id:', node_id,
+                  'previous_job_ids:', previous_job_ids)
+            print(node_id, ' params: ', json.dumps(func_params, indent=2))
             node_inputs = fetch_inputs(previous_job_ids, mock)
             result = func(node_inputs, func_params)
-
-            additional_info = get_additional_info(jobset_id)
-
-            if 'type' in result and result['type'] == 'LOOP':
-                result, additional_info = handle_loop_params(result, jobset_id)
-
-            if 'type' in result and result['type'] == 'CONDITIONAL':
-                result = handle_conditional_params(result, jobset_id)
+            result_data = get_data(result)
 
             send_to_socket(json.dumps({
                 'NODE_RESULTS': {
                     'cmd': FN,
                     'id': node_id,
-                    'result': result,
-                    'additional_info': additional_info
+                    'result': result_data,
                 },
                 'jobsetId': jobset_id
             }, cls=PlotlyJSONEncoder))
-            all_nodes_length = r.llen(jobset_id + '_ALL_NODES')
-            if all_nodes_length == 0:
+
+            if func.__name__ == 'END':
                 send_to_socket(json.dumps({
                     'SYSTEM_STATUS': '🤙 python script run successful',
                     'RUNNING_NODE': '',
                     'jobsetId': jobset_id
                 }))
+
+            print('final result:', dump_str(result, limit=100))
+
             return result
-        except Exception:
+        except:
             send_to_socket(json.dumps({
                 'SYSTEM_STATUS': 'Failed to run: ' + func.__name__,
                 'FAILED_NODES': node_id,
                 'jobsetId': jobset_id
             }))
+            print('error occured while running the node')
             print(traceback.format_exc())
             raise
 
@@ -634,12 +533,54 @@ def reactflow_to_networkx(elems, edges):
     nx.set_node_attributes(DG, labels, 'cmd')
     nx.draw(DG, pos, with_labels=True, labels=labels)
 
-    def get_node_data_by_id():
-        nodes_by_id = dict()
-        for n, nd in DG.nodes().items():
-            if n is not None:
-                nodes_by_id[n] = nd
-        return nodes_by_id
-    sort = nx.topological_sort(DG)
+    node_by_serial = get_dict_node_by_serial(DG)
+    node_serial_by_id = get_dict_node_serial_by_id(DG)
+    node_id_by_serial = get_dict_id_by_serial(DG)
+    node_by_id = get_dict_node_by_id(DG)
 
-    return {'topological_sort': sort, 'getNode': get_node_data_by_id, 'DG': DG, 'edgeInfo': edge_label_dict}
+    sorted_node_serials = list(nx.topological_sort(DG))
+    sorted_job_ids = list(
+        map(lambda serial: node_id_by_serial[serial], sorted_node_serials))
+
+    return {
+        'sorted_node_serials': sorted_node_serials,
+        'sorted_job_ids': sorted_job_ids,
+        'node_by_serial': node_by_serial,
+        'node_serial_by_id': node_serial_by_id,
+        'node_id_by_serial': node_id_by_serial,
+        'node_by_id': node_by_id,
+        'DG': DG,
+        'edgeInfo': edge_label_dict
+    }
+
+
+def get_dict_node_by_serial(DG):
+    nodes_by_serial = dict()
+    for n, nd in DG.nodes().items():
+        if n is not None:
+            nodes_by_serial[n] = nd
+    return nodes_by_serial
+
+
+def get_dict_node_serial_by_id(DG):
+    node_serial_by_id = dict()
+    for n, nd in DG.nodes().items():
+        if nd is not None:
+            node_serial_by_id[nd['id']] = n
+    return node_serial_by_id
+
+
+def get_dict_id_by_serial(DG):
+    node_id_by_serial = dict()
+    for n, nd in DG.nodes().items():
+        if nd is not None:
+            node_id_by_serial[n] = nd['id']
+    return node_id_by_serial
+
+
+def get_dict_node_by_id(DG):
+    nodes_by_id = dict()
+    for _, nd in DG.nodes().items():
+        if nd is not None:
+            nodes_by_id[nd['id']] = nd
+    return nodes_by_id
