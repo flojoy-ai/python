@@ -13,10 +13,13 @@ from functools import wraps
 from .utils import PlotlyJSONEncoder, dump_str
 import requests
 from dotenv import dotenv_values
-from .job_result_utils import get_data
+from .job_result_utils import get_result, get_data_container_obj
 
+env_vars = dotenv_values('../.env')
 
-port = dotenv_values().get('REACT_APP_BACKEND_PORT', '8000')
+print('env vars:', json.dumps(env_vars, indent=2))
+
+port = env_vars.get('REACT_APP_BACKEND_PORT', '8000')
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
@@ -42,22 +45,21 @@ class DataContainer(Box):
 
     '''
     allowed_types = ['grayscale', 'matrix', 'dataframe',
-                     'image', 'ordered_pair', 'ordered_triple', 'scalar',
-                     'file']
+                     'image', 'ordered_pair', 'ordered_triple', 'scalar', 'plotly']
     allowed_keys = ['x', 'y', 'z', 't', 'm',
-                    'c', 'r', 'g', 'b', 'a', 'file_type']
+                    'c', 'r', 'g', 'b', 'a','fig']
     combinations = {
         'x': ['y', 't', 'z'],
-        'y': ['x', 't', 'z', 'file_type'],
+        'y': ['x', 't', 'z'],
         'z': ['x', 'y', 't'],
         'c': ['t'],
         'm': ['t'],
-        't':  [value for value in allowed_keys if value not in ['t']],
+        't':  [*(value for value in allowed_keys if value not in ['t'])],
         'r': ['g', 'b', 't', 'a'],
         'g': ['r', 'b', 't', 'a'],
         'b': ['r', 'g', 't', 'a'],
         'a': ['r', 'g', 'b', 't'],
-        'file_type': ['y']
+        'fig': [*(k for k in allowed_keys if k not in ['fig'])]
     }
 
     def _ndarrayify(self, value):
@@ -74,6 +76,8 @@ class DataContainer(Box):
                     value[k] = self._ndarrayify(v)
             case 'numpy.ndarray':
                 pass
+            case 'pandas.core.frame.DataFrame':
+                value = value.to_numpy()
             case 'NoneType':
                 pass
             case _:
@@ -118,13 +122,14 @@ class DataContainer(Box):
                         f'c key must be provided for type "{data_type}"')
                 else:
                     self['c'] = kwargs['c']
-            case 'file':
-                if 'file_type' not in kwargs:
+            case 'plotly':
+                if 'fig' not in kwargs:
                     raise KeyError(
-                        f'file_type key must be provided for type "{data_type}"')
+                        f'f key must be provided for type "{data_type}"')
                 else:
-                    self['file_type'] = kwargs['file_type']
-                    self['y'] = kwargs['y']
+                    for k, value in kwargs.items():
+                        self[k] = value
+                    
             case _:
                 if data_type.startswith('parametric_'):
                     if 't' not in kwargs:
@@ -162,8 +167,8 @@ class DataContainer(Box):
             case 'scalar':
                 if key not in ['c']:
                     raise KeyError(self.build_error_text(key, data_type))
-            case 'file':
-                if key not in ['y', 'file_type']:
+            case 'plotly':
+                if key not in ['fig', *(k for k in self.combinations['fig'])]:
                     raise KeyError(self.build_error_text(key, data_type))
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
@@ -199,7 +204,8 @@ class DataContainer(Box):
             self.validate_key(data_type, key)
             if isType:
                 return
-            super().__setitem__(key, self._ndarrayify(value))
+            formatted_value = self._ndarrayify(value) if key != 'fig' else value
+            super().__setitem__(key, formatted_value)
         else:
             raise ValueError(
                 f'Invalid data type "{data_type}"')
@@ -243,7 +249,8 @@ class DataContainer(Box):
                         super().__setitem__(key, value)
                         return
                 else:
-                    super().__setitem__(key, self._ndarrayify(value))
+                    formatted_value = self._ndarrayify(value) if key != 'fig' else value
+                    super().__setitem__(key, formatted_value)
                     return
         else:
             has_any_key = False
@@ -317,17 +324,8 @@ def fetch_inputs(previous_job_ids, mock=False):
     try:
         for prev_job_id in previous_job_ids:
             print('fetching input from prev job id:', prev_job_id)
-            # first_run_id = prev_job_id + "___1"
-            # job = Job.fetch(first_run_id, connection=redis_connection)
             job = Job.fetch(prev_job_id, connection=redis_connection)
-
-            # meta = job.get_meta()
-            # latest_run = meta.get('run', 1)
-
-            # if latest_run != 1:
-            #     job = Job.fetch(prev_job_id + '___' + str(latest_run), redis_connection)
-
-            result = get_data(job.result)
+            result = get_data_container_obj(job.result)
             print('fetch input from prev job id:', prev_job_id,
                   ' result:', dump_str(result, limit=100))
             inputs.append(result)
@@ -344,6 +342,7 @@ def get_redis_obj(id):
 
 
 def send_to_socket(data):
+    print('posting data to socket:', f'http://{BACKEND_HOST}:{port}/worker_response')
     requests.post(
         f'http://{BACKEND_HOST}:{port}/worker_response', json=data)
 
@@ -430,21 +429,20 @@ def flojoy(func):
             func_params['node_id'] = node_id
             func_params['job_id'] = job_id
 
-            # if FN == 'CONDITIONAL':
-            #     func_params = check_if_loop_exists(func_params, jobset_id)
-
             print('executing node_id:', node_id,
                   'previous_job_ids:', previous_job_ids)
             print(node_id, ' params: ', json.dumps(func_params, indent=2))
             node_inputs = fetch_inputs(previous_job_ids, mock)
-            result = func(node_inputs, func_params)
-            result_data = get_data(result)
-
+            
+            # running the node
+            dt_obj = func(node_inputs, func_params) # DataContainer object from node
+            
+            result = get_result(dt_obj)
             send_to_socket(json.dumps({
                 'NODE_RESULTS': {
                     'cmd': FN,
                     'id': node_id,
-                    'result': result_data,
+                    'result': result,
                 },
                 'jobsetId': jobset_id
             }, cls=PlotlyJSONEncoder))
@@ -457,12 +455,12 @@ def flojoy(func):
                 }))
 
             print('final result:', dump_str(result, limit=100))
-
             return result
-        except:
+        except Exception as e:
             send_to_socket(json.dumps({
-                'SYSTEM_STATUS': 'Failed to run: ' + func.__name__,
+                'SYSTEM_STATUS': f'Failed to run: {func.__name__}',
                 'FAILED_NODES': node_id,
+                'FAILURE_REASON': e.args[0],
                 'jobsetId': jobset_id
             }))
             print('error occured while running the node')

@@ -1,8 +1,8 @@
-from distutils.core import setup
+from setuptools import setup
 setup(
     name='flojoy',
     packages=['flojoy'],
-    version='0.2.1-dev',
+    version='0.2.2.dev7',
     license='MIT',
     description='Python client library for Flojoy.',
     author='flojoy',
@@ -18,7 +18,8 @@ setup(
         'rq',
         'scipy',
         'pytest',
-        'python-dotenv'
+        'python-dotenv',
+        'plotly==5.8.2'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
