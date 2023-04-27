@@ -49,11 +49,12 @@ class DataContainer(Box):
 
     '''
     allowed_types = ['grayscale', 'matrix', 'dataframe',
-                     'image', 'ordered_pair', 'ordered_triple', 'scalar']
-    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b', 'a']
+                     'image', 'ordered_pair', 'ordered_triple', 'scalar',
+                     'file']
+    allowed_keys = ['x', 'y', 'z', 't', 'm', 'c', 'r', 'g', 'b', 'a', 'file_type']
     combinations = {
         'x': ['y', 't', 'z'],
-        'y': ['x', 't', 'z'],
+        'y': ['x', 't', 'z', 'file_type'],
         'z': ['x', 'y', 't'],
         'c': ['t'],
         'm': ['t'],
@@ -61,7 +62,8 @@ class DataContainer(Box):
         'r': ['g', 'b', 't', 'a'],
         'g': ['r', 'b', 't', 'a'],
         'b': ['r', 'g', 't', 'a'],
-        'a': ['r', 'g', 'b', 't']
+        'a': ['r', 'g', 'b', 't'],
+        'file_type': ['y']
     }
 
     def _ndarrayify(self, value):
@@ -122,6 +124,13 @@ class DataContainer(Box):
                         'c key must be provided for type "{}"'.format(data_type))
                 else:
                     self['c'] = kwargs['c']
+            case 'file':
+                if 'file_type' not in kwargs:
+                    raise KeyError(
+                        'file_type key must be provided for type "{}"'.format(data_type))
+                else:
+                    self['file_type'] = kwargs['file_type']
+                    self['y'] = kwargs['y']
             case _:
                 if data_type.startswith('parametric_'):
                     if 't' not in kwargs:
@@ -159,6 +168,9 @@ class DataContainer(Box):
             case 'scalar':
                 if key not in ['c']:
                     raise KeyError(self.build_error_text(key, data_type))
+            case 'file':
+                if key not in ['y', 'file_type']:
+                    raise KeyError(self.build_error_text(key, data_type))                    
 
     def set_data(self, data_type: str, key: str, value, isType: bool):
         if data_type not in self.allowed_types and data_type.startswith('parametric_'):
@@ -564,19 +576,18 @@ def flojoy(func):
     return wrapper
 
 
-def reactflow_to_networkx(elems):
+def reactflow_to_networkx(elems, edges):
     DG = nx.DiGraph()
     for i in range(len(elems)):
         el = elems[i]
-        if 'source' not in el:
-            data = el['data']
-            ctrls = data['ctrls'] if 'ctrls' in data else {}
-            inputs = data['inputs'] if 'inputs' in data else {}
-            label = data['label'] if 'label' in data else {}
-            DG.add_node(
-                i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs=inputs, label=label)
-            elems[i]['index'] = i+1
-            elems[i]['label'] = el['id'].split('-')[0]
+        data = el['data']
+        ctrls = data['ctrls'] if 'ctrls' in data else {}
+        inputs = data['inputs'] if 'inputs' in data else {}
+        label = data['label'] if 'label' in data else {}
+        DG.add_node(
+            i+1, pos=(el['position']['x'], el['position']['y']), id=el['id'], ctrls=ctrls, inputs=inputs, label=label)
+        elems[i]['index'] = i+1
+        elems[i]['label'] = el['id'].split('-')[0]
     pos = nx.get_node_attributes(DG, 'pos')
 
     # Add edges to networkx directed graph
@@ -606,20 +617,19 @@ def reactflow_to_networkx(elems):
                     e[1] = el['index']
         return tuple(e)
 
-    for i in range(len(elems)):
-        el = elems[i]
-        if 'source' in el:
-            # element is an edge
-            e = get_tuple(el)
-            DG.add_edge(*e)
+    for i in range(len(edges)):
+        el = edges[i]
+
+        # element is an edge
+        e = get_tuple(el)
+        DG.add_edge(*e)
     # Add labels (commands) to networkx nodes
 
     labels = {}
 
     for el in elems:
         # if element is not a node
-        if 'source' not in el:
-            labels[el['index']] = el['data']['func']
+        labels[el['index']] = el['data']['func']
 
     nx.set_node_attributes(DG, labels, 'cmd')
     nx.draw(DG, pos, with_labels=True, labels=labels)
