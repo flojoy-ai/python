@@ -15,8 +15,11 @@ import requests
 from dotenv import dotenv_values
 from .job_result_utils import get_result, get_data_container_obj
 
+env_vars = dotenv_values('../.env')
 
-port = dotenv_values().get('REACT_APP_BACKEND_PORT', '8000')
+print('env vars:', json.dumps(env_vars, indent=2))
+
+port = env_vars.get('REACT_APP_BACKEND_PORT', '8000')
 
 REDIS_HOST = os.environ.get('REDIS_HOST', 'localhost')
 REDIS_PORT = os.environ.get('REDIS_PORT', 6379)
@@ -339,6 +342,7 @@ def get_redis_obj(id):
 
 
 def send_to_socket(data):
+    print('posting data to socket:', f'http://{BACKEND_HOST}:{port}/worker_response')
     requests.post(
         f'http://{BACKEND_HOST}:{port}/worker_response', json=data)
 
@@ -429,7 +433,10 @@ def flojoy(func):
                   'previous_job_ids:', previous_job_ids)
             print(node_id, ' params: ', json.dumps(func_params, indent=2))
             node_inputs = fetch_inputs(previous_job_ids, mock)
+            
+            # running the node
             dt_obj = func(node_inputs, func_params) # DataContainer object from node
+            
             result = get_result(dt_obj)
             send_to_socket(json.dumps({
                 'NODE_RESULTS': {
