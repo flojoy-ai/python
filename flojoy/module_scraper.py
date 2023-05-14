@@ -26,7 +26,7 @@ class FlojoyWrapper:
         self.data += f"import {module.__name__}\n\n"
         self.data += f"@flojoy\ndef {self.name.upper()}(dc, params):\n\t"
         
-        self.manifest = "COMMAND:\n\t- {\n"
+        self.manifest = "COMMAND:\n\t- "
 
         self.process_docstring()
 
@@ -44,12 +44,12 @@ class FlojoyWrapper:
             ).replace("\tParameters", self.CUSTOM_DOC_ADDITION + "\n" + "\tParameters")
         )
 
-    def write_manifest(self):
-        self.manifest += "\t\t\tname: " + self.name + ",\n"
-        self.manifest += "\t\t\tkey: " + "TBD" + ",\n"
-        self.manifest += "\t\t\ttype: " + "TBD" + ",\n"
+    def write_manifest(self, mtype):
+        self.manifest += 'name: "' + self.name.lower().capitalize() + '"\n'
+        self.manifest += "\t\tkey: " + self.name.upper() + "\n"
+        self.manifest += "\t\ttype: " + mtype + "\n"
         if self.parameters.keys() is not []:
-            self.manifest += "\t\t\tparameters: \n\t\t\t{\n"
+            self.manifest += "\t\tparameters: \n\t\t"
             for param in self.parameters.keys():
                 if param not in self.FORBIDDEN_OPTIONAL_ARGS:
                     try:
@@ -57,19 +57,19 @@ class FlojoyWrapper:
                     except:
                         def_val = "None"
                     self.manifest += (
-                        f"\t\t\t\t{param}: "
-                        + "{"
-                        + "type: '"
+                        f"\t{param}: \n"
+                        + "\t\t\t\ttype: '"
                         + str(self.parameters[param]["dtype"])
-                        + "', default: "
+                        + "'\n\t\t\t\tdefault: "
                         + "'"
                         + ("" if def_val == "None" else def_val)
-                        + "' },\n"
+                        + "' \n\t\t"
                     )
 
-            self.manifest += "\t\t\t},\n\t}"
+            self.manifest += "\t\t\n"
+        self.manifest = self.manifest.replace("\t", "  ")
 
-    def write_wrapper(self):
+    def write_wrapper(self, mtype):
         if "callable" in self.doc:
             # print(
 			# 	"#CANNOT PROCESS ",
@@ -126,7 +126,7 @@ class FlojoyWrapper:
                 self.parameters[arg] = {"dtype": dtype, "optional": True}
                 self.data += "\t" if idk < len(self.arguments) - 1 else ""
         self.data += ")\n\t)\n\n"
-        self.write_manifest()
+        self.write_manifest(mtype)
 
     def __repr__(self):
         retval = f"#{self.name}, {self.parameters}\n"
@@ -153,37 +153,41 @@ if __name__ == "__main__":
     import scipy
     import ast 
 
-    MODULES_TO_SCRAPE = [scipy.signal, scipy.stats]
+    MODULES_TO_SCRAPE = {"scipy": [scipy.signal, scipy.stats]}
 
     CWD = os.getcwd()
-    MANIFEST_DIR = CWD / Path("manifest")
+    MANIFEST_DIR = CWD / Path("MANIFEST")
     MANIFEST_DIR.mkdir(exist_ok=True)
     invalids = []
     valids = []
-    for module in MODULES_TO_SCRAPE:
-        NODE_DIR = Path(CWD) / f"{module.__name__}"
-        NODE_DIR.mkdir(exist_ok=True)
+    for module in MODULES_TO_SCRAPE.keys():
+        MODULE_DIR = Path(CWD) / Path(f"{module.upper()}")
+        MODULE_DIR.mkdir(exist_ok=True)
+        for submodule in MODULES_TO_SCRAPE[module]:
+            submodule_name = submodule.__name__.split('.')[-1]
+            NODE_DIR = MODULE_DIR/ Path(f"{submodule_name}")
+            NODE_DIR.mkdir(exist_ok=True)
 
-        for name, func in inspect.getmembers(module, inspect.isfunction):
-            _, all_arg_names, default_optional_params = scrape_function(func)
-            if (all_arg_names[0] == "x" or all_arg_names[0] == "data") and (
-                "y" not in all_arg_names and "plot" not in all_arg_names
-            ):
-                fw = FlojoyWrapper(func, default_optional_params, module, all_arg_names)
-                fw.write_wrapper()
-                if fw.manifest != "" and fw.data != "" and "NoneType" not in fw.data:
-                    try:
-                        valid = ast.parse(fw.data)
-                        with open(NODE_DIR / f"{fw.name}.py", "w") as fh:
-                            fh.write(fw.data)
-                        with open(MANIFEST_DIR / f"{fw.name}.manifest.yaml", "w") as fh:
-                            fh.write(fw.manifest)
-                        valids.append(fw.name)
-                    except SyntaxError:
-                        invalids.append(fw.name)
-        with open(NODE_DIR/"__init__.py", "w") as fh:
-            functions = "__all__ = [" 
-            for name in valids:
-                functions += '"' + name.upper() + '", '
-            functions = functions[:-2] + "]\n"
-            fh.write(functions)
+            for name, func in inspect.getmembers(submodule, inspect.isfunction):
+                _, all_arg_names, default_optional_params = scrape_function(func)
+                if (all_arg_names[0] == "x" or all_arg_names[0] == "data") and (
+                    "y" not in all_arg_names and "plot" not in all_arg_names
+                ):
+                    fw = FlojoyWrapper(func, default_optional_params, submodule, all_arg_names)
+                    fw.write_wrapper(f"{module.upper()}_{submodule_name.upper()}")
+                    if fw.manifest != "" and fw.data != "" and "NoneType" not in fw.data:
+                        try:
+                            valid = ast.parse(fw.data)
+                            with open(NODE_DIR / f"{fw.name}.py", "w") as fh:
+                                fh.write(fw.data)
+                            with open(MANIFEST_DIR / f"{fw.name}.manifest.yaml", "w") as fh:
+                                fh.write(fw.manifest)
+                            valids.append(fw.name)
+                        except SyntaxError:
+                            invalids.append(fw.name)
+            with open(NODE_DIR/"__init__.py", "w") as fh:
+                functions = "__all__ = [" 
+                for name in valids:
+                    functions += '"' + name.upper() + '", '
+                functions = functions[:-2] + "]\n"
+                fh.write(functions)
