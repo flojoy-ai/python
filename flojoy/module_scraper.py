@@ -45,7 +45,7 @@ class FlojoyWrapper:
         )
 
     def write_manifest(self, mtype):
-        self.manifest += 'name: "' + self.name.lower().capitalize() + '"\n'
+        self.manifest += 'name: ' + self.name.lower().capitalize() + '\n'
         self.manifest += "\t\tkey: " + self.name.upper() + "\n"
         self.manifest += "\t\ttype: " + mtype + "\n"
         if self.parameters.keys() is not []:
@@ -58,12 +58,11 @@ class FlojoyWrapper:
                         def_val = "None"
                     self.manifest += (
                         f"\t{param}: \n"
-                        + "\t\t\t\ttype: '"
+                        + "\t\t\t\ttype: "
                         + str(self.parameters[param]["dtype"])
-                        + "'\n\t\t\t\tdefault: "
-                        + "'"
+                        + "\n\t\t\t\tdefault: "
                         + ("" if def_val == "None" else def_val)
-                        + "' \n\t\t"
+                        + " \n\t\t"
                     )
 
             self.manifest += "\t\t\n"
