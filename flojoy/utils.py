@@ -4,6 +4,7 @@ import json as _json
 import numpy as np
 import pandas as pd
 
+
 class PlotlyJSONEncoder(_json.JSONEncoder):
     """
     Meant to be passed as the `cls` kwarg to json.dumps(obj, cls=..)
@@ -11,7 +12,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
     Additionally, this encoder overrides nan functionality so that 'Inf',
     'NaN' and '-Inf' encode to 'null'. Which is stricter JSON than the Python
     version.
-    """    
+    """
 
     def coerce_to_strict(self, const):
         """
@@ -44,7 +45,6 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         try:
             new_o = _json.loads(encoded_o, parse_constant=self.coerce_to_strict)
         except ValueError:
-
             # invalid separators will fail here. raise a helpful exception
             raise ValueError(
                 "Encoding into strict JSON failed. Did you set the separators "
@@ -121,9 +121,10 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         """Attempt to convert pandas.NaT"""
         if not pd:
             raise NotEncodable
-
         if obj is pd.NaT:
             return None
+        elif isinstance(obj, pd.DataFrame):
+            return obj.to_json()
         else:
             raise NotEncodable
 
@@ -159,7 +160,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         except AttributeError:
             raise NotEncodable
         else:
-            return time_string # iso_to_plotly_time_string(time_string)
+            return time_string  # iso_to_plotly_time_string(time_string)
 
     @staticmethod
     def encode_as_decimal(obj):
@@ -169,10 +170,15 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         else:
             raise NotEncodable
 
+
 class NotEncodable(Exception):
     pass
 
 
 def dump_str(result, limit=None):
     result_str = str(result)
-    return result_str if limit is None or len(result_str) <= limit else result_str[:limit] + '...'
+    return (
+        result_str
+        if limit is None or len(result_str) <= limit
+        else result_str[:limit] + "..."
+    )
