@@ -7,8 +7,6 @@ from plotly.graph_objects import Figure
 
 
 class JobResultBuilder:
-
-
     def __init__(self) -> None:
         self.instructions = None
         self.data = self.get_default_data()
@@ -36,23 +34,23 @@ class JobResultBuilder:
     def flow_to_nodes(self, nodes):
         if not nodes:
             return self
-        self._add_instructions({
-            FLOJOY_INSTRUCTION.FLOW_TO_NODES: nodes
-        })
+        self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_NODES: nodes})
         return self
 
     def flow_to_directions(self, directions):
         if not directions:
             return self
-        self._add_instructions({
-            FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions
-        })
+        self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions})
         return self
 
     def flow_by_flag(self, flag, directionsWhenTrue, directionsWhenFalse):
-        self._add_instructions({
-            FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directionsWhenTrue if flag else directionsWhenFalse
-        })
+        self._add_instructions(
+            {
+                FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directionsWhenTrue
+                if flag
+                else directionsWhenFalse
+            }
+        )
         return self
 
     def build(self):
@@ -63,11 +61,11 @@ class JobResultBuilder:
                 **self.instructions,
                 # instruction to fetch_input method in flojoy.py
                 FLOJOY_INSTRUCTION.RESULT_FIELD: "data",
-                'data': result,
+                "data": result,
             }
         return result
 
     def get_default_data(self):
-        x = np.arange(0,1000,1)
+        x = np.arange(0, 1000, 1)
         y = np.ones_like(x)
         return DataContainer(x=x, y=y)
