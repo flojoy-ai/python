@@ -14,7 +14,6 @@ on:
   push:
     branches:
       - main
-      - frontier-api
 
 permissions:
   contents: read
