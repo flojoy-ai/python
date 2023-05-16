@@ -3,6 +3,10 @@ import json as _json
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
+import os
+import yaml
+from typing import Union
 
 
 class PlotlyJSONEncoder(_json.JSONEncoder):
@@ -182,3 +186,56 @@ def dump_str(result, limit=None):
         if limit is None or len(result_str) <= limit
         else result_str[:limit] + "..."
     )
+
+
+def get_frontier_api_key() -> Union[str, None]:
+    home = str(Path.home())
+    api_key = None
+    path = os.path.join(home, ".flojoy/credentials")
+    if not os.path.exists(path):
+        return api_key
+
+    stream = open(path, "r", encoding="utf-8")
+    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
+    if yaml_dict is None:
+        return api_key
+    if isinstance(yaml_dict, str) == True:
+        split_by_line = yaml_dict.split("\n")
+        for line in split_by_line:
+            if "FRONTIER_API_KEY" in line:
+                api_key = line.split(":")[1]
+    else:
+        api_key = yaml_dict.get("FRONTIER_API_KEY", None)
+    return api_key
+
+
+def set_frontier_api_key(api_key: str):
+    try:
+        home = str(Path.home())
+        file_path = os.path.join(home, ".flojoy/credentials")
+
+        if not os.path.exists(file_path):
+            # Create a new file and write the API_KEY to it
+            with open(file_path, "w") as file:
+                file.write(f"FRONTIER_API_KEY:{api_key}\n")
+        else:
+            # Read the contents of the file
+            with open(file_path, "r") as file:
+                lines = file.readlines()
+
+            # Update the API key if it exists, otherwise append a new line
+            updated = False
+            for i, line in enumerate(lines):
+                if line.startswith("FRONTIER_API_KEY:"):
+                    lines[i] = f"FRONTIER_API_KEY:{api_key}\n"
+                    updated = True
+                    break
+
+            if not updated:
+                lines.append(f"FRONTIER_API_KEY:{api_key}\n")
+        # Write the updated contents to the file
+        with open(file_path, "w") as file:
+            file.writelines(lines)
+
+    except Exception as e:
+        raise e
