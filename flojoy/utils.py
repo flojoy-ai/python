@@ -233,9 +233,9 @@ def set_frontier_api_key(api_key: str):
 
             if not updated:
                 lines.append(f"FRONTIER_API_KEY:{api_key}\n")
-        # Write the updated contents to the file
-        with open(file_path, "w") as file:
-            file.writelines(lines)
+            # Write the updated contents to the file
+            with open(file_path, "w") as file:
+                file.writelines(lines)
 
     except Exception as e:
         raise e
