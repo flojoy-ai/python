@@ -351,7 +351,7 @@ def flojoy(func):
     Decorator to turn Python functions with numerical return
     values into Flojoy nodes.
 
-    @flojoy is intended to eliminate  boilerplate in connecting
+    @flojoy is intended to eliminate boilerplate in connecting
     Python scripts as visual nodes
 
     Into whatever function it wraps, @flojoy injects
@@ -420,7 +420,12 @@ def flojoy(func):
                 func_params = {}
                 if ctrls is not None:
                     for key, input in ctrls.items():
-                        func_params[input["param"]] = input["value"]
+                        match input["ValType"]:
+                            case "STRING":
+                                func_params[input["param"]] = input["value"]
+                            case "NUMBER":
+                                num = str(input["value"])
+                                func_params[input["param"]] = float(num) if ',' in num else int(num)
 
                 # Make sure that function parameters set is fully loaded
                 # If function is missing a parameter, fill-in with default value
