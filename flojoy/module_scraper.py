@@ -56,10 +56,12 @@ class FlojoyWrapper:
                         def_val = str(self.optional_argument_dict[param])
                     except:
                         def_val = "None"
+                    dtype = str(self.parameters[param]["dtype"])
+                    if dtype == "str": dtype = "string"
                     self.manifest += (
                         f"\t{param}: \n"
                         + "\t\t\t\ttype: "
-                        + str(self.parameters[param]["dtype"])
+                        + dtype
                         + "\n\t\t\t\tdefault: "
                         + ("" if def_val == "None" else def_val)
                         + " \n\t\t"

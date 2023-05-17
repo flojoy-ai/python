@@ -3,6 +3,11 @@ import json as _json
 
 import numpy as np
 import pandas as pd
+from pathlib import Path
+import os
+import yaml
+from typing import Union
+
 
 class PlotlyJSONEncoder(_json.JSONEncoder):
     """
@@ -11,7 +16,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
     Additionally, this encoder overrides nan functionality so that 'Inf',
     'NaN' and '-Inf' encode to 'null'. Which is stricter JSON than the Python
     version.
-    """    
+    """
 
     def coerce_to_strict(self, const):
         """
@@ -44,7 +49,6 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         try:
             new_o = _json.loads(encoded_o, parse_constant=self.coerce_to_strict)
         except ValueError:
-
             # invalid separators will fail here. raise a helpful exception
             raise ValueError(
                 "Encoding into strict JSON failed. Did you set the separators "
@@ -121,9 +125,10 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         """Attempt to convert pandas.NaT"""
         if not pd:
             raise NotEncodable
-
         if obj is pd.NaT:
             return None
+        elif isinstance(obj, pd.DataFrame):
+            return obj.to_json()
         else:
             raise NotEncodable
 
@@ -159,7 +164,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         except AttributeError:
             raise NotEncodable
         else:
-            return time_string # iso_to_plotly_time_string(time_string)
+            return time_string  # iso_to_plotly_time_string(time_string)
 
     @staticmethod
     def encode_as_decimal(obj):
@@ -169,10 +174,68 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         else:
             raise NotEncodable
 
+
 class NotEncodable(Exception):
     pass
 
 
 def dump_str(result, limit=None):
     result_str = str(result)
-    return result_str if limit is None or len(result_str) <= limit else result_str[:limit] + '...'
+    return (
+        result_str
+        if limit is None or len(result_str) <= limit
+        else result_str[:limit] + "..."
+    )
+
+
+def get_frontier_api_key() -> Union[str, None]:
+    home = str(Path.home())
+    api_key = None
+    path = os.path.join(home, ".flojoy/credentials")
+    if not os.path.exists(path):
+        return api_key
+
+    stream = open(path, "r", encoding="utf-8")
+    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
+    if yaml_dict is None:
+        return api_key
+    if isinstance(yaml_dict, str) == True:
+        split_by_line = yaml_dict.split("\n")
+        for line in split_by_line:
+            if "FRONTIER_API_KEY" in line:
+                api_key = line.split(":")[1]
+    else:
+        api_key = yaml_dict.get("FRONTIER_API_KEY", None)
+    return api_key
+
+
+def set_frontier_api_key(api_key: str):
+    try:
+        home = str(Path.home())
+        file_path = os.path.join(home, ".flojoy/credentials")
+
+        if not os.path.exists(file_path):
+            # Create a new file and write the API_KEY to it
+            with open(file_path, "w") as file:
+                file.write(f"FRONTIER_API_KEY:{api_key}\n")
+        else:
+            # Read the contents of the file
+            with open(file_path, "r") as file:
+                lines = file.readlines()
+
+            # Update the API key if it exists, otherwise append a new line
+            updated = False
+            for i, line in enumerate(lines):
+                if line.startswith("FRONTIER_API_KEY:"):
+                    lines[i] = f"FRONTIER_API_KEY:{api_key}\n"
+                    updated = True
+                    break
+
+            if not updated:
+                lines.append(f"FRONTIER_API_KEY:{api_key}\n")
+            # Write the updated contents to the file
+            with open(file_path, "w") as file:
+                file.writelines(lines)
+
+    except Exception as e:
+        raise e
