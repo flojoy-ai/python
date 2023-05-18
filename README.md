@@ -37,7 +37,7 @@ Please see https://github.com/flojoy-io/flojoy-desktop/tree/main/PYTHON/FUNCTION
 See https://github.com/flojoy-io/flojoy-python/issues/4
 
 
-## Publish Pakcage on PYPI
+## Publish Package on PYPI
 ### Uploading file via *Twine*
 You have to install `twine` package first if not installed already.
 To install `twine` run following command: 
