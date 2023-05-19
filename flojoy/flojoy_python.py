@@ -420,12 +420,14 @@ def flojoy(func):
                 func_params = {}
                 if ctrls is not None:
                     for key, input in ctrls.items():
-                        if 'valType' in input and input["valType"] == "array":
+                        if "valType" in input and input["valType"] == "array":
                             tempArray = str(input["value"]).split(",")
-                            func_params[input["params"]] = list(map((lambda str: float(str)), tempArray))
+                            func_params[input["params"]] = list(
+                                map((lambda str: float(str)), tempArray)
+                            )
                         else:
                             func_params[input["param"]] = input["value"]
-               # Make sure that function parameters set is fully loaded
+                # Make sure that function parameters set is fully loaded
                 # If function is missing a parameter, fill-in with default value
                 for key in default_params.keys():
                     if key not in func_params.keys():
