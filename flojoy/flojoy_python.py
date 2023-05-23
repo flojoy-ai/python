@@ -420,11 +420,13 @@ def flojoy(func):
                 func_params = {}
                 if ctrls is not None:
                     for key, input in ctrls.items():
-                        if 'valType' in input:
+                        if "valType" in input:
                             match input["valType"]:
                                 case "array":
                                     tempArray = str(input["value"]).split(",")
-                                    func_params[input["param"]] = list(map((lambda str: float(str)), tempArray))
+                                    func_params[input["param"]] = list(
+                                        map((lambda str: float(str)), tempArray)
+                                    )
                                 case "float":
                                     func_params[input["param"]] = float(input["value"])
                                     print("Float worked")
