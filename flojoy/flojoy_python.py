@@ -351,7 +351,7 @@ def flojoy(func):
     Decorator to turn Python functions with numerical return
     values into Flojoy nodes.
 
-    @flojoy is intended to eliminate  boilerplate in connecting
+    @flojoy is intended to eliminate boilerplate in connecting
     Python scripts as visual nodes
 
     Into whatever function it wraps, @flojoy injects
@@ -420,8 +420,25 @@ def flojoy(func):
                 func_params = {}
                 if ctrls is not None:
                     for key, input in ctrls.items():
-                        func_params[input["param"]] = input["value"]
-
+                        if "valType" in input:
+                            match input["valType"]:
+                                case "array":
+                                    tempArray = str(input["value"]).split(",")
+                                    func_params[input["param"]] = list(
+                                        map((lambda str: float(str)), tempArray)
+                                    )
+                                case "float":
+                                    func_params[input["param"]] = float(input["value"])
+                                    print("Float worked")
+                                case "int":
+                                    func_params[input["param"]] = int(input["value"])
+                                    print("int worked")
+                                case "boolean":
+                                    func_params[input["param"]] = bool(input["value"])
+                                case _:
+                                    func_params[input["param"]] = input["value"]
+                        else:
+                            func_params[input["param"]] = input["value"]
                 # Make sure that function parameters set is fully loaded
                 # If function is missing a parameter, fill-in with default value
                 for key in default_params.keys():
@@ -465,7 +482,6 @@ def flojoy(func):
                         }
                     )
                 )
-
             print("final result:", dump_str(result, limit=100))
             return result
         except Exception as e:
