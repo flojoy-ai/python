@@ -1,9 +1,6 @@
 from flojoy import DataContainer
 import numpy as np
-from typing import TypedDict
 from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
-from flojoy.plotly_utils import data_container_to_plotly
-from plotly.graph_objects import Figure
 
 
 class JobResultBuilder:

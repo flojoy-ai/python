@@ -1,3 +1,4 @@
 dist/
 flojoy.egg-info
 .idea
+build/*

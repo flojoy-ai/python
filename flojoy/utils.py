@@ -138,7 +138,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         if not np:
             raise NotEncodable
 
-        if obj is np.ma.core.masked:
+        if obj is np.ma.masked:
             return float("nan")
         elif isinstance(obj, np.ndarray) and obj.dtype.kind == "M":
             try:

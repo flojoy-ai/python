@@ -22,7 +22,7 @@ print("env vars:", json.dumps(env_vars, indent=2))
 port = env_vars.get("REACT_APP_BACKEND_PORT", "8000")
 
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = os.environ.get("REDIS_PORT", 6379)
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 BACKEND_HOST = os.environ.get("BACKEND_HOST", "localhost")
 r = Redis(host=REDIS_HOST, port=REDIS_PORT)
 
@@ -343,6 +343,7 @@ def get_redis_obj(id):
 
 def send_to_socket(data):
     print("posting data to socket:", f"http://{BACKEND_HOST}:{port}/worker_response")
+
     requests.post(f"http://{BACKEND_HOST}:{port}/worker_response", json=data)
 
 
