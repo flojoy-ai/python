@@ -1,17 +1,16 @@
-from flojoy import DataContainer
+from .data_container import DataContainer
 import numpy as np
-from typing import TypedDict
+from typing import Union
 from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
-from flojoy.plotly_utils import data_container_to_plotly
-from plotly.graph_objects import Figure
 
 
 class JobResultBuilder:
+    instructions: dict[str, Union[str, list[str]]] | None = None
+
     def __init__(self) -> None:
-        self.instructions = None
         self.data = self.get_default_data()
 
-    def _add_instructions(self, instruction):
+    def _add_instructions(self, instruction: dict[str, Union[str, list[str]]]):
         self.instructions = self.instructions if self.instructions is not None else {}
         self.instructions = {
             **self.instructions,
@@ -27,23 +26,23 @@ class JobResultBuilder:
 
         return self
 
-    def from_data(self, data):
+    def from_data(self, data: DataContainer):
         self.data = data
         return self
 
-    def flow_to_nodes(self, nodes):
-        if not nodes:
-            return self
-        self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_NODES: nodes})
+    def flow_to_nodes(self, nodes: list[str]):
+        if nodes.__len__() > 0:
+            self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_NODES: nodes})
         return self
 
-    def flow_to_directions(self, directions):
-        if not directions:
-            return self
-        self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions})
+    def flow_to_directions(self, directions: list[str]):
+        if directions.__len__() > 0:
+            self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions})
         return self
 
-    def flow_by_flag(self, flag, directionsWhenTrue, directionsWhenFalse):
+    def flow_by_flag(
+        self, flag: bool, directionsWhenTrue: list[str], directionsWhenFalse: list[str]
+    ):
         self._add_instructions(
             {
                 FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directionsWhenTrue
@@ -65,7 +64,7 @@ class JobResultBuilder:
             }
         return result
 
-    def get_default_data(self):
+    def get_default_data(self) -> DataContainer:
         x = np.arange(0, 1000, 1)
         y = np.ones_like(x)
         return DataContainer(x=x, y=y)

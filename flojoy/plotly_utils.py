@@ -1,36 +1,38 @@
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
+from .data_container import DataContainer
+import pandas as pd
+from typing import cast
 
 
-def data_container_to_plotly(data: dict):
-    value = data.copy()
-    d_type = value.type
-    fig = {}
-    if "x" in value and isinstance(value.x, dict):
-        # value.x = []
-        # for k, v in data.x.items():
-        #     value.x.append(v)
-        dict_keys = list(value.x.keys())
-        value.x = value.x[dict_keys[0]]
+def data_container_to_plotly(data: DataContainer):
+    data_copy = data.copy()
+    dc_type = data_copy.type
+    fig = go.Figure()
+    if "x" in data_copy and isinstance(data_copy.x, dict):
+        dict_keys = list(data_copy.x.keys())
+        data_copy.x = data_copy.x[dict_keys[0]]
 
-    match d_type:
+    match dc_type:
         case "image":
-            if value.a is None:
-                img_combined = np.stack((value.r, value.g, value.b), axis=2)
+            if data_copy.a is None:
+                img_combined = np.stack((data_copy.r, data_copy.g, data_copy.b), axis=2)
             else:
-                img_combined = np.stack((value.r, value.g, value.b, value.a), axis=2)
+                img_combined = np.stack(
+                    (data_copy.r, data_copy.g, data_copy.b, data_copy.a), axis=2
+                )
             fig = px.imshow(img=img_combined)
         case "ordered_pair":
-            if value.x is not None and len(value.x) != len(value.y):
-                value.x = np.arange(0, len(value.y), 1)
-            fig = px.line(x=value.x, y=value.y)
+            if data_copy.x is not None and len(data_copy.x) != len(data_copy.y):
+                data_copy.x = np.arange(0, len(data_copy.y), 1)
+            fig = px.line(x=data_copy.x, y=data_copy.y)
         case "ordered_triple":
-            fig = px.scatter_3d(x=value.x, y=value.y, z=value.z)
+            fig = px.scatter_3d(x=data_copy.x, y=data_copy.y, z=data_copy.z)
         case "scalar":
-            fig = px.histogram(x=value.c)
+            fig = px.histogram(x=data_copy.c)
         case "dataframe":
-            df = value.m
+            df = cast(pd.DataFrame, data_copy.m)
             fig = go.Figure(
                 data=[
                     go.Table(
@@ -40,9 +42,11 @@ def data_container_to_plotly(data: dict):
                 ]
             )
         case "grayscale" | "matrix":
-            fig = px.histogram(x=value.m)
+            fig = px.histogram(x=data_copy.m)
         case "plotly":
-            fig = data.fig
+            fig = cast(go.Figure, data.fig)
         case _:
-            raise ValueError("Not supported DataContainer type!")
+            raise ValueError(
+                f"unsupported DataContainer type passed to plotly converter function, type: '{dc_type}"
+            )
     return fig.to_dict()
