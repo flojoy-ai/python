@@ -2,8 +2,9 @@ import typing
 import numpy as np
 import pandas as pd
 from box import Box, box_list
-import plotly.graph_objects as go
-from typing import Union, Literal, get_args
+import plotly.graph_objects as go  # type:ignore
+from typing import Union, Literal, get_args, Any, cast
+from _collections_abc import dict_keys
 
 
 __all__ = ["DataContainer"]
@@ -17,15 +18,26 @@ DCType = Literal[
     "ordered_triple",
     "scalar",
     "plotly",
+    "parametric_grayscale",
+    "parametric_matrix",
+    "parametric_dataframe",
+    "parametric_image",
+    "parametric_ordered_pair",
+    "parametric_ordered_triple",
+    "parametric_scalar",
+    "parametric_plotly",
 ]
+
+DCNpArrayType = np.ndarray[Union[int, float], np.dtype[Any]]
 DCKwargsValue = Union[
     list[Union[int, float]],
     int,
     float,
-    dict[str, Union[int, float, np.ndarray]],
-    np.ndarray,
+    dict[str, Union[int, float, DCNpArrayType]],
+    DCNpArrayType,
     pd.DataFrame,
     go.Figure,
+    None,
 ]
 
 
@@ -74,18 +86,18 @@ class DataContainer(Box):
 
     def _ndarrayify(
         self, value: DCKwargsValue
-    ) -> Union[np.ndarray, pd.DataFrame, dict[str, np.ndarray], go.Figure, None]:
+    ) -> Union[DCNpArrayType, pd.DataFrame, dict[str, DCNpArrayType], go.Figure, None]:
         if isinstance(value, int) or isinstance(value, float):
             return np.array([value])
         elif isinstance(value, dict):
-            arrayified_value = {}
+            arrayified_value: dict[str, DCNpArrayType] = {}
             for k, v in value.items():
-                arrayified_value[k] = self._ndarrayify(v)
+                arrayified_value[k] = cast(DCNpArrayType, self._ndarrayify(v))
             return arrayified_value
         elif isinstance(value, box_list.BoxList):
-            arrayified_value = {}
+            arrayified_value: dict[str, DCNpArrayType] = {}
             for k, v in value.__dict__.items():
-                arrayified_value[k] = self._ndarrayify(v)
+                arrayified_value[k] = cast(DCNpArrayType, self._ndarrayify(v))
             return arrayified_value
         elif isinstance(value, pd.DataFrame):
             return value
@@ -123,29 +135,36 @@ class DataContainer(Box):
             case "plotly":
                 if key not in ["fig", *(k for k in self.combinations["fig"])]:
                     raise KeyError(self.__build_error_text(key, data_type))
+            case _:
+                if data_type.startswith("parametric_") and key != "t":
+                    splitted_type = cast(DCType, data_type.split("parametric_")[1])
+                    self.__validate_key_for_type(splitted_type, key)
 
-    def __init__(self, type: DCType = "ordered_pair", **kwargs: DCKwargsValue):
+    def __init__(  # type:ignore
+        self, type: DCType = "ordered_pair", **kwargs: DCKwargsValue
+    ):
         self.type = type
         for k, v in kwargs.items():
             self[k] = v
 
-    def __getitem__(self, key: str, **kwargs):
-        return super().__getitem__(key, **kwargs)
+    def __getitem__(self, key: str, _ignore_default: bool = False) -> Any:
+        return super().__getitem__(key, _ignore_default)  # type: ignore
 
-    def __setitem__(self, key: str, value: DCKwargsValue):
+    def __setitem__(self, key: str, value: DCKwargsValue) -> None:
         if key != "type":
             formatted_value = self._ndarrayify(value)
-            return super().__setitem__(key, formatted_value)
-        return super().__setitem__(key, value)
+            super().__setitem__(key, formatted_value)  # type:ignore
+        else:
+            super().__setitem__(key, value)  # type: ignore
 
-    def __check_combination(self, key, keys, allowed_keys):
+    def __check_combination(self, key: str, keys: list[str], allowed_keys: list[str]):
         for i in keys:
             if i not in allowed_keys:
                 raise ValueError(f"You cant have {key} with {i}")
 
     def validate(self):
         dc_type = self.type
-        dc_keys = list(self.keys())
+        dc_keys = list(cast(dict_keys[str, str], self.keys()))
         for k in dc_keys:
             if k != "type":
                 self.__check_combination(

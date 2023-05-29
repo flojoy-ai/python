@@ -65,6 +65,6 @@ class JobResultBuilder:
         return result
 
     def get_default_data(self) -> DataContainer:
-        x = np.arange(0, 1000, 1)
+        x = np.arange(0, 1000, 1)  # type:ignore
         y = np.ones_like(x)
         return DataContainer(x=x, y=y)

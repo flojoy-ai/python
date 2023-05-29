@@ -2,19 +2,18 @@ import re
 import os
 import json
 import yaml
-import requests
 import traceback
 import numpy as np
 import networkx as nx
-from rq.job import Job
+from rq.job import Job  # type:ignore
 from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
-from networkx.drawing.nx_pylab import draw as nx_draw
+from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
 from typing import Union, cast, Any, Literal, Callable
-from .job_result_utils import get_response_obj_from_result, get_dc_from_result
-from .utils import redis_instance, BACKEND_URL
+from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
+from .utils import redis_instance, send_to_socket
 
 
 def get_flojoy_root_dir() -> str:
@@ -30,7 +29,7 @@ def get_flojoy_root_dir() -> str:
     return root_dir
 
 
-def js_to_json(s):
+def js_to_json(s: str):
     """
     Converts an ES6 JS file with a single JS Object definition to JSON
     """
@@ -43,14 +42,16 @@ def js_to_json(s):
     return json.loads(rm_comma)
 
 
-def get_parameter_manifest() -> dict:
+def get_parameter_manifest() -> dict[str, Any]:
     root = get_flojoy_root_dir()
     f = open(os.path.join(root, "src/data/manifests-latest.json"))
     param_manifest = json.load(f)
     return param_manifest["parameters"]
 
 
-def fetch_inputs(previous_job_ids, mock=False):
+def fetch_inputs(
+    previous_job_ids: list[str], mock: bool = False
+) -> list[DataContainer]:
     """
     Queries Redis for job results
 
@@ -65,35 +66,32 @@ def fetch_inputs(previous_job_ids, mock=False):
     if mock is True:
         return [DataContainer(x=np.linspace(0, 10, 100))]
 
-    inputs = []
+    inputs: list[DataContainer] = []
 
     try:
         for prev_job_id in previous_job_ids:
             print("fetching input from prev job id:", prev_job_id)
-            job = Job.fetch(prev_job_id, connection=redis_instance)
-            result = get_dc_from_result(cast(dict[str, Any], job.result))
+            job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
+            job_result: dict[str, Any] = job.result  # type:ignore
+            result = get_dc_from_result(job_result)
             print(
                 "fetch input from prev job id:",
                 prev_job_id,
                 " result:",
                 dump_str(result, limit=100),
             )
-            inputs.append(result)
+            if result is not None:
+                inputs.append(result)
     except Exception:
         print(traceback.format_exc())
 
     return inputs
 
 
-def get_redis_obj(id):
+def get_redis_obj(id: str) -> dict[str, Any]:
     get_obj = redis_instance.get(id)
-    parse_obj = json.loads(get_obj) if get_obj is not None else {}
+    parse_obj: dict[str, Any] = json.loads(get_obj) if get_obj is not None else {}
     return parse_obj
-
-
-def send_to_socket(data):
-    print("posting data to socket:", f"{BACKEND_URL}/worker_response")
-    requests.post(f"{BACKEND_URL}/worker_response", json=data)
 
 
 ParamValTypes = Literal["array", "float", "int", "boolean", "select"]
@@ -112,11 +110,10 @@ def format_param_value(value: Any, value_type: ParamValTypes):
             return bool(value)
         case "select":
             return str(value)
-        case _:
-            return value
+    return value
 
 
-flojoyKwargs = Union[str, dict[str, dict[str, str]]]
+flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
 
 
 def flojoy(func: Callable[..., DataContainer]):
@@ -128,35 +125,39 @@ def flojoy(func: Callable[..., DataContainer]):
     Python scripts as visual nodes
 
     Into whatever function it wraps, @flojoy injects
-    1. the last node's input as an XYVector
-    2. parameters for that function (either set byt the user or default)
+    1. the last node's input as list of DataContainer object
+    2. parameters for that function (either set by the user or default)
 
     Parameters
     ----------
-    func : Python function object
+    `func`: Python function that returns DataContainer object
 
     Returns
     -------
-    DataContainer object
+    A dict containing DataContainer object
 
     Usage Example
     -------------
-
+    ```
     @flojoy
-    def SINE(v, params):
+    def SINE(dc_inputs:list[DataContainer], params:dict[str, Any]):
 
         print('params passed to SINE', params)
 
+        dc_input = dc_inputs[0]
+
         output = DataContainer(
-            x=v[0].x,
-            y=np.sin(v[0].x)
+            x=dc_input.x,
+            y=np.sin(dc_input.x)
         )
         return output
+    ```
 
+    ## equivalent to: decorated_sine = flojoy(SINE)
+    ```
     pj_ids = [123, 456]
-
-    # equivalent to: decorated_sin = flojoy(SINE)
     print(SINE(previous_job_ids = pj_ids, mock = True))
+    ```
     """
 
     @wraps(func)
@@ -165,8 +166,8 @@ def flojoy(func: Callable[..., DataContainer]):
         job_id = cast(str, kwargs["job_id"])
         jobset_id = cast(str, kwargs["jobset_id"])
         try:
-            previous_job_ids, mock = {}, False
-            previous_job_ids = kwargs.get("previous_job_ids", [])
+            mock = False
+            previous_job_ids = cast(list[str], kwargs.get("previous_job_ids", []))
             ctrls = cast(
                 Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
             )
@@ -184,7 +185,7 @@ def flojoy(func: Callable[..., DataContainer]):
                 )
             )
             # Get default command paramaters
-            default_params = {}
+            default_params: dict[str, Any] = {}
             func_params = {}
             pm = get_parameter_manifest()
             if FN in pm:
@@ -217,7 +218,9 @@ def flojoy(func: Callable[..., DataContainer]):
             # running the node
             dc_obj = func(node_inputs, func_params)  # DataContainer object from node
             dc_obj.validate()  # Validate returned DataContainer object
-            result = get_response_obj_from_result(dc_obj)
+            result = get_frontend_res_obj_from_result(
+                dc_obj
+            )  # Response object to send to FE
             send_to_socket(
                 json.dumps(
                     {
@@ -262,17 +265,17 @@ def flojoy(func: Callable[..., DataContainer]):
     return wrapper
 
 
-def reactflow_to_networkx(elems, edges):
+def reactflow_to_networkx(elems: list[Any], edges: list[Any]):
     nx_graph: nx.DiGraph = nx.DiGraph()
     for i in range(len(elems)):
         el = elems[i]
         node_id = el["id"]
         data = el["data"]
         cmd = el["data"]["func"]
-        ctrls = data["ctrls"] if "ctrls" in data else {}
-        inputs = data["inputs"] if "inputs" in data else {}
-        label = data["label"] if "label" in data else {}
-        nx_graph.add_node(
+        ctrls: dict[str, Any] = data["ctrls"] if "ctrls" in data else {}
+        inputs: dict[str, Any] = data["inputs"] if "inputs" in data else {}
+        label: dict[str, Any] = data["label"] if "label" in data else {}
+        nx_graph.add_node(  # type:ignore
             node_id,
             pos=(el["position"]["x"], el["position"]["y"]),
             id=el["id"],
@@ -288,7 +291,7 @@ def reactflow_to_networkx(elems, edges):
         u = e["source"]
         v = e["target"]
         label = e["sourceHandle"]
-        nx_graph.add_edge(u, v, label=label, id=_id)
+        nx_graph.add_edge(u, v, label=label, id=_id)  # type:ignore
 
     nx_draw(nx_graph, with_labels=True)
 

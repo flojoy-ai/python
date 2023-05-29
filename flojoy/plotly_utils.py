@@ -3,16 +3,17 @@ import plotly.graph_objects as go
 import numpy as np
 from .data_container import DataContainer
 import pandas as pd
-from typing import cast
+from typing import cast, Any
+from _collections_abc import dict_keys
 
 
-def data_container_to_plotly(data: DataContainer):
+def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
     data_copy = data.copy()
     dc_type = data_copy.type
     fig = go.Figure()
-    if "x" in data_copy and isinstance(data_copy.x, dict):
-        dict_keys = list(data_copy.x.keys())
-        data_copy.x = data_copy.x[dict_keys[0]]
+    if "x" in data_copy and isinstance(data_copy.x, dict):  # type: ignore
+        data_keys = list(cast(dict_keys[str, str], data_copy.keys()))
+        data_copy.x = data_copy.x[data_keys[0]]  # type: ignore
 
     match dc_type:
         case "image":
@@ -22,7 +23,7 @@ def data_container_to_plotly(data: DataContainer):
                 img_combined = np.stack(
                     (data_copy.r, data_copy.g, data_copy.b, data_copy.a), axis=2
                 )
-            fig = px.imshow(img=img_combined)
+            fig = px.imshow(img=img_combined)  # type:ignore
         case "ordered_pair":
             if data_copy.x is not None and len(data_copy.x) != len(data_copy.y):
                 data_copy.x = np.arange(0, len(data_copy.y), 1)
@@ -49,4 +50,4 @@ def data_container_to_plotly(data: DataContainer):
             raise ValueError(
                 f"unsupported DataContainer type passed to plotly converter function, type: '{dc_type}"
             )
-    return fig.to_dict()
+    return cast(dict[str, Any], fig.to_dict())
