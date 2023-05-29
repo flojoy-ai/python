@@ -94,7 +94,9 @@ def get_redis_obj(id: str) -> dict[str, Any]:
     return parse_obj
 
 
-ParamValTypes = Literal["array", "float", "int", "boolean", "select"]
+ParamValTypes = Literal[
+    "array", "float", "int", "boolean", "select", "node_reference", "string"
+]
 
 
 def format_param_value(value: Any, value_type: ParamValTypes):
@@ -108,7 +110,7 @@ def format_param_value(value: Any, value_type: ParamValTypes):
             return int(value)
         case "boolean":
             return bool(value)
-        case "select":
+        case "select" | "string" | "node_reference":
             return str(value)
     return value
 
