@@ -20,13 +20,16 @@ setup(
     ],
     install_requires=[
         "python-box",
+        "requests",
         "networkx",
         "numpy",
         "redis",
         "rq",
         "scipy",
+        "pandas",
         "pytest",
         "python-dotenv",
+        "pyyaml",
         "plotly==5.8.2",
     ],
     classifiers=[
