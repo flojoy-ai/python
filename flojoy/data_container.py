@@ -4,7 +4,6 @@ import pandas as pd
 from box import Box, box_list
 import plotly.graph_objects as go  # type:ignore
 from typing import Union, Literal, get_args, Any, cast
-from _collections_abc import dict_keys
 
 
 __all__ = ["DataContainer"]
@@ -164,7 +163,7 @@ class DataContainer(Box):
 
     def validate(self):
         dc_type = self.type
-        dc_keys = list(cast(dict_keys[str, str], self.keys()))
+        dc_keys = list(cast(list[str], self.keys()))
         for k in dc_keys:
             if k != "type":
                 self.__check_combination(
