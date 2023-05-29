@@ -118,7 +118,7 @@ def format_param_value(value: Any, value_type: ParamValTypes):
 flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
 
 
-def flojoy(func: Callable[..., DataContainer]):
+def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
     """
     Decorator to turn Python functions with numerical return
     values into Flojoy nodes.
@@ -219,7 +219,10 @@ def flojoy(func: Callable[..., DataContainer]):
 
             # running the node
             dc_obj = func(node_inputs, func_params)  # DataContainer object from node
-            dc_obj.validate()  # Validate returned DataContainer object
+            if isinstance(
+                dc_obj, DataContainer
+            ):  # some special nodes like LOOP return dict instead of `DataContainer`
+                dc_obj.validate()  # Validate returned DataContainer object
             result = get_frontend_res_obj_from_result(
                 dc_obj
             )  # Response object to send to FE
