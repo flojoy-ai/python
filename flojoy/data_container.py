@@ -113,7 +113,6 @@ class DataContainer(Box):
                 f"DataContainer keys must be any of following types: {get_args(DCKwargsValue)}"
             )
 
-    # This function compares data type with the provided key and assigns it to class attribute if matches
     def __validate_key_for_type(self, data_type: DCType, key: str):
         match data_type:
             case "ordered_pair":
@@ -161,19 +160,6 @@ class DataContainer(Box):
             if i not in allowed_keys:
                 raise ValueError(f"You cant have {key} with {i}")
 
-    def validate(self):
-        dc_type = self.type
-        dc_keys = list(cast(list[str], self.keys()))
-        for k in dc_keys:
-            if k != "type":
-                self.__check_combination(
-                    k,
-                    list(key for key in dc_keys if key not in ["type", k]),
-                    self.combinations[k],
-                )
-                self.__validate_key_for_type(dc_type, k)
-        self.__check_for_missing_keys(dc_type, dc_keys)
-
     def __check_for_missing_keys(self, dc_type: DCType, keys: list[str]):
         match dc_type:
             case "grayscale" | "matrix" | "dataframe":
@@ -215,3 +201,16 @@ class DataContainer(Box):
 
     def __build_error_text(self, key: str, data_type: str):
         return f'Invalid key "{key}" provided for data type "{data_type}"'
+
+    def validate(self):
+        dc_type = self.type
+        dc_keys = list(cast(list[str], self.keys()))
+        for k in dc_keys:
+            if k != "type":
+                self.__check_combination(
+                    k,
+                    list(key for key in dc_keys if key not in ["type", k]),
+                    self.combinations[k],
+                )
+                self.__validate_key_for_type(dc_type, k)
+        self.__check_for_missing_keys(dc_type, dc_keys)
