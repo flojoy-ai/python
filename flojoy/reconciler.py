@@ -33,7 +33,7 @@ class Reconciler:
         elif types_to_reconcile == set(["matrix", "scalar"]):
             return self.reconcile__matrix_scalar(lhs, rhs)
         elif types_to_reconcile == set(["matrix", "dataframe"]):
-            return self.reconcile__dataframe_scalar(lhs, rhs)
+            return self.reconcile__dataframe_matrix(lhs, rhs)
         else:
             raise IrreconcilableContainersException(
                 "FloJoy doesn't know how to reconcile data containers of type %s and %s"
