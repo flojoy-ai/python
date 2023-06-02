@@ -23,7 +23,6 @@ class Reconciler:
     def reconcile(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-
         types_to_reconcile = set([lhs.type, rhs.type])
         if types_to_reconcile == set(["matrix"]):
             return self.reconcile__matrix(lhs, rhs)
