@@ -62,7 +62,7 @@ def ADD(dc_inputs: list[DataContainer], params: dict) -> DataContainer:
 
 ## Customizing your Reconcilers for different Node Categories
 
-Have a different idea about how you want your DataContainers to be interoperable? Subclass `Reconciler` amd override the specific type pairs you're interested in.
+Have a different idea about how you want your DataContainers to be interoperable? Subclass `Reconciler` and override the specific type pairs you're interested in.
 
 For example, let's say we're writing image processing nodes, and we want special behavior when dealing with certain image-like DataContainers.
 
