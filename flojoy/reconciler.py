@@ -23,24 +23,7 @@ class Reconciler:
     def reconcile(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        """
-        "grayscale",
-        "matrix",
-        "dataframe",
-        "image",
-        "ordered_pair",
-        "ordered_triple",
-        "scalar",
-        "plotly",
-        "parametric_grayscale",
-        "parametric_matrix",
-        "parametric_dataframe",
-        "parametric_image",
-        "parametric_ordered_pair",
-        "parametric_ordered_triple",
-        "parametric_scalar",
-        "parametric_plotly",
-        """
+
         types_to_reconcile = set([lhs.type, rhs.type])
         if types_to_reconcile == set(["matrix"]):
             return self.reconcile__matrix(lhs, rhs)
