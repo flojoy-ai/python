@@ -11,7 +11,7 @@ from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
-from typing import Union, cast, Any, Literal, Callable
+from typing import Union, cast, Any, Literal, Callable, List, Optional, Type
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
 
@@ -94,6 +94,13 @@ def get_redis_obj(id: str) -> dict[str, Any]:
     return parse_obj
 
 
+def try_parse_array(arr: List[str], t: Type) -> Optional[List[Any]]:
+    try:
+        return list(map(t, arr))
+    except:
+        return None
+
+
 ParamValTypes = Literal[
     "array", "float", "int", "boolean", "select", "node_reference", "string"
 ]
@@ -102,8 +109,19 @@ ParamValTypes = Literal[
 def format_param_value(value: Any, value_type: ParamValTypes):
     match value_type:
         case "array":
-            temp_array = str(value).split(",")
-            return list(map((lambda str: float(str)), temp_array))
+            s = str(value)
+            if not s:
+                return []
+
+            temp_array = s.split(",")
+            # First try to cast into int, then float, then keep as string if all else fails
+            arr = try_parse_array(temp_array, int)
+            if arr:
+                return arr
+            arr = try_parse_array(temp_array, float)
+            if arr:
+                return arr
+            return temp_array
         case "float":
             return float(value)
         case "int":
