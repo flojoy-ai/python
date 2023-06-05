@@ -67,19 +67,24 @@ class Reconciler:
     def reconcile__dataframe(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        return lhs, rhs
+        raise NotImplementedError("TODO")
 
     def reconcile__dataframe_scalar(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        return lhs, rhs
+        raise NotImplementedError("TODO")
 
     def reconcile__ordered_pair(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        return lhs, rhs
+        raise NotImplementedError("TODO")
 
     def reconcile__matrix_scalar(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        return lhs, rhs
+        raise NotImplementedError("TODO")
+
+    def reconcile__dataframe_matrix(
+        self, lhs: DataContainer, rhs: DataContainer
+    ) -> Tuple[DataContainer, DataContainer]:
+        raise NotImplementedError("TODO")
