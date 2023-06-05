@@ -113,15 +113,15 @@ def format_param_value(value: Any, value_type: ParamValTypes):
             if not s:
                 return []
 
-            temp_array = s.split(",")
+            vals = [val.strip() for val in s.split(",") if val.strip()]
             # First try to cast into int, then float, then keep as string if all else fails
-            arr = try_parse_array(temp_array, int)
+            arr = try_parse_array(vals, int)
             if arr:
                 return arr
-            arr = try_parse_array(temp_array, float)
+            arr = try_parse_array(vals, float)
             if arr:
                 return arr
-            return temp_array
+            return vals
         case "float":
             return float(value)
         case "int":
