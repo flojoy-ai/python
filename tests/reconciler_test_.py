@@ -1,4 +1,5 @@
 import numpy
+import pandas
 import unittest
 
 from unittest.mock import patch
@@ -10,7 +11,7 @@ from flojoy.reconciler import Reconciler, IrreconcilableContainersException
 
 class ReconcilerTestCase(unittest.TestCase):
     def test_matrix_different_sizes(self):
-        # create the two ordered pair datacontainers
+        # create the two matrix datacontainers
         dc_a = DataContainer(type="matrix", m=numpy.ones([2, 3]))
 
         dc_b = DataContainer(type="matrix", m=numpy.ones([3, 2]))
@@ -31,6 +32,40 @@ class ReconcilerTestCase(unittest.TestCase):
                 rec_b.m,
             )
         )
+
+    def test_dataframe_different_sizes(self):
+        # reconciler should take no action, as pandas operations are quite permissive already
+        df_a = pandas.DataFrame(
+            data={"col1": [1, 2, 3], "col2": [4, 5, 6], "col3": [7, 8, 9]}
+        )
+        df_b = pandas.DataFrame(data={"col2": [-1, -2], "col3": [-4, -5]})
+
+        # create the two matrix datacontainers
+        dc_a = DataContainer(type="dataframe", m=df_a)
+        dc_b = DataContainer(type="dataframe", m=df_b)
+
+        r = Reconciler()
+        # function under test
+        rec_a, rec_b = r.reconcile(dc_a, dc_b)
+
+        self.assertTrue(rec_a.m.equals(df_a))
+        self.assertTrue(rec_b.m.equals(df_b))
+
+    def test_dataframe_scalar(self):
+        # reconciler should expand the scalar to be the size of the dataframe
+        df_a = pandas.DataFrame(data={"col1": [1, 2, 3], "col2": [4, 5, 6]})
+        df_b_new = pandas.DataFrame(data={"col1": [1, 1, 1], "col2": [1, 1, 1]})
+
+        # create the two matrix datacontainers
+        dc_a = DataContainer(type="dataframe", m=df_a)
+        dc_b = DataContainer(type="scalar", c=1)
+
+        r = Reconciler()
+        # function under test
+        rec_a, rec_b = r.reconcile(dc_a, dc_b)
+
+        self.assertTrue(rec_a.m.equals(df_a))
+        self.assertTrue(rec_b.m.equals(df_b_new))
 
     def test_complain_if_irreconcilable(self):
         dc_a = DataContainer(type="grayscale")
