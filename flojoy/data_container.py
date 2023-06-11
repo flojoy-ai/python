@@ -85,7 +85,7 @@ class DataContainer(Box):
         "ordered_pair": ["x", "y"],
         "ordered_triple": ["x", "y", "z"],
         "scalar": ["c"],
-        "plotly": [*(k for k in allowed_keys if k not in ["fig"])],
+        "plotly": ["fig"],
     }
 
     type: DCType
