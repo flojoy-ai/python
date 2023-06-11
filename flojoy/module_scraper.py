@@ -210,7 +210,7 @@ if __name__ == "__main__":
             invalids = []
             valids = []
             submodule_name = submodule.__name__.split(".")[-1]
-            NODE_DIR = MODULE_DIR / Path(f"{submodule_name}")
+            NODE_DIR = MODULE_DIR / Path(f"{submodule_name.upper()}")
             NODE_DIR.mkdir(exist_ok=True)
 
             iterable = (
