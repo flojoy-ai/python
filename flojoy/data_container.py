@@ -4,6 +4,7 @@ import pandas as pd
 from box import Box, box_list
 import plotly.graph_objects as go  # type:ignore
 from typing import Union, Literal, get_args, Any, cast
+from .utils import find_closest_match
 
 
 __all__ = ["DataContainer"]
@@ -61,19 +62,30 @@ class DataContainer(Box):
     """
 
     allowed_types = typing.get_args(DCType)
-    allowed_keys = ["x", "y", "z", "t", "m", "c", "r", "g", "b", "a", "fig"]
+    allowed_keys = ["x", "y", "z", "t", "m", "c", "r", "g", "b", "a", "fig", "extra"]
     combinations = {
-        "x": ["y", "t", "z", "fig"],
-        "y": ["x", "t", "z", "fig"],
-        "z": ["x", "y", "t", "fig"],
-        "c": ["t", "fig"],
-        "m": ["t", "fig"],
+        "x": ["y", "t", "z", "fig", "extra"],
+        "y": ["x", "t", "z", "fig", "extra"],
+        "z": ["x", "y", "t", "fig", "extra"],
+        "c": ["t", "fig", "extra"],
+        "m": ["t", "fig", "extra"],
         "t": [*(value for value in allowed_keys if value not in ["t"])],
-        "r": ["g", "b", "t", "a", "fig"],
-        "g": ["r", "b", "t", "a", "fig"],
-        "b": ["r", "g", "t", "a", "fig"],
-        "a": ["r", "g", "b", "t", "fig"],
+        "r": ["g", "b", "t", "a", "fig", "extra"],
+        "g": ["r", "b", "t", "a", "fig", "extra"],
+        "b": ["r", "g", "t", "a", "fig", "extra"],
+        "a": ["r", "g", "b", "t", "fig", "extra"],
+        "extra": [*(k for k in allowed_keys if k not in ["extra"])],
         "fig": [*(k for k in allowed_keys if k not in ["fig"])],
+    }
+    type_keys_map: dict[DCType, list[str]] = {
+        "dataframe": ["m"],
+        "matrix": ["m"],
+        "grayscale": ["m"],
+        "image": ["r", "g", "b", "a"],
+        "ordered_pair": ["x", "y"],
+        "ordered_triple": ["x", "y", "z"],
+        "scalar": ["c"],
+        "plotly": [*(k for k in allowed_keys if k not in ["fig"])],
     }
 
     type: DCType
@@ -113,31 +125,6 @@ class DataContainer(Box):
                 f"DataContainer keys must be any of following types: {get_args(DCKwargsValue)}"
             )
 
-    def __validate_key_for_type(self, data_type: DCType, key: str):
-        match data_type:
-            case "ordered_pair":
-                if key not in ["x", "y"]:
-                    raise KeyError(self.__build_error_text(key, data_type))
-            case "grayscale" | "matrix" | "dataframe":
-                if key not in ["m"]:
-                    raise KeyError(self.__build_error_text(key, data_type))
-            case "image":
-                if key not in ["r", "g", "b", "a"]:
-                    raise KeyError(self.__build_error_text(key, data_type))
-            case "ordered_triple":
-                if key not in ["x", "y", "z"]:
-                    raise KeyError(self.__build_error_text(key, data_type))
-            case "scalar":
-                if key not in ["c"]:
-                    raise KeyError(self.__build_error_text(key, data_type))
-            case "plotly":
-                if key not in ["fig", *(k for k in self.combinations["fig"])]:
-                    raise KeyError(self.__build_error_text(key, data_type))
-            case _:
-                if data_type.startswith("parametric_") and key != "t":
-                    splitted_type = cast(DCType, data_type.split("parametric_")[1])
-                    self.__validate_key_for_type(splitted_type, key)
-
     def __init__(  # type:ignore
         self, type: DCType = "ordered_pair", **kwargs: DCKwargsValue
     ):
@@ -149,7 +136,7 @@ class DataContainer(Box):
         return super().__getitem__(key, _ignore_default)  # type: ignore
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
-        if key != "type":
+        if key != "type" and key != "extra":
             formatted_value = self._ndarrayify(value)
             super().__setitem__(key, formatted_value)  # type:ignore
         else:
@@ -160,50 +147,49 @@ class DataContainer(Box):
             if i not in allowed_keys:
                 raise ValueError(f"You cant have {key} with {i}")
 
+    def __validate_key_for_type(self, data_type: DCType, key: str):
+        if data_type.startswith("parametric_") and key != "t":
+            splitted_type = cast(DCType, data_type.split("parametric_")[1])
+            self.__validate_key_for_type(splitted_type, key)
+        else:
+            if key not in self.type_keys_map[data_type] + ["extra"]:
+                raise KeyError(
+                    self.__build_error_text(
+                        key, data_type, self.type_keys_map[data_type]
+                    )
+                )
+
     def __check_for_missing_keys(self, dc_type: DCType, keys: list[str]):
-        match dc_type:
-            case "grayscale" | "matrix" | "dataframe":
-                if "m" not in keys:
-                    raise KeyError(f'm key must be provided for type "{dc_type}"')
-            case "image":
-                if "r" and "g" and "b" and "a" not in keys:
-                    raise KeyError(
-                        f'r g b a keys must be provided for type "{dc_type}"'
-                    )
-            case "ordered_pair":
-                if "x" and "y" not in keys:
-                    raise KeyError(f'x and y keys must be provided for "{dc_type}"')
+        if dc_type.startswith("parametric_"):
+            if "t" not in keys:
+                raise KeyError(f't key must be provided for "{dc_type}"')
+            t = self["t"]
+            is_ascending_order = all(t[i] <= t[i + 1] for i in range(len(t) - 1))
+            if is_ascending_order is not True:
+                raise ValueError("t key must be in ascending order")
+            splitted_type = cast(DCType, dc_type.split("parametric_")[1])
+            self.__check_for_missing_keys(splitted_type, keys)
+        else:
+            for k in self.type_keys_map[dc_type]:
+                print(" checking: ", k, " with: ", keys)
+                if k not in keys:
+                    raise KeyError(f'"{k}" key must be provided for type "{dc_type}"')
 
-            case "ordered_triple":
-                if "x" and "y" and "z" not in keys:
-                    raise KeyError(f'x, y and z keys must be provided for "{dc_type}"')
-
-            case "scalar":
-                if "c" not in keys:
-                    raise KeyError(f'c key must be provided for type "{dc_type}"')
-
-            case "plotly":
-                if "fig" not in keys:
-                    raise KeyError(f'f key must be provided for type "{dc_type}"')
-
-            case _:
-                if dc_type.startswith("parametric_"):
-                    if "t" not in keys:
-                        raise KeyError(f't key must be provided for "{dc_type}"')
-                    t = self["t"]
-                    is_ascending_order = all(
-                        t[i] <= t[i + 1] for i in range(len(t) - 1)
-                    )
-                    if is_ascending_order is not True:
-                        raise ValueError("t key must be in ascending order")
-                else:
-                    raise ValueError(f'Invalid data type "{dc_type}"')
-
-    def __build_error_text(self, key: str, data_type: str):
-        return f'Invalid key "{key}" provided for data type "{data_type}"'
+    def __build_error_text(self, key: str, data_type: str, available_keys: list[str]):
+        return f'Invalid key "{key}" provided for data type "{data_type}", supported keys: {", ".join(available_keys)}'
 
     def validate(self):
         dc_type = self.type
+        if dc_type not in self.allowed_types:
+            closest_type = find_closest_match(dc_type, self.allowed_types)
+            helper_text = (
+                f'Did you mean: "{closest_type}" ?'
+                if closest_type
+                else f'allowed types: "{", ".join(self.allowed_types)}"'
+            )
+            raise ValueError(
+                f'unsupported type "{dc_type}" passed to DataContainer class, {helper_text}'
+            )
         dc_keys = list(cast(list[str], self.keys()))
         for k in dc_keys:
             if k != "type":
