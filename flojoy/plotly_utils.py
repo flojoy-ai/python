@@ -4,7 +4,6 @@ import numpy as np
 from .data_container import DataContainer
 import pandas as pd
 from typing import cast, Any
-import json
 
 
 def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
@@ -12,7 +11,7 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
     dc_type = data_copy.type
     fig = go.Figure()
     if "x" in data_copy and isinstance(data_copy.x, dict):  # type: ignore
-        data_keys = list(cast(list[str], data_copy.x.keys()))
+        data_keys = list(cast(list[str], data_copy.keys.x()))
         data_copy.x = data_copy.x[data_keys[0]]  # type: ignore
 
     match dc_type:
@@ -43,7 +42,16 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
                 ]
             )
         case "grayscale" | "matrix":
-            fig = px.histogram(x=data_copy.m)
+            y_columns: np.ndarray = data_copy.m
+            for i, col in enumerate(y_columns.T):
+                fig.add_trace(
+                    go.Scatter(
+                        x=np.arange(0, col.size),
+                        y=col,
+                        mode="lines",
+                        name=i,
+                    )
+                )
         case "plotly":
             fig = cast(go.Figure, data.fig)
         case _:
