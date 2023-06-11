@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name="flojoy",
     packages=["flojoy"],
-    version="0.1.3.dev1",
+    version="0.1.4-dev5",
     license="MIT",
     description="Python client library for Flojoy.",
     author="flojoy",
@@ -20,13 +20,16 @@ setup(
     ],
     install_requires=[
         "python-box",
+        "requests",
         "networkx",
         "numpy",
         "redis",
         "rq",
         "scipy",
+        "pandas",
         "pytest",
         "python-dotenv",
+        "pyyaml",
         "plotly==5.8.2",
     ],
     classifiers=[

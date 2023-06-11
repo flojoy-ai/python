@@ -6,7 +6,32 @@ import pandas as pd
 from pathlib import Path
 import os
 import yaml
-from typing import Union
+from typing import Union, Any
+import requests
+from redis import Redis
+from dotenv import dotenv_values  # type:ignore
+import difflib
+
+
+env_vars = dotenv_values("../.env")
+port = env_vars.get("VITE_BACKEND_PORT", "8000")
+BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = os.environ.get("REDIS_PORT", 6379)
+redis_instance = Redis(host=REDIS_HOST, port=int(REDIS_PORT))
+
+
+def send_to_socket(data: str):
+    print("posting data to socket:", f"{BACKEND_URL}/worker_response")
+    requests.post(f"{BACKEND_URL}/worker_response", json=data)
+
+
+def find_closest_match(given_str: str, available_str: list[str]):
+    closest_match = difflib.get_close_matches(given_str, available_str, n=1)
+    if closest_match:
+        return closest_match[0]
+    else:
+        return None
 
 
 class PlotlyJSONEncoder(_json.JSONEncoder):
@@ -18,7 +43,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
     version.
     """
 
-    def coerce_to_strict(self, const):
+    def coerce_to_strict(self, const: Any):
         """
         This is used to ultimately *encode* into strict JSON, see `encode`
         """
@@ -28,7 +53,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         else:
             return const
 
-    def encode(self, o):
+    def encode(self, o: Any):
         """
         Load and then dump the result using parse_constant kwarg
         Note that setting invalid separators will cause a failure at this step.
@@ -62,7 +87,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
                 separators=(self.item_separator, self.key_separator),
             )
 
-    def default(self, obj):
+    def default(self, obj: dict[str, Any]):
         """
         Accept an object (of unknown type) and try to encode with priority:
         1. builtin:     user-defined objects
@@ -105,7 +130,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         return _json.JSONEncoder.default(self, obj)
 
     @staticmethod
-    def encode_as_plotly(obj):
+    def encode_as_plotly(obj: dict[str, Any]):
         """Attempt to use a builtin `to_plotly_json` method."""
         try:
             return obj.to_plotly_json()
@@ -138,7 +163,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         if not np:
             raise NotEncodable
 
-        if obj is np.ma.core.masked:
+        if obj is np.ma.masked:
             return float("nan")
         elif isinstance(obj, np.ndarray) and obj.dtype.kind == "M":
             try:
@@ -179,7 +204,7 @@ class NotEncodable(Exception):
     pass
 
 
-def dump_str(result, limit=None):
+def dump_str(result: Any, limit: int | None = None):
     result_str = str(result)
     return (
         result_str
