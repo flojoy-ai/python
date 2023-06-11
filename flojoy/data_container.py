@@ -152,7 +152,7 @@ class DataContainer(Box):
             splitted_type = cast(DCType, data_type.split("parametric_")[1])
             self.__validate_key_for_type(splitted_type, key)
         else:
-            if key not in self.type_keys_map[data_type] + ["extra"]:
+            if key not in self.type_keys_map[data_type] + ["extra"] and data_type != 'plotly':
                 raise KeyError(
                     self.__build_error_text(
                         key, data_type, self.type_keys_map[data_type]
