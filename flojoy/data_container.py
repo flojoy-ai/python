@@ -171,7 +171,6 @@ class DataContainer(Box):
             self.__check_for_missing_keys(splitted_type, keys)
         else:
             for k in self.type_keys_map[dc_type]:
-                print(" checking: ", k, " with: ", keys)
                 if k not in keys:
                     raise KeyError(f'"{k}" key must be provided for type "{dc_type}"')
 
