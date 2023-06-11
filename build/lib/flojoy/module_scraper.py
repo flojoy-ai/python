@@ -243,11 +243,7 @@ if __name__ == "__main__":
                     ):
                         try:
                             valid = ast.parse(fw.data)
-                            this_nodes_directory = Path(NODE_DIR / f"{fw.name.upper()}")
-                            this_nodes_directory.mkdir(exist_ok=True)
-                            with open(
-                                this_nodes_directory / f"{fw.name.upper()}.py", "w"
-                            ) as fh:
+                            with open(NODE_DIR / f"{fw.name.upper()}.py", "w") as fh:
                                 fh.write(fw.data)
                             with open(
                                 MANIFEST_DIR / f"{fw.name}.manifest.yaml", "w"
