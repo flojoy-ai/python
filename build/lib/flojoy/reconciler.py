@@ -60,9 +60,8 @@ class Reconciler:
             constant_values=self.pad,
         )
 
-        return (
-            DataContainer(type="matrix", m=new_lhs),
-            DataContainer(type="matrix", m=new_rhs),
+        return DataContainer(type="matrix", m=new_lhs), DataContainer(
+            type="matrix", m=new_rhs
         )
 
     def reconcile__dataframe(
