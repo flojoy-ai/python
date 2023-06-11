@@ -7,7 +7,7 @@ class FlojoyWrapper:
     )
     CUSTOM_DOC_ADDITION += "\n\t" + "-." * 36 + "\n"
     INPUT_DEFAULT_DTYPE = "np.ndarray"
-    FORBIDDEN_OPTIONAL_ARGS = ["x", "data", "kwargs", "comparator"]
+    FORBIDDEN_OPTIONAL_ARGS = ["x", "data", "kwargs", "comparator", "a", "A"]
     FORBIDDEN_TYPES = ["tuple", "array-like", "array_like", "function", "callable", "sequence"]
 
     def __init__(self, func, parameters, module, argument_names):
@@ -18,10 +18,14 @@ class FlojoyWrapper:
         self.arguments = argument_names
         self.optional_argument_dict = parameters
         self.module = module
-        self.first_argument = argument_names[0]
-        self.parameters = {
-            self.first_argument: {"dtype": self.INPUT_DEFAULT_DTYPE, "optional": False}
-        }
+        try:
+            self.first_argument = argument_names[0]
+            self.parameters = {
+                self.first_argument: {"dtype": self.INPUT_DEFAULT_DTYPE, "optional": False}
+            }
+        except IndexError: #this means argument_names is none
+            self.first_argument = None
+            self.parameters = {}
         self.data = f"from flojoy import DataContainer, flojoy\n"
         self.data += f"import {module.__name__}\n\n"
         self.data += f"@flojoy\ndef {self.name.upper()}(dc, params):\n\t"
@@ -48,8 +52,9 @@ class FlojoyWrapper:
         self.manifest += 'name: ' + self.name.lower().capitalize() + '\n'
         self.manifest += "\t\tkey: " + self.name.upper() + "\n"
         self.manifest += "\t\ttype: " + mtype + "\n"
+        parameter_header = "\t\tparameters: \n\t\t"
+        parameter_string = ""
         if self.parameters.keys() is not []:
-            self.manifest += "\t\tparameters: \n\t\t"
             for param in self.parameters.keys():
                 if param not in self.FORBIDDEN_OPTIONAL_ARGS:
                     try:
@@ -57,8 +62,14 @@ class FlojoyWrapper:
                     except:
                         def_val = "None"
                     dtype = str(self.parameters[param]["dtype"])
-                    if dtype == "str": dtype = "string"
-                    self.manifest += (
+                    #sometimes we get 'None or float' ...
+                    if dtype == "str": 
+                        dtype = "string"
+                    elif dtype == "None or float":
+                        dtype = 'float'
+                    elif dtype == 'bool':
+                        dtype = 'boolean'
+                    parameter_string += (
                         f"\t{param}: \n"
                         + "\t\t\t\ttype: "
                         + dtype
@@ -66,6 +77,8 @@ class FlojoyWrapper:
                         + ("" if def_val == "None" else def_val)
                         + " \n\t\t"
                     )
+            if parameter_string != "":
+                self.manifest += parameter_header + parameter_string
 
             self.manifest += "\t\t\n"
         self.manifest = self.manifest.replace("\t", "  ")
@@ -85,8 +98,12 @@ class FlojoyWrapper:
         self.data += """'''"""
         self.data += self.doc
         self.data += "\t" + """'''""" + "\n"
-        self.data += f"\treturn DataContainer(\n\t\tx=dc[0].y,\n\t\t"
-        self.data += f"y={self.module.__name__}.{self.name}(\n\t\t\t{self.first_argument}=dc[0].y,\n\t\t\t"
+        self.data += f"\treturn DataContainer("
+        if self.module.__name__ != 'numpy.matlib': 
+            self.data +="\n\t\tx=dc[0].y,\n\t\t"
+            self.data += f"y={self.module.__name__}.{self.name}(\n\t\t\t"+(f"{self.first_argument}=dc[0].y,\n\t\t\t" if self.first_argument is not None else "")
+        else:
+            self.data += f"\n\t\tm={self.module.__name__}.{self.name}(\n\t\t\t"+(f"{self.first_argument}=dc[0].y,\n\t\t\t" if self.first_argument is not None else "")
         for idk, arg in enumerate(self.arguments):
             if arg not in self.FORBIDDEN_OPTIONAL_ARGS:
                 dtype = ""
@@ -146,6 +163,7 @@ def scrape_function(func):
         for k, val in signature.parameters.items()
         if val.default != inspect.Parameter.empty
     }
+    print(func, param_names, default_optional_params)
     return func, param_names, default_optional_params
 
 if __name__ == "__main__":
@@ -153,27 +171,37 @@ if __name__ == "__main__":
     from pathlib import Path
     import scipy
     import ast 
-
-    MODULES_TO_SCRAPE = {"scipy": [scipy.signal, scipy.stats]}
+    import numpy as np
+    MODULES_TO_SCRAPE = {"scipy": [scipy.signal, scipy.stats], "numpy":[np.linalg, np.random.mtrand]}
 
     CWD = os.getcwd()
     MANIFEST_DIR = CWD / Path("MANIFEST")
     MANIFEST_DIR.mkdir(exist_ok=True)
-    invalids = []
-    valids = []
+
     for module in MODULES_TO_SCRAPE.keys():
+
         MODULE_DIR = Path(CWD) / Path(f"{module.upper()}")
         MODULE_DIR.mkdir(exist_ok=True)
         for submodule in MODULES_TO_SCRAPE[module]:
+            invalids = []
+            valids = []
             submodule_name = submodule.__name__.split('.')[-1]
             NODE_DIR = MODULE_DIR/ Path(f"{submodule_name}")
             NODE_DIR.mkdir(exist_ok=True)
 
+            iterable = inspect.getmembers(submodule, inspect.isfunction) if submodule_name != "random" else inspect.getmembers(submodule)
             for name, func in inspect.getmembers(submodule, inspect.isfunction):
                 _, all_arg_names, default_optional_params = scrape_function(func)
-                if (all_arg_names[0] == "x" or all_arg_names[0] == "data") and (
-                    "y" not in all_arg_names and "plot" not in all_arg_names
-                ):
+                #for the random library we need to check if there are any input arguments at all!
+                func_is_valid = False
+                if not all_arg_names:
+                    func_is_valid = True
+                else:
+                    if (all_arg_names[0] in ['x', 'data', 'A', 'a']) and (
+                        "y" not in all_arg_names and "plot" not in all_arg_names and 'b' not in all_arg_names
+                    ):
+                        func_is_valid = True
+                if func_is_valid:
                     fw = FlojoyWrapper(func, default_optional_params, submodule, all_arg_names)
                     fw.write_wrapper(f"{module.upper()}_{submodule_name.upper()}")
                     if fw.manifest != "" and fw.data != "" and "NoneType" not in fw.data:
