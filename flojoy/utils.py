@@ -10,6 +10,7 @@ from typing import Union, Any
 import requests
 from redis import Redis
 from dotenv import dotenv_values  # type:ignore
+import difflib
 
 
 env_vars = dotenv_values("../.env")
@@ -23,6 +24,14 @@ redis_instance = Redis(host=REDIS_HOST, port=int(REDIS_PORT))
 def send_to_socket(data: str):
     print("posting data to socket:", f"{BACKEND_URL}/worker_response")
     requests.post(f"{BACKEND_URL}/worker_response", json=data)
+
+
+def find_closest_match(given_str: str, available_str: list[str]):
+    closest_match = difflib.get_close_matches(given_str, available_str, n=1)
+    if closest_match:
+        return closest_match[0]
+    else:
+        return None
 
 
 class PlotlyJSONEncoder(_json.JSONEncoder):

@@ -94,11 +94,19 @@ def get_redis_obj(id: str) -> dict[str, Any]:
     return parse_obj
 
 
-def try_parse_array(arr: List[str], t: Type) -> Optional[List[Any]]:
-    try:
-        return list(map(t, arr))
-    except:
-        return None
+def parse_array(str_value: str) -> List[Union[int, float, str]]:
+    if not str_value:
+        return []
+
+    val_list = [val.strip() for val in str_value.split(",")]
+    # First try to cast into int, then float, then keep as string if all else fails
+    for t in [int, float, str]:
+        try:
+            val = list(map(t, val_list))
+            break
+        except Exception:
+            continue
+    return val
 
 
 ParamValTypes = Literal[
@@ -110,18 +118,8 @@ def format_param_value(value: Any, value_type: ParamValTypes):
     match value_type:
         case "array":
             s = str(value)
-            if not s:
-                return []
-
-            vals = [val.strip() for val in s.split(",") if val.strip()]
-            # First try to cast into int, then float, then keep as string if all else fails
-            arr = try_parse_array(vals, int)
-            if arr:
-                return arr
-            arr = try_parse_array(vals, float)
-            if arr:
-                return arr
-            return vals
+            parsed_value = parse_array(s)
+            return parsed_value
         case "float":
             return float(value)
         case "int":

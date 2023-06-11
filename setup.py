@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name="flojoy",
     packages=["flojoy"],
-    version="0.1.4-dev2",
+    version="0.1.4-dev3",
     license="MIT",
     description="Python client library for Flojoy.",
     author="flojoy",
