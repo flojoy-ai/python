@@ -34,6 +34,8 @@ class Reconciler:
             return self.reconcile__matrix_scalar(lhs, rhs)
         elif types_to_reconcile == set(["matrix", "dataframe"]):
             return self.reconcile__dataframe_matrix(lhs, rhs)
+        elif types_to_reconcile == set(["scalar", "dataframe"]):
+            return self.reconcile__dataframe_scalar(lhs, rhs)
         else:
             raise IrreconcilableContainersException(
                 "FloJoy doesn't know how to reconcile data containers of type %s and %s"
@@ -68,12 +70,22 @@ class Reconciler:
     def reconcile__dataframe(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        raise NotImplementedError("TODO")
+        # pandas' handling for dataframes is actually pretty permissive. Let's just
+        #  return both types as normal
+        return (lhs, rhs)
 
     def reconcile__dataframe_scalar(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        raise NotImplementedError("TODO")
+        # let's expand the scalar to be a dataframe the same size as the other dataframe
+        if lhs.type == "dataframe":
+            new_m = lhs.m.copy()
+            new_m.iloc[:] = rhs.c
+            return lhs, DataContainer(type="dataframe", m=new_m)
+
+        new_m = rhs.m.copy()
+        new_m.iloc[:] = lhs.c
+        return DataContainer(type="dataframe", m=new_m), rhs
 
     def reconcile__ordered_pair(
         self, lhs: DataContainer, rhs: DataContainer
