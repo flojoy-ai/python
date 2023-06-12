@@ -203,7 +203,6 @@ if __name__ == "__main__":
     MANIFEST_DIR.mkdir(exist_ok=True)
 
     for module in MODULES_TO_SCRAPE.keys():
-
         MODULE_DIR = Path(CWD) / Path(f"{module.upper()}")
         MODULE_DIR.mkdir(exist_ok=True)
         for submodule in MODULES_TO_SCRAPE[module]:
