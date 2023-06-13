@@ -22,9 +22,9 @@ class NLPConnectVitGPT2(HubModel):
         self._cached = False
     
     def download_and_cache(self):
-        self._model = ts.VisionEncoderDecoderModel.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
-        self._feature_extractor = ts.ViTImageProcessor.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
-        self._tokenizer = ts.AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+        self._model = ts.VisionEncoderDecoderModel.from_pretrained("nlpconnect/vit-gpt2-image-captioning", revision="dc68f91")
+        self._feature_extractor = ts.ViTImageProcessor.from_pretrained("nlpconnect/vit-gpt2-image-captioning", revision="dc68f91")
+        self._tokenizer = ts.AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning", revision="dc68f91")
         self._cached = True
 
     @property
