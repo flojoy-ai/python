@@ -15,7 +15,7 @@ from .utils import redis_instance, send_to_socket
 
 
 def get_flojoy_root_dir() -> str:
-    home_dir = os.path.expanduser("~user")
+    home_dir = os.path.expanduser("~")
     flojoy_yaml_path = os.path.join(home_dir, ".flojoy", "flojoy.yaml")
     if os.path.exists(flojoy_yaml_path):
         with open(flojoy_yaml_path, "r") as file:
@@ -28,7 +28,7 @@ def get_flojoy_root_dir() -> str:
                     raise Exception("No PATH found in .flojoy.yaml")
             except:
                 raise Exception("Error parsing .flojoy.yaml")
-    raise Exception("No .flojoy.yaml found in home directory")
+    raise Exception("No flojoy.yaml found in the .flojoy directory")
 
 
 def get_parameter_manifest() -> dict[str, Any]:
