@@ -33,8 +33,11 @@ class HubModelFactory:
 
     factory = HubModelFactory()
     hub_model = factory.create_model(ImageCaptionModels.NLP_CONNECT_VIT_GPT2)
-    # m
-    
+    hub_model.download_and_cache() # Download the model and cache it locally
+    model = hub_model.get_executable_model() # Get the executable model
+    # Do work
+    ```
+
     """
     _creators = {}
 
