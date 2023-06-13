@@ -16,7 +16,7 @@ from .utils import redis_instance, send_to_socket
 
 def get_flojoy_root_dir() -> str:
     home_dir = os.path.expanduser("~user")
-    flojoy_yaml_path = os.path.join(home_dir, ".flojoy", ".flojoy.yaml")
+    flojoy_yaml_path = os.path.join(home_dir, ".flojoy", "flojoy.yaml")
     if os.path.exists(flojoy_yaml_path):
         with open(flojoy_yaml_path, "r") as file:
             try:
