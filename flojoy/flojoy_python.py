@@ -9,7 +9,7 @@ from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from networkx.drawing.nx_pylab import draw as nx_draw
-from typing import Union, cast, Any, Literal, Callable, List
+from typing import Union, cast, Any, Literal, Callable
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
 
@@ -93,19 +93,20 @@ def get_redis_obj(id: str) -> dict[str, Any]:
     return parse_obj
 
 
-def parse_array(str_value: str) -> List[Union[int, float, str]]:
+def parse_array(str_value: str) -> Union[list[int], list[float], list[str]]:
     if not str_value:
         return []
 
-    val_list = [val.strip() for val in str_value.split(",")]
+    # "if val" is needed to get rid of empty strings, aka when there is no value between 2 commas
+    val_list = [val.strip() for val in str_value.split(",") if val]
+
     # First try to cast into int, then float, then keep as string if all else fails
-    for t in [int, float, str]:
+    for t in [int, float]:
         try:
-            val = list(map(t, val_list))
-            break
+            return list(map(t, val_list))
         except Exception:
             continue
-    return val
+    return val_list
 
 
 ParamValTypes = Literal[
