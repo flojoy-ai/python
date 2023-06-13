@@ -49,15 +49,18 @@ class FlojoyWrapper:
         for idl, line in enumerate(self.doc.split("\n")):
             if "Returns" in line:
                 break
-        self.doc = "\n" + (
-            "\n".join(
-                [
-                    ("\t" if (":" in line or "----------" in line) else "\t\t")
-                    + line.lstrip(" ")
-                    for line in self.doc.split("\n")[:idl]
-                ]
-            ).replace("\tParameters", self.CUSTOM_DOC_ADDITION + "\n" + "\tParameters")
-        )
+
+            self.doc = "\n" + (
+                "\n".join(
+                    [
+                        ("\t" if (":" in line or "----------" in line) else "\t\t")
+                        + line.lstrip(" ")
+                        for line in self.doc.split("\n")[:idl]
+                    ]
+                ).replace(
+                    "\tParameters", self.CUSTOM_DOC_ADDITION + "\n" + "\tParameters"
+                )
+            )
 
     def write_manifest(self, mtype):
         self.manifest += "name: " + self.name.lower().capitalize() + "\n"
