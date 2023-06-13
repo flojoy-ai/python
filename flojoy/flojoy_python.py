@@ -5,28 +5,31 @@ import yaml
 import traceback
 import numpy as np
 import networkx as nx
-from rq.job import Job  # type:ignore
-from pathlib import Path
+from rq.job import Job
 from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
-from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
-from typing import Union, cast, Any, Literal, Callable, List, Optional, Type
+from networkx.drawing.nx_pylab import draw as nx_draw
+from typing import Union, cast, Any, Literal, Callable, List
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
 
 
 def get_flojoy_root_dir() -> str:
-    home = str(Path.home())
-    path = os.path.join(home, ".flojoy/flojoy.yaml")
-    stream = open(path, "r")
-    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
-    root_dir = ""
-    if isinstance(yaml_dict, str) == True:
-        root_dir = yaml_dict.split(":")[1]
-    else:
-        root_dir = yaml_dict["PATH"]
-    return root_dir
+    home_dir = os.path.expanduser("~user")
+    flojoy_yaml_path = os.path.join(home_dir, ".flojoy", ".flojoy.yaml")
+    if os.path.exists(flojoy_yaml_path):
+        with open(flojoy_yaml_path, "r") as file:
+            try:
+                config = yaml.safe_load(file)
+                studio_path = config.get("PATH")
+                if studio_path:
+                    return studio_path
+                else:
+                    raise Exception("No PATH found in .flojoy.yaml")
+            except:
+                raise Exception("Error parsing .flojoy.yaml")
+    raise Exception("No .flojoy.yaml found in home directory")
 
 
 def js_to_json(s: str):
