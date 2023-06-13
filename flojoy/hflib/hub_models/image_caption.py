@@ -20,11 +20,17 @@ class NLPConnectVitGPT2(HubModel):
     def __init__(self):
         self._model, self._feature_extractor, self._tokenizer = None, None, None
         self._cached = False
-    
+
     def download_and_cache(self):
-        self._model = ts.VisionEncoderDecoderModel.from_pretrained("nlpconnect/vit-gpt2-image-captioning", revision="dc68f91")
-        self._feature_extractor = ts.ViTImageProcessor.from_pretrained("nlpconnect/vit-gpt2-image-captioning", revision="dc68f91")
-        self._tokenizer = ts.AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning", revision="dc68f91")
+        self._model = ts.VisionEncoderDecoderModel.from_pretrained(
+            "nlpconnect/vit-gpt2-image-captioning", revision="dc68f91"
+        )
+        self._feature_extractor = ts.ViTImageProcessor.from_pretrained(
+            "nlpconnect/vit-gpt2-image-captioning", revision="dc68f91"
+        )
+        self._tokenizer = ts.AutoTokenizer.from_pretrained(
+            "nlpconnect/vit-gpt2-image-captioning", revision="dc68f91"
+        )
         self._cached = True
 
     @property
@@ -32,4 +38,8 @@ class NLPConnectVitGPT2(HubModel):
         return self._cached
 
     def _get_executable_model(self) -> ImageCaptionModel:
-        return ImageCaptionModel(model=self._model, feature_extractor=self._feature_extractor, tokenizer=self._tokenizer)
+        return ImageCaptionModel(
+            model=self._model,
+            feature_extractor=self._feature_extractor,
+            tokenizer=self._tokenizer,
+        )

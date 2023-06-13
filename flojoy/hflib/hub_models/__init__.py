@@ -9,7 +9,7 @@ class HubModel(metaclass=ABCMeta):
         pass
 
     @property
-    @abstractmethod 
+    @abstractmethod
     def cached(self) -> bool:
         pass
 
@@ -18,7 +18,7 @@ class HubModel(metaclass=ABCMeta):
         pass
 
     def get_executable_model(self) -> Any:
-        if(not self.cached):
+        if not self.cached:
             raise ValueError("Model not cached. Call download_and_cache() first.")
         return self._get_executable_model()
 
@@ -39,6 +39,7 @@ class HubModelFactory:
     ```
 
     """
+
     _creators = {}
 
     @classmethod
@@ -48,6 +49,7 @@ class HubModelFactory:
                 raise Exception(f"Model type {model_type} already registered.")
             cls._creators[model_type] = creator_class
             return creator_class
+
         return decorator
 
     @classmethod
@@ -55,8 +57,6 @@ class HubModelFactory:
         if model_type not in cls._creators:
             raise ValueError(f"Invalid model type: {model_type}")
         return cls._creators[model_type]()
-    
 
-from .image_caption import (
-    ImageCaptionModels
-)
+
+from .image_caption import ImageCaptionModels
