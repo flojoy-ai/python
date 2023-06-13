@@ -2,8 +2,6 @@ import numpy
 import pandas
 import unittest
 
-from unittest.mock import patch
-
 
 from flojoy.data_container import DataContainer
 from flojoy.reconciler import Reconciler, IrreconcilableContainersException

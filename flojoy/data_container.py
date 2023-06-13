@@ -2,7 +2,7 @@ import typing
 import numpy as np
 import pandas as pd
 from box import Box, box_list
-import plotly.graph_objects as go  # type:ignore
+import plotly.graph_objects as go
 from typing import Union, Literal, get_args, Any, cast
 from .utils import find_closest_match
 

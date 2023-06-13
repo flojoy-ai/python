@@ -7,7 +7,6 @@ For this reason, we've created the `Reconciler` class to handle the process of t
 """
 from typing import Tuple
 import numpy
-import pandas
 
 from .data_container import DataContainer
 
