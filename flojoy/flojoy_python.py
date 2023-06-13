@@ -1,4 +1,3 @@
-import re
 import os
 import json
 import yaml
@@ -30,19 +29,6 @@ def get_flojoy_root_dir() -> str:
             except:
                 raise Exception("Error parsing .flojoy.yaml")
     raise Exception("No .flojoy.yaml found in home directory")
-
-
-def js_to_json(s: str):
-    """
-    Converts an ES6 JS file with a single JS Object definition to JSON
-    """
-    split = s.split("=")[1]
-    clean = split.replace("\n", "").replace("'", "").replace(",}", "}").rstrip(";")
-    single_space = "".join(clean.split())
-    dbl_quotes = re.sub(r"(\w+)", r'"\1"', single_space).replace('""', '"')
-    rm_comma = dbl_quotes.replace("},}", "}}")
-
-    return json.loads(rm_comma)
 
 
 def get_parameter_manifest() -> dict[str, Any]:
