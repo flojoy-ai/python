@@ -32,10 +32,20 @@ def get_flojoy_root_dir() -> str:
 
 
 def get_parameter_manifest() -> dict[str, Any]:
+    # TODO: we need a schema here to parse the manifest
     root = get_flojoy_root_dir()
-    f = open(os.path.join(root, "src/data/manifests-latest.json"))
-    param_manifest = json.load(f)
-    return param_manifest["parameters"]
+    manifests_path = os.path.join(root, "src/data/manifests-latest.json")
+    if os.path.exists(manifests_path):
+        with open(manifests_path) as f:
+            try:
+                param_manifest = json.load(f)
+                return param_manifest["parameters"]
+            except:
+                raise Exception("Error parsing manifests-latest.json")
+    else:
+        raise Exception(
+            "No manifests-latest.json found in studio's src/data/ directory"
+        )
 
 
 def fetch_inputs(
