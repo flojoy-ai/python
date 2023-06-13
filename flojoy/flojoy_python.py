@@ -183,6 +183,7 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
         node_id = cast(str, kwargs["node_id"])
         job_id = cast(str, kwargs["job_id"])
         jobset_id = cast(str, kwargs["jobset_id"])
+
         try:
             mock = False
             previous_job_ids = cast(list[str], kwargs.get("previous_job_ids", []))
@@ -231,17 +232,19 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
 
             print("executing node_id:", node_id, "previous_job_ids:", previous_job_ids)
             print(node_id, " params: ", json.dumps(func_params, indent=2))
+
             node_inputs = fetch_inputs(previous_job_ids, mock)
 
             # running the node
             dc_obj = func(node_inputs, func_params)  # DataContainer object from node
-            if isinstance(
-                dc_obj, DataContainer
-            ):  # some special nodes like LOOP return dict instead of `DataContainer`
+
+            if isinstance(dc_obj, DataContainer):
+                # some special nodes like LOOP return dict instead of `DataContainer`
                 dc_obj.validate()  # Validate returned DataContainer object
-            result = get_frontend_res_obj_from_result(
-                dc_obj
-            )  # Response object to send to FE
+
+            # Response object to send to FE
+            result = get_frontend_res_obj_from_result(dc_obj)
+
             send_to_socket(
                 json.dumps(
                     {
@@ -268,6 +271,7 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                 )
             print("final result:", dump_str(result, limit=100))
             return result
+
         except Exception as e:
             send_to_socket(
                 json.dumps(
@@ -296,7 +300,7 @@ def reactflow_to_networkx(elems: list[Any], edges: list[Any]):
         ctrls: dict[str, Any] = data["ctrls"] if "ctrls" in data else {}
         inputs: dict[str, Any] = data["inputs"] if "inputs" in data else {}
         label: dict[str, Any] = data["label"] if "label" in data else {}
-        nx_graph.add_node(  # type:ignore
+        nx_graph.add_node(
             node_id,
             pos=(el["position"]["x"], el["position"]["y"]),
             id=el["id"],
@@ -312,8 +316,7 @@ def reactflow_to_networkx(elems: list[Any], edges: list[Any]):
         u = e["source"]
         v = e["target"]
         label = e["sourceHandle"]
-        nx_graph.add_edge(u, v, label=label, id=_id)  # type:ignore
-
+        nx_graph.add_edge(u, v, label=label, id=_id)
     nx_draw(nx_graph, with_labels=True)
 
     return nx_graph
