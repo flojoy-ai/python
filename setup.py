@@ -1,8 +1,8 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="flojoy",
-    packages=["flojoy"],
+    packages=find_packages(exclude=["tests"]),
     version="0.1.4-dev5",
     license="MIT",
     description="Python client library for Flojoy.",
