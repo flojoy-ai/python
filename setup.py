@@ -1,8 +1,8 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="flojoy",
-    packages=["flojoy"],
+    packages=find_packages(exclude=["tests"]),
     version="0.1.4-dev5",
     license="MIT",
     description="Python client library for Flojoy.",
@@ -18,6 +18,7 @@ setup(
         "scheduler",
         "topic",
     ],
+    python_requires=">=3.10",
     install_requires=[
         "python-box",
         "requests",
@@ -31,6 +32,10 @@ setup(
         "python-dotenv",
         "pyyaml",
         "plotly==5.8.2",
+        "transformers>=4.26.0",
+        "torch>=1.9",
+        "torchvision>=0.10",
+        "Pillow",
     ],
     classifiers=[
         "Development Status :: 3 - Alpha",
