@@ -211,7 +211,7 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                     }
                 )
             )
-            # Get default command paramaters
+            # Get default command parameters
             default_params: dict[str, Any] = {}
             func_params = {}
             pm = get_parameter_manifest()
@@ -242,15 +242,47 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
             print(node_id, " params: ", json.dumps(func_params, indent=2))
             node_inputs, dict_inputs = fetch_inputs(previous_jobs)
 
-            # running the node
-            sig = signature(func)
+            # constructing the inputs
+            print(f"constructing inputs for {func}")
             args = {}
-            if len(sig.parameters) > 2:
-                args["dict_inputs"] = dict_inputs
+            sig = signature(func)
+            for key in sig.parameters.keys():
+                param = sig.parameters[key]
+                print(f"type for key: {key}", param.annotation)
+                if str(param.annotation) == "list[flojoy.data_container.DataContainer]":
+                    print(
+                        f"{key} is a list of data containers, passing all DataContainers into it"
+                    )
+                    args[key] = node_inputs
+                elif (
+                    str(param.annotation)
+                    == "<class 'flojoy.data_container.DataContainer'>"
+                ):
+                    print(
+                        f"{key} is a data container, check input exists?: {key in dict_inputs}"
+                    )
+                    args[key] = dict_inputs.get(key, None)
+                elif str(param.annotation) == "<class 'dict'>":
+                    print(
+                        f"{key} is a dictionary of params, passing all params into it"
+                    )
+                    args[key] = func_params
+                else:
+                    print(
+                        f"{key} is a param, check param exists?: {key in func_params}"
+                    )
+                    args[key] = func_params.get(key, None)
 
-            dc_obj = func(
-                node_inputs, func_params, **args
-            )  # DataContainer object from node
+            print("calling node with args keys:", args.keys())
+
+            ##########################
+            # calling the node function
+            ##########################
+            dc_obj = func(**args)  # DataContainer object from node
+            ##########################
+            # end calling the node function
+            ##########################
+
             if isinstance(
                 dc_obj, DataContainer
             ):  # some special nodes like LOOP return dict instead of `DataContainer`
