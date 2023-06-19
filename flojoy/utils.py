@@ -265,7 +265,8 @@ def set_frontier_api_key(api_key: str):
     except Exception as e:
         raise e
 
-def set_frontier_s3_key(s3Name:str, s3AccessKey: str, s3SecretKey: str):
+
+def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
     try:
         home = str(Path.home())
         file_path = os.path.join(home, ".flojoy/credentials.yaml")
@@ -284,7 +285,7 @@ def set_frontier_s3_key(s3Name:str, s3AccessKey: str, s3SecretKey: str):
             # Read the contents of the file
             with open(file_path, "r") as file:
                 load = yaml.safe_load(file)
-            
+
             updated = False
             for key, value in load.items():
                 if key == s3Name:
@@ -294,15 +295,15 @@ def set_frontier_s3_key(s3Name:str, s3AccessKey: str, s3SecretKey: str):
                     updated = True
                     break
 
-            with open(file_path, 'w') as file:
+            with open(file_path, "w") as file:
                 yaml.dump(load, file)
-            
+
             if not updated:
                 load[f"{s3Name}"] = s3Name
                 load[f"{s3Name}accessKey"] = s3AccessKey
                 load[f"{s3Name}secretKey"] = s3SecretKey
 
-                with open(file_path, 'w') as file:
+                with open(file_path, "w") as file:
                     yaml.dump(load, file)
 
     except Exception as e:
