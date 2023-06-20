@@ -264,3 +264,30 @@ def set_frontier_api_key(api_key: str):
 
     except Exception as e:
         raise e
+
+
+def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
+    home = str(Path.home())
+    file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
+
+    data = {
+        f"{s3Name}": s3Name,
+        f"{s3Name}accessKey": s3AccessKey,
+        f"{s3Name}secretKey": s3SecretKey,
+    }
+    if not os.path.exists(file_path):
+        # Create a new file and write the ACCSS_KEY to it
+        with open(file_path, "w") as file:
+            yaml.dump(data, file)
+        return
+
+    # Read the contents of the file
+    with open(file_path, "r") as file:
+        load = yaml.safe_load(file)
+
+    load[f"{s3Name}"] = s3Name
+    load[f"{s3Name}accessKey"] = s3AccessKey
+    load[f"{s3Name}secretKey"] = s3SecretKey
+
+    with open(file_path, "w") as file:
+        yaml.dump(load, file)
