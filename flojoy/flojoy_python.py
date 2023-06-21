@@ -29,26 +29,6 @@ def get_flojoy_root_dir() -> str:
     return root_dir
 
 
-def js_to_json(s: str):
-    """
-    Converts an ES6 JS file with a single JS Object definition to JSON
-    """
-    split = s.split("=")[1]
-    clean = split.replace("\n", "").replace("'", "").replace(",}", "}").rstrip(";")
-    single_space = "".join(clean.split())
-    dbl_quotes = re.sub(r"(\w+)", r'"\1"', single_space).replace('""', '"')
-    rm_comma = dbl_quotes.replace("},}", "}}")
-
-    return json.loads(rm_comma)
-
-
-def get_parameter_manifest() -> dict[str, Any]:
-    root = get_flojoy_root_dir()
-    f = open(os.path.join(root, "src/data/manifests-latest.json"))
-    param_manifest = json.load(f)
-    return param_manifest["parameters"]
-
-
 def fetch_inputs(
     previous_job_ids: list[str], mock: bool = False
 ) -> list[DataContainer]:
@@ -99,10 +79,11 @@ def parse_array(str_value: str) -> List[Union[int, float, str]]:
         return []
 
     val_list = [val.strip() for val in str_value.split(",")]
+    val = list(map(str, val_list))
     # First try to cast into int, then float, then keep as string if all else fails
-    for t in [int, float, str]:
+    for t in [int, float]:
         try:
-            val = list(map(t, val_list))
+            val: list[int | float | str] = list(map(t, val_list))
             break
         except Exception:
             continue
@@ -187,7 +168,7 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
             mock = False
             previous_job_ids = cast(list[str], kwargs.get("previous_job_ids", []))
             ctrls = cast(
-                Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
+                Union[dict[str, dict[str, Any]], None], kwargs.get("ctrls", None)
             )
             FN = func.__name__
             # remove this node from redis ALL_NODES key
@@ -202,28 +183,15 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                     }
                 )
             )
-            # Get default command paramaters
-            default_params: dict[str, Any] = {}
+            # Get command parameters set by the user through the control panel
             func_params = {}
-            pm = get_parameter_manifest()
-            if FN in pm:
-                for param in pm[FN]:
-                    default_params[param] = pm[FN][param]["default"]
-                # Get command parameters set by the user through the control panel
-                func_params = {}
-                if ctrls is not None:
-                    for key, input in ctrls.items():
-                        param = input["param"]
-                        val = input["value"]
-                        func_params[param] = format_param_value(
-                            val, pm[FN][param]["type"]
-                        )
-                # Make sure that function parameters set is fully loaded
-                # If function is missing a parameter, fill-in with default value
-                for key in default_params.keys():
-                    if key not in func_params.keys():
-                        func_params[key] = default_params[key]
-
+            if ctrls is not None:
+                for _, input in ctrls.items():
+                    param = input["param"]
+                    value = input["value"]
+                    func_params[param] = format_param_value(
+                        value, input["type"] if "type" in input else type(value) # else condition is for backward compatibility
+                    )
             func_params["jobset_id"] = jobset_id
             func_params["type"] = "default"
             func_params["node_id"] = node_id
