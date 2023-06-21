@@ -3,18 +3,15 @@ import os
 import numpy as np
 from tqdm import tqdm
 import json 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+openai.api_key = os.environ["OPENAI_KEY"]
 
 primary_functions = [
     func_name for func_name in dir(np.random)
     if callable(getattr(np.random, func_name)) and not func_name.startswith("_")
 ]
 
-print(primary_functions)
-
-openai.api_key = os.environ["OPENAI_KEY"]
-
-WRAPPERS = {}
-for function in tqdm(primary_functions):
+def generate_wrapper_davinci(function):
     message = [
         {
             "role": "user",
@@ -42,9 +39,17 @@ for function in tqdm(primary_functions):
         frequency_penalty=0.0,
         presence_penalty=0.0,
     )
-    WRAPPERS[function] = response_retval.choices[0]["text"]
-    # print(WRAPPERS[function])
-    # print(response.choices[0]['text'])
-print(WRAPPERS)
-with open('numpy.random.json', 'w', encoding='utf-8') as f:
-    json.dump(WRAPPERS, f, ensure_ascii=False, indent=4)
+    return function, response_retval.choices[0]["text"]
+
+if __name__== "__main__":
+    WRAPPERS = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_stuff = [executor.submit(generate_wrapper_davinci, function) 
+                           for function in primary_functions]
+        for future in tqdm(as_completed(future_to_stuff), total=len(primary_functions)):
+            res = future.result()
+            WRAPPERS[res[0]] = res[1]
+
+
+    with open('numpy.random.json', 'w', encoding='utf-8') as f:
+        json.dump(WRAPPERS, f, ensure_ascii=False, indent=4)
