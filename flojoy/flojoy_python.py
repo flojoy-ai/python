@@ -186,7 +186,12 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                     param = input["param"]
                     value = input["value"]
                     func_params[param] = format_param_value(
-                        value, input["type"] if "type" in input else type(value) # else condition is for backward compatibility
+                        value,
+                        input["type"]
+                        if "type" in input
+                        else type(
+                            value
+                        ),  # else condition is for backward compatibility
                     )
             func_params["jobset_id"] = jobset_id
             func_params["type"] = "default"
