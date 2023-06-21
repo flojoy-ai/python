@@ -246,32 +246,24 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
             print(f"constructing inputs for {func}")
             args = {}
             sig = signature(func)
-            for key in sig.parameters.keys():
-                param = sig.parameters[key]
-                print(f"type for key: {key}", param.annotation)
-                if str(param.annotation) == "list[flojoy.data_container.DataContainer]":
-                    print(
-                        f"{key} is a list of data containers, passing all DataContainers into it"
-                    )
-                    args[key] = node_inputs
-                elif (
-                    str(param.annotation)
-                    == "<class 'flojoy.data_container.DataContainer'>"
-                ):
-                    print(
-                        f"{key} is a data container, check input exists?: {key in dict_inputs}"
-                    )
-                    args[key] = dict_inputs.get(key, None)
-                elif str(param.annotation) == "<class 'dict'>":
-                    print(
-                        f"{key} is a dictionary of params, passing all params into it"
-                    )
-                    args[key] = func_params
-                else:
-                    print(
-                        f"{key} is a param, check param exists?: {key in func_params}"
-                    )
-                    args[key] = func_params.get(key, None)
+
+            # once all the nodes are migrated to the new node api, remove the if condition
+            keys = list(sig.parameters)
+            if (
+                len(sig.parameters) == 2
+                and sig.parameters[keys[0]].annotation == list[DataContainer]
+            ):
+                args[keys[0]] = node_inputs
+            else:
+                args = {**args, **dict_inputs}
+
+            # once all the nodes are migrated to the new node api, remove the if condition
+            if len(sig.parameters) == 2 and sig.parameters[keys[1]].annotation == dict:
+                args[keys[1]] = func_params
+            else:
+                for param, value in func_params.items():
+                    if param in sig.parameters:
+                        args[param] = value
 
             print("calling node with args keys:", args.keys())
 
