@@ -4,6 +4,13 @@ import numpy as np
 from tqdm import tqdm
 import json 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+import subprocess
+
+
+def find_2nd(string, substring):
+   return string.find(substring, string.find(substring) + 1)
+
 openai.api_key = os.environ["OPENAI_KEY"]
 
 primary_functions = [
@@ -12,6 +19,10 @@ primary_functions = [
 ]
 
 def generate_wrapper_davinci(function):
+    try:
+        getattr(np.random, function).__name__
+    except AttributeError:
+        return '',''
     message = [
         {
             "role": "user",
@@ -41,15 +52,36 @@ def generate_wrapper_davinci(function):
     )
     return function, response_retval.choices[0]["text"]
 
+def write_to_file(wkdir, function, string):
+    LOCAL_DIR = wkdir/Path(function.upper())
+    LOCAL_DIR.mkdir(exist_ok=True)
+    with open(LOCAL_DIR/Path(function.upper()+".py"), 'w') as fh:
+        # we need to redo the doc string so that it amtches the origianl in the same
+        # conventions as the other autogenned nodes
+        # First, lets get the OG string
+        og_docstring = getattr(np.random, function).__doc__
+        og_explanation = og_docstring[og_docstring.find('Parameters'):]
+        head = string[:string.find('Parameters')]
+        tail = string[find_2nd(string,"\"\"\""):]
+        flojoy_disclaimer = '-.'*36+"\nThe parameters of the function in this Flojoy wrapper are given below."+'\n'+'-.'*36+'\n'
+        string = head+"\n"+flojoy_disclaimer+og_explanation+"\n\n"+tail
+        string = string.replace('\t\t', '\t')
+        fh.write(f"import numpy as np\nfrom flojoy import flojoy, DataContainer\nfrom typing import Optional, Union, Tuple, List\n@flojoy\n{string}")
+    subprocess.call(["black", f"{LOCAL_DIR/Path(function.upper()+'.py')}"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
 if __name__== "__main__":
+    DATA_FNAME = 'numpy.random.json'
+    DIRECTORY = Path('RANDOM')
+    DIRECTORY.mkdir(exist_ok=True)
+
     WRAPPERS = {}
     with ThreadPoolExecutor(max_workers=10) as executor:
         future_to_stuff = [executor.submit(generate_wrapper_davinci, function) 
-                           for function in primary_functions]
+                        for function in primary_functions]
         for future in tqdm(as_completed(future_to_stuff), total=len(primary_functions)):
             res = future.result()
             WRAPPERS[res[0]] = res[1]
-
-
-    with open('numpy.random.json', 'w', encoding='utf-8') as f:
+            if 'def' in res[1] and 'return' in res[1]:
+                write_to_file(DIRECTORY, res[0], res[1])
+    with open(DATA_FNAME, 'w', encoding='utf-8') as f:
         json.dump(WRAPPERS, f, ensure_ascii=False, indent=4)
