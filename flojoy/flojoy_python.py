@@ -1,8 +1,4 @@
-import re
-import os
-import json
-import yaml
-import traceback
+import os, json, yaml, traceback
 import numpy as np
 import networkx as nx
 from rq.job import Job  # type:ignore
