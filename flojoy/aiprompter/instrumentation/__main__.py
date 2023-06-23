@@ -15,19 +15,6 @@ from transformers.pipelines.base import Pipeline
 
 openai.api_key = os.environ["OPENAI_KEY"]
 
-response_retval = openai.Completion.create(
-    model="text-davinci-003",
-    prompt=f"Write an instrument driver in Python 3.10 for the Agilent 34400A using the QCodes library",
-    max_tokens=2048,  # Adjust as per your requirements
-    # n=1,  # Number of completions to generate
-    top_p=1,
-    temperature=0.0,  # Controls randomness of the output
-    frequency_penalty=0.0,
-    presence_penalty=0.0,
-)
-print(response_retval.choices[0]["text"])
-
-
 
 def load_generation_pipe(model_name_or_path: str, gpu_device: int=0):
     model = AutoModelForCausalLM.from_pretrained(model_name_or_path)
@@ -61,17 +48,31 @@ def run_code_generation(pipe, prompt, num_completions=1, **gen_kwargs):
 
     return [extract_function_block(code_gen["generated_text"][len(prompt):]) for code_gen in code_gens]
 
-pipe = load_generation_pipe("Daoguang/PyCodeGPT", 0)
+if __name__ == "__main__":
+    #GPT3.5 prompting
+    print('#'*72+'\nGPT-3.5-Turbo prompting\n'+'#'*72)
+    response_retval = openai.Completion.create(
+        model="text-davinci-003",
+        prompt=f"Write an instrument driver in Python 3.10 for the Agilent 34400A using the QCodes library",
+        max_tokens=2048,  # Adjust as per your requirements
+        # n=1,  # Number of completions to generate
+        top_p=1,
+        temperature=0.0,  # Controls randomness of the output
+        frequency_penalty=0.0,
+        presence_penalty=0.0,
+    )
+    print(response_retval.choices[0]["text"])
 
-
-gen_kwargs = {
-    "do_sample": True,
-    "temperature": 0.8,
-    "max_new_tokens": 500,
-    "top_p": 1.0,
-    "top_k": 0,
-    "pad_token_id": pipe.tokenizer.pad_token_id if pipe.tokenizer.pad_token_id else pipe.tokenizer.eos_token_id,
-    "eos_token_id": pipe.tokenizer.eos_token_id
-}
-prompt = "How to make an instrument driver in Python 3.10 for the Agilent 34400A with QCodes?" #prompt requires question syntax for some reason
-[print(code_gen) for code_gen in run_code_generation(pipe, prompt, num_completions=1, **gen_kwargs)]
+    print('#'*72+'\nPyCodeGPT prompting\n'+'#'*72)
+    pipe = load_generation_pipe("Daoguang/PyCodeGPT", 0)
+    gen_kwargs = {
+        "do_sample": True,
+        "temperature": 0.8,
+        "max_new_tokens": 500,
+        "top_p": 1.0,
+        "top_k": 0,
+        "pad_token_id": pipe.tokenizer.pad_token_id if pipe.tokenizer.pad_token_id else pipe.tokenizer.eos_token_id,
+        "eos_token_id": pipe.tokenizer.eos_token_id
+    }
+    prompt = "How to make an instrument driver in Python 3.10 for the Agilent 34400A with QCodes?" #prompt requires question syntax for some reason
+    [print(code_gen) for code_gen in run_code_generation(pipe, prompt, num_completions=1, **gen_kwargs)]
