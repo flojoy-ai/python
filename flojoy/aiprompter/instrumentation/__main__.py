@@ -15,17 +15,17 @@ from transformers.pipelines.base import Pipeline
 
 openai.api_key = os.environ["OPENAI_KEY"]
 
-# response_retval = openai.Completion.create(
-#     model="text-davinci-003",
-#     prompt=f"Make an instrument driver in Python 3.10 for the Agilent 4395A using the PyTango library",
-#     max_tokens=2048,  # Adjust as per your requirements
-#     # n=1,  # Number of completions to generate
-#     top_p=1,
-#     temperature=0.0,  # Controls randomness of the output
-#     frequency_penalty=0.0,
-#     presence_penalty=0.0,
-# )
-# print(response_retval.choices[0]["text"])
+response_retval = openai.Completion.create(
+    model="text-davinci-003",
+    prompt=f"Write an instrument driver in Python 3.10 for the Agilent 34400A using the QCodes library",
+    max_tokens=2048,  # Adjust as per your requirements
+    # n=1,  # Number of completions to generate
+    top_p=1,
+    temperature=0.0,  # Controls randomness of the output
+    frequency_penalty=0.0,
+    presence_penalty=0.0,
+)
+print(response_retval.choices[0]["text"])
 
 
 
@@ -39,7 +39,7 @@ def load_generation_pipe(model_name_or_path: str, gpu_device: int=0):
         model=model,
         tokenizer=tokenizer,
         use_fast = False,
-        device="cuda:0" # Have no CUDA installed https://discuss.huggingface.co/t/is-transformers-using-gpu-by-default/8500
+        device="cpu" # Have no CUDA installed https://discuss.huggingface.co/t/is-transformers-using-gpu-by-default/8500
     )
 
     print("load generation pipeline from {} over, vocab size = {}, eos id = {}, gpu device = {}.".format(
@@ -67,11 +67,11 @@ pipe = load_generation_pipe("Daoguang/PyCodeGPT", 0)
 gen_kwargs = {
     "do_sample": True,
     "temperature": 0.8,
-    "max_new_tokens": 150,
-    "top_p": 0.9,
+    "max_new_tokens": 500,
+    "top_p": 1.0,
     "top_k": 0,
     "pad_token_id": pipe.tokenizer.pad_token_id if pipe.tokenizer.pad_token_id else pipe.tokenizer.eos_token_id,
     "eos_token_id": pipe.tokenizer.eos_token_id
 }
-prompt = "How to write a driver for the Agilent4395a in PyTango?"
+prompt = "How to make an instrument driver in Python 3.10 for the Agilent 34400A with QCodes?" #prompt requires question syntax for some reason
 [print(code_gen) for code_gen in run_code_generation(pipe, prompt, num_completions=1, **gen_kwargs)]
