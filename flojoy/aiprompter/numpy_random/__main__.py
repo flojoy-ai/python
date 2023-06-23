@@ -169,7 +169,7 @@ if __name__ == "__main__":
                     MANIFEST_DIRECTORY / Path(func.lower() + ".manifest.yaml"), "w"
                 ) as fh:
                     yaml.safe_dump({"COMMAND": MANIFEST}, fh, default_flow_style=False)
-
+    print('Hi!')
     # for function in primary_functions:
     #     node_exists = os.path.exists(DIRECTORY/Path(function.upper())/Path(function.upper()+".py"))
     #     # print(f'{function} included: {node_exists}')
