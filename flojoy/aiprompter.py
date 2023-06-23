@@ -6,6 +6,8 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 import subprocess
+import argparse
+import yaml
 
 
 def find_2nd(string, substring):
@@ -52,7 +54,29 @@ def generate_wrapper_davinci(function):
     )
     return function, response_retval.choices[0]["text"]
 
-def write_to_file(wkdir, function, string):
+def generate_manifest(function):
+    response = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=f"Return all arguments of the numpy.random.{function} function as keys of a YAML tree of the name 'parameters', giving their default values as a sub-key 'default' and the type of parameter as the a subkey 'type'. If they have no default value, leave the entry blank.",
+            max_tokens=2048,  # Adjust as per your requirements
+            # n=1,  # Number of completions to generate
+            top_p=1,
+            temperature=0.0,  # Controls randomness of the output
+            frequency_penalty=0.0,
+            presence_penalty=0.0,
+        )
+    data = yaml.safe_load(response.choices[0]["text"])
+    for key in data:
+        val = data[key]
+        if ':' not in val:
+            continue
+        data[key] = tmp = {}
+        for x in val.split():
+            x = x.split(':', 1)
+            tmp[x[0]] = x[1]
+    return function, data
+
+def write_wrapper_to_file(wkdir, function, string):
     LOCAL_DIR = wkdir/Path(function.upper())
     LOCAL_DIR.mkdir(exist_ok=True)
     with open(LOCAL_DIR/Path(function.upper()+".py"), 'w') as fh:
@@ -70,18 +94,51 @@ def write_to_file(wkdir, function, string):
     subprocess.call(["black", f"{LOCAL_DIR/Path(function.upper()+'.py')}"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 if __name__== "__main__":
-    DATA_FNAME = 'numpy.random.json'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--generate_nodes', '-G', dest='generate_nodes', action='store_true')
+    parser.add_argument('--generate_manifests', '-M', dest='generate_manifest', action='store_true')
+    
+    args = parser.parse_args()
+
     DIRECTORY = Path('RANDOM')
     DIRECTORY.mkdir(exist_ok=True)
 
-    WRAPPERS = {}
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        future_to_stuff = [executor.submit(generate_wrapper_davinci, function) 
-                        for function in primary_functions]
-        for future in tqdm(as_completed(future_to_stuff), total=len(primary_functions)):
-            res = future.result()
-            WRAPPERS[res[0]] = res[1]
-            if 'def' in res[1] and 'return' in res[1]:
-                write_to_file(DIRECTORY, res[0], res[1])
-    with open(DATA_FNAME, 'w', encoding='utf-8') as f:
-        json.dump(WRAPPERS, f, ensure_ascii=False, indent=4)
+    MANIFEST_DIRECTORY = DIRECTORY / Path('../../MANIFEST')
+    
+    if args.generate_nodes:
+        DATA_FNAME = 'numpy.random.json'
+
+
+        WRAPPERS = {}
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_stuff = [executor.submit(generate_wrapper_davinci, function) 
+                            for function in primary_functions]
+            for future in tqdm(as_completed(future_to_stuff), total=len(primary_functions)):
+                res = future.result()
+                WRAPPERS[res[0]] = res[1]
+                if 'def' in res[1] and 'return' in res[1]:
+                    write_wrapper_to_file(DIRECTORY, res[0], res[1])
+        with open(DATA_FNAME, 'w', encoding='utf-8') as f:
+            json.dump(WRAPPERS, f, ensure_ascii=False, indent=4)
+
+    if args.generate_manifest:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_stuff = [executor.submit(generate_manifest, function)
+                               for function in primary_functions]
+            for future in tqdm(as_completed(future_to_stuff), total=len(primary_functions)):
+                res = future.result()
+                func, MANIFEST = res
+                MANIFEST['name'] = func
+                MANIFEST['key'] = func.upper()
+                MANIFEST['type'] = 'NUMPY_RANDOM'
+                if 'size' in MANIFEST['parameters']:
+                    MANIFEST['parameters']['size'] = {'default':'dc[0].y.shape', 'type':'string'}
+                with open(MANIFEST_DIRECTORY/Path(func.lower()+'.manifest.yaml'), 'w') as fh:
+                    yaml.safe_dump({'COMMAND':MANIFEST}, fh, default_flow_style=False)
+    
+    # for function in primary_functions:
+    #     node_exists = os.path.exists(DIRECTORY/Path(function.upper())/Path(function.upper()+".py"))
+    #     # print(f'{function} included: {node_exists}')
+    #     if not node_exists:
+    #         os.remove(MANIFEST_DIRECTORY/Path(function.lower()+'.manifest.yaml'))
+    #         print('Deleted manifest of', function)
