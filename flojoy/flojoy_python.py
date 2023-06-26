@@ -144,7 +144,7 @@ def format_param_value(value: Any, value_type: ParamValTypes):
 flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
 
 
-def flojoy(original_function=None, *, deps:Optional[dict[str, str]]=None):
+def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
     """
     Decorator to turn Python functions with numerical return
     values into Flojoy nodes.
@@ -187,6 +187,7 @@ def flojoy(original_function=None, *, deps:Optional[dict[str, str]]=None):
     print(SINE(previous_job_ids = pj_ids, mock = True))
     ```
     """
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs: flojoyKwargs):
@@ -194,7 +195,9 @@ def flojoy(original_function=None, *, deps:Optional[dict[str, str]]=None):
             job_id = cast(str, kwargs["job_id"])
             jobset_id = cast(str, kwargs["jobset_id"])
             try:
-                previous_jobs = cast(list[dict[str, str]], kwargs.get("previous_jobs", []))
+                previous_jobs = cast(
+                    list[dict[str, str]], kwargs.get("previous_jobs", [])
+                )
                 ctrls = cast(
                     Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
                 )
@@ -258,7 +261,10 @@ def flojoy(original_function=None, *, deps:Optional[dict[str, str]]=None):
                     args = {**args, **dict_inputs}
 
                 # once all the nodes are migrated to the new node api, remove the if condition
-                if len(sig.parameters) == 2 and sig.parameters[keys[1]].annotation == dict:
+                if (
+                    len(sig.parameters) == 2
+                    and sig.parameters[keys[1]].annotation == dict
+                ):
                     args[keys[1]] = func_params
                 else:
                     for param, value in func_params.items():
@@ -323,6 +329,7 @@ def flojoy(original_function=None, *, deps:Optional[dict[str, str]]=None):
                 print("error occured while running the node")
                 print(traceback.format_exc())
                 raise e
+
         return wrapper
 
     if original_function:
