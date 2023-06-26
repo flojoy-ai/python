@@ -168,7 +168,22 @@ def prompt_gpt35(prompt, model_params, experimental=False):
                     headers.append(line)
                 else: 
                     functionality.append(line)
-        print("\n".join(set(headers)) + "\n".join(functionality))
+        redudant = '\n'.join(set(headers)) + '\n'.join(functionality)
+        messages = [
+            {
+                "role": "user",
+                "content": f"Combine the following Python3.10 into a single class: {redudant}",
+            }
+        ]
+        # print(messages[0]['content'])
+        response_retval = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-0613",
+            messages=messages,
+            **model_params
+        )
+        result = response_retval["choices"][0]["message"]['content']
+         
+        print(result)
 
 
 
