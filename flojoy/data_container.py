@@ -237,13 +237,13 @@ class ParametricScalar(DataContainer):
 
 
 class Matrix(DataContainer):
-    def __init__(self, matrix: DCNpArrayType):
-        super().__init__(type="matrix", m=matrix)
+    def __init__(self, m: DCNpArrayType):
+        super().__init__(type="matrix", m=m)
 
 
 class ParametricMatrix(DataContainer):
-    def __init__(self, matrix: DCNpArrayType, t: DCNpArrayType):
-        super().__init__(type="matrix", m=matrix, t=t)
+    def __init__(self, m: DCNpArrayType, t: DCNpArrayType):
+        super().__init__(type="matrix", m=m, t=t)
 
 
 class DataFrame(DataContainer):

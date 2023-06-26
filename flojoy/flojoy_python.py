@@ -134,11 +134,7 @@ def format_param_value(value: Any, value_type: ParamValTypes):
 flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
 
 
-def flojoy(
-    original_function: Optional[Callable[..., DataContainer | dict[str, Any]]] = None,
-    *,
-    deps: Optional[dict[str, str]] = None,
-):
+def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
     """
     Decorator to turn Python functions with numerical return
     values into Flojoy nodes.
@@ -183,8 +179,10 @@ def flojoy(
     """
 
     def decorator(func):
+        # *args is required here for some reason, calling the decorator
+        # with 'deps' provided gives an error otherwise
         @wraps(func)
-        def wrapper(**kwargs: flojoyKwargs):
+        def wrapper(*args, **kwargs: flojoyKwargs):
             node_id = cast(str, kwargs["node_id"])
             job_id = cast(str, kwargs["job_id"])
             jobset_id = cast(str, kwargs["jobset_id"])
