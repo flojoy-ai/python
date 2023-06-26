@@ -1,9 +1,7 @@
-import re
 import os
 import json
 import yaml
 import traceback
-import numpy as np
 import networkx as nx
 from rq.job import Job  # type:ignore
 from pathlib import Path
@@ -11,11 +9,10 @@ from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
-from typing import Union, cast, Any, Literal, Callable, List, Optional, Type
+from typing import Union, cast, Any, Literal, List, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
 from inspect import signature
-import os
 
 
 def get_flojoy_root_dir() -> str:
@@ -24,36 +21,14 @@ def get_flojoy_root_dir() -> str:
     stream = open(path, "r")
     yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
     root_dir = ""
-    if isinstance(yaml_dict, str) == True:
+    if isinstance(yaml_dict, str):
         root_dir = yaml_dict.split(":")[1]
     else:
         root_dir = yaml_dict["PATH"]
     return root_dir
 
 
-def js_to_json(s: str):
-    """
-    Converts an ES6 JS file with a single JS Object definition to JSON
-    """
-    split = s.split("=")[1]
-    clean = split.replace("\n", "").replace("'", "").replace(",}", "}").rstrip(";")
-    single_space = "".join(clean.split())
-    dbl_quotes = re.sub(r"(\w+)", r'"\1"', single_space).replace('""', '"')
-    rm_comma = dbl_quotes.replace("},}", "}}")
-
-    return json.loads(rm_comma)
-
-
-def get_parameter_manifest() -> dict[str, Any]:
-    root = get_flojoy_root_dir()
-    f = open(os.path.join(root, "src/data/manifests-latest.json"))
-    param_manifest = json.load(f)
-    return param_manifest["parameters"]
-
-
-def fetch_inputs(
-    previous_jobs: list[dict[str, str]], mock: bool = False
-) -> list[DataContainer]:
+def fetch_inputs(previous_jobs: list[dict[str, str]]) -> list[DataContainer]:
     """
     Queries Redis for job results
 
@@ -109,10 +84,11 @@ def parse_array(str_value: str) -> List[Union[int, float, str]]:
         return []
 
     val_list = [val.strip() for val in str_value.split(",")]
+    val = list(map(str, val_list))
     # First try to cast into int, then float, then keep as string if all else fails
-    for t in [int, float, str]:
+    for t in [int, float]:
         try:
-            val = list(map(t, val_list))
+            val: list[int | float | str] = list(map(t, val_list))
             break
         except Exception:
             continue
@@ -199,7 +175,7 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
                     list[dict[str, str]], kwargs.get("previous_jobs", [])
                 )
                 ctrls = cast(
-                    Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
+                    Union[dict[str, dict[str, Any]], None], kwargs.get("ctrls", None)
                 )
                 FN = func.__name__
                 # remove this node from redis ALL_NODES key
@@ -214,27 +190,21 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
                         }
                     )
                 )
-                # Get default command parameters
-                default_params: dict[str, Any] = {}
+
+                # Get command parameters set by the user through the control panel
                 func_params = {}
-                pm = get_parameter_manifest()
-                if FN in pm:
-                    for param in pm[FN]:
-                        default_params[param] = pm[FN][param]["default"]
-                    # Get command parameters set by the user through the control panel
-                    func_params = {}
-                    if ctrls is not None:
-                        for key, input in ctrls.items():
-                            param = input["param"]
-                            val = input["value"]
-                            func_params[param] = format_param_value(
-                                val, pm[FN][param]["type"]
-                            )
-                    # Make sure that function parameters set is fully loaded
-                    # If function is missing a parameter, fill-in with default value
-                    for key in default_params.keys():
-                        if key not in func_params.keys():
-                            func_params[key] = default_params[key]
+                if ctrls is not None:
+                    for _, input in ctrls.items():
+                        param = input["param"]
+                        value = input["value"]
+                        func_params[param] = format_param_value(
+                            value,
+                            input["type"]
+                            if "type" in input
+                            else type(
+                                value
+                            ),  # else condition is for backward compatibility
+                        )
 
                 func_params["jobset_id"] = jobset_id
                 func_params["type"] = "default"
@@ -250,7 +220,8 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
                 args = {}
                 sig = signature(func)
 
-                # once all the nodes are migrated to the new node api, remove the if condition
+                # once all the nodes are migrated to the new node api,
+                # remove the if condition
                 keys = list(sig.parameters)
                 if (
                     len(sig.parameters) == 2
@@ -260,7 +231,8 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
                 else:
                     args = {**args, **dict_inputs}
 
-                # once all the nodes are migrated to the new node api, remove the if condition
+                # once all the nodes are migrated to the new node api,
+                # remove the if condition
                 if (
                     len(sig.parameters) == 2
                     and sig.parameters[keys[1]].annotation == dict
@@ -281,13 +253,11 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
                 # end calling the node function
                 ##########################
 
-                if isinstance(
-                    dc_obj, DataContainer
-                ):  # some special nodes like LOOP return dict instead of `DataContainer`
+                # some special nodes like LOOP return dict instead of `DataContainer`
+                if isinstance(dc_obj, DataContainer):
                     dc_obj.validate()  # Validate returned DataContainer object
-                result = get_frontend_res_obj_from_result(
-                    dc_obj
-                )  # Response object to send to FE
+                # Response object to send to FE
+                result = get_frontend_res_obj_from_result(dc_obj)
 
                 send_to_socket(
                     json.dumps(
