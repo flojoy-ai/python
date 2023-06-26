@@ -135,7 +135,7 @@ flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
 
 
 def flojoy(
-    original_function=Callable[..., DataContainer | dict[str, Any]],
+    original_function: Optional[Callable[..., DataContainer | dict[str, Any]]] = None,
     *,
     deps: Optional[dict[str, str]] = None,
 ):
