@@ -202,3 +202,113 @@ class DataContainer(Box):
                 )
                 self.__validate_key_for_type(dc_type, k)
         self.__check_for_missing_keys(dc_type, dc_keys)
+
+
+class OrderedPair(DataContainer):
+    def __init__(self, x: DCNpArrayType, y: DCNpArrayType):
+        super().__init__(type="ordered_pair", x=x, y=y)
+
+
+class ParametricOrderedPair(DataContainer):
+    def __init__(self, x: DCNpArrayType, y: DCNpArrayType, t: DCNpArrayType):
+        super().__init__(type="parametric_ordered_pair", x=x, y=y, t=t)
+
+
+class OrderedTriple(DataContainer):
+    def __init__(self, x: DCNpArrayType, y: DCNpArrayType, z: DCNpArrayType):
+        super().__init__(type="ordered_triple", x=x, y=y, z=z)
+
+
+class ParametricOrderedTriple(DataContainer):
+    def __init__(
+        self, x: DCNpArrayType, y: DCNpArrayType, z: DCNpArrayType, t: DCNpArrayType
+    ):
+        super().__init__(type="parametric_ordered_triple", x=x, y=y, z=z, t=t)
+
+
+class Scalar(DataContainer):
+    def __init__(self, c: int | float):
+        super().__init__(type="scalar", c=c)
+
+
+class ParametricScalar(DataContainer):
+    def __init__(self, c: int | float, t: DCNpArrayType):
+        super().__init__(type="scalar", c=c, t=t)
+
+
+class Matrix(DataContainer):
+    def __init__(self, matrix: DCNpArrayType):
+        super().__init__(type="matrix", m=matrix)
+
+
+class ParametricMatrix(DataContainer):
+    def __init__(self, matrix: DCNpArrayType, t: DCNpArrayType):
+        super().__init__(type="matrix", m=matrix, t=t)
+
+
+class DataFrame(DataContainer):
+    def __init__(self, df: pd.DataFrame):
+        super().__init__(type="dataframe", m=df)
+
+
+class ParametricDataFrame(DataContainer):
+    def __init__(self, df: pd.DataFrame, t: DCNpArrayType):
+        super().__init__(type="dataframe", m=df, t=t)
+
+
+class Plotly(DataContainer):
+    def __init__(self, fig: go.Figure):
+        super().__init__(type="plotly", fig=fig)
+
+
+class ParametricPlotly(DataContainer):
+    def __init__(self, fig: go.Figure, t: DCNpArrayType):
+        super().__init__(type="plotly", fig=fig, t=t)
+
+
+class Image(DataContainer):
+    def __init__(
+        self, r: DCNpArrayType, g: DCNpArrayType, b: DCNpArrayType, a: DCNpArrayType
+    ):
+        super().__init__(type="image", r=r, g=g, b=b, a=a)
+
+
+class ParametricImage(DataContainer):
+    def __init__(
+        self,
+        r: DCNpArrayType,
+        g: DCNpArrayType,
+        b: DCNpArrayType,
+        a: DCNpArrayType,
+        t: DCNpArrayType,
+    ):
+        super().__init__(type="image", r=r, g=g, b=b, a=a, t=t)
+
+
+class Grayscale(DataContainer):
+    def __init__(self, img: DCNpArrayType):
+        super().__init__(type="grayscale", m=img)
+
+
+class ParametricGrayscale(DataContainer):
+    def __init__(self, img: DCNpArrayType, t: DCNpArrayType):
+        super().__init__(type="grayscale", m=img, t=t)
+
+
+# DCType = Literal[
+#     "grayscale",
+#     "matrix",
+#     "dataframe",
+#     "image",
+#     "ordered_pair",
+#     "ordered_triple",
+#     "scalar",
+#     "plotly",
+#     "parametric_grayscale",
+#     "parametric_matrix",
+#     "parametric_dataframe",
+#     "parametric_image",
+#     "parametric_ordered_pair",
+#     "parametric_ordered_triple",
+#     "parametric_scalar",
+#     "parametric_plotly",
