@@ -16,63 +16,154 @@ from transformers.pipelines.base import Pipeline
 openai.api_key = os.environ["OPENAI_KEY"]
 
 
-def load_generation_pipe(model_name_or_path: str, gpu_device: int=0):
-    model = AutoModelForCausalLM.from_pretrained(model_name_or_path)
-    tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
+def prompt_pycodegpt(prompt, model_params):
+    def load_generation_pipe(model_name_or_path: str, gpu_device: int = 0):
+        model = AutoModelForCausalLM.from_pretrained(model_name_or_path)
+        tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
 
+        pipe = pipeline(
+            "text-generation",
+            model=model,
+            tokenizer=tokenizer,
+            use_fast=False,
+            device="cpu",  # Have no CUDA installed https://discuss.huggingface.co/t/is-transformers-using-gpu-by-default/8500
+        )
 
-    pipe = pipeline(
-        'text-generation',
-        model=model,
-        tokenizer=tokenizer,
-        use_fast = False,
-        device="cpu" # Have no CUDA installed https://discuss.huggingface.co/t/is-transformers-using-gpu-by-default/8500
-    )
+        print(
+            "load generation pipeline from {} over, vocab size = {}, eos id = {}, gpu device = {}.".format(
+                model_name_or_path, len(tokenizer), tokenizer.eos_token_id, gpu_device
+            )
+        )
 
-    print("load generation pipeline from {} over, vocab size = {}, eos id = {}, gpu device = {}.".format(
-        model_name_or_path, len(tokenizer), tokenizer.eos_token_id, gpu_device)
-    )
+        return pipe
 
-    return pipe
+    def extract_function_block(string):
+        return re.split("\nclass|\ndef|\n#|\n@|\nprint|\nif", string)[0].rstrip()
 
-def extract_function_block(string):
-    return re.split("\nclass|\ndef|\n#|\n@|\nprint|\nif", string)[0].rstrip()
+    def run_code_generation(pipe, prompt, num_completions=1, **gen_kwargs):
+        set_seed(123)
 
-def run_code_generation(pipe, prompt, num_completions=1, **gen_kwargs):
-    set_seed(123)
+        code_gens = pipe(prompt, num_return_sequences=num_completions, **gen_kwargs)
 
-    code_gens = pipe(prompt,
-        num_return_sequences=num_completions,
-        **gen_kwargs
-    )
+        return [
+            extract_function_block(code_gen["generated_text"][len(prompt) :])
+            for code_gen in code_gens
+        ]
 
-    return [extract_function_block(code_gen["generated_text"][len(prompt):]) for code_gen in code_gens]
-
-if __name__ == "__main__":
-    #GPT3.5 prompting
-    print('#'*72+'\nGPT-3.5-Turbo prompting\n'+'#'*72)
-    response_retval = openai.Completion.create(
-        model="text-davinci-003",
-        prompt=f"Write an instrument driver in Python 3.10 for the Agilent 34400A using the QCodes library",
-        max_tokens=2048,  # Adjust as per your requirements
-        # n=1,  # Number of completions to generate
-        top_p=1,
-        temperature=0.0,  # Controls randomness of the output
-        frequency_penalty=0.0,
-        presence_penalty=0.0,
-    )
-    print(response_retval.choices[0]["text"])
-
-    print('#'*72+'\nPyCodeGPT prompting\n'+'#'*72)
+    print("#" * 72 + "\nPyCodeGPT prompting\n" + "#" * 72)
     pipe = load_generation_pipe("Daoguang/PyCodeGPT", 0)
     gen_kwargs = {
-        "do_sample": True,
-        "temperature": 0.8,
-        "max_new_tokens": 500,
-        "top_p": 1.0,
-        "top_k": 0,
-        "pad_token_id": pipe.tokenizer.pad_token_id if pipe.tokenizer.pad_token_id else pipe.tokenizer.eos_token_id,
-        "eos_token_id": pipe.tokenizer.eos_token_id
+        "pad_token_id": pipe.tokenizer.pad_token_id
+        if pipe.tokenizer.pad_token_id
+        else pipe.tokenizer.eos_token_id,
+        "eos_token_id": pipe.tokenizer.eos_token_id,
     }
-    prompt = "How to make an instrument driver in Python 3.10 for the Agilent 34400A with QCodes?" #prompt requires question syntax for some reason
-    [print(code_gen) for code_gen in run_code_generation(pipe, prompt, num_completions=1, **gen_kwargs)]
+    gen_kwargs.update(model_params)
+    [
+        print(code_gen)
+        for code_gen in run_code_generation(
+            pipe, prompt, num_completions=1, **gen_kwargs
+        )
+    ]
+
+
+def prompt_gpt35(prompt, model_params, experimental=False):
+    print(
+        "#" * 72
+        + f'\nGPT-3.5-Turbo prompting {"with experimental run" if experimental else ""}\n'
+        + "#" * 72
+    )
+    if not experimental:
+        response_retval = openai.Completion.create(
+            model="text-davinci-003", prompt=prompt, **model_params
+        )
+        print(response_retval.choices[0]["text"])
+
+    else:
+        messages = [
+            {
+                "role": "user",
+                "content": "Generate an instrument driver for the Agilent 34400A using the QCodes library",
+            }
+        ]
+        functions = [
+            {
+                "name": "print",
+                "description": "Prints the driver in a human readable format",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "instrument_name": {
+                            "type": "string",
+                            "description": "The name of the instrument",
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "A description of the instrument",
+                        },
+                        "set_methods": {
+                            "type": "string",
+                            "description": "A comma separated list of driver methods that can set parameter values on the instrument",
+                        },
+                        "get_methods": {
+                            "type": "string",
+                            "description": "A comma separated list of driver methods that can get parameter values on the instrument",
+                        },
+                    },
+                    "required": [
+                        "instrument_name",
+                        "description",
+                        "set_methods",
+                        "get_methods",
+                    ],
+                },
+            }
+        ]
+        response_retval = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo-0613",
+            messages=messages,
+            functions=functions,
+            function_call="auto",  # auto is default, but we'll be explicit
+        )
+        print(
+            "Driver info:",
+            response_retval["choices"][0]["message"]["function_call"]["arguments"],
+        )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-P", "--pycodegpt", dest="pycodegpt", action="store_true")
+    parser.add_argument("-G", "--gpt35", dest="gpt35", action="store_true")
+    parser.add_argument(
+        "-E", "--experimental", dest="experimental", action="store_true"
+    )
+    args = parser.parse_args()
+    if args.gpt35:
+        model_params = {
+            "max_tokens": 2048,  # Adjust as per your requirements
+            # "n": 1,  # Number of completions to generate
+            "top_p": 1,
+            "temperature": 0.0,  # Controls randomness of the output
+            "frequency_penalty": 0.0,
+            "presence_penalty": 0.0,
+        }
+        prompt_gpt35(
+            prompt=f"Write an instrument driver in Python 3.10 for the Agilent 34400A using the QCodes library",
+            model_params=model_params,
+            experimental=args.experimental,
+        )
+    if args.pycodegpt:
+        model_params = {
+            "do_sample": True,
+            "temperature": 0.8,
+            "max_new_tokens": 500,
+            "top_p": 1.0,
+            "top_k": 0,
+        }
+        prompt_pycodegpt(
+            prompt="How to make an instrument driver in Python 3.10 for the Agilent 34400A with QCodes?",  # prompt requires question syntax for some reason
+            model_params=model_params,
+        )
