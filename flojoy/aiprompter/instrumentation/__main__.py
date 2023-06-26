@@ -12,9 +12,9 @@ import re
 from transformers import pipeline, set_seed
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers.pipelines.base import Pipeline
-
+import json
 openai.api_key = os.environ["OPENAI_KEY"]
-
+from tenacity import retry, wait_random_exponential, stop_after_attempt
 
 def prompt_pycodegpt(prompt, model_params):
     def load_generation_pipe(model_name_or_path: str, gpu_device: int = 0):
@@ -66,7 +66,7 @@ def prompt_pycodegpt(prompt, model_params):
         )
     ]
 
-
+@retry(wait=wait_random_exponential(min=1, max=40), stop=stop_after_attempt(3), after=lambda retry_state:print(f'Attempt: {retry_state.attempt_number}'))
 def prompt_gpt35(prompt, model_params, experimental=False):
     print(
         "#" * 72
@@ -88,7 +88,7 @@ def prompt_gpt35(prompt, model_params, experimental=False):
         ]
         functions = [
             {
-                "name": "print",
+                "name": "get_driver_information",
                 "description": "Prints the driver in a human readable format",
                 "parameters": {
                     "type": "object",
@@ -103,11 +103,11 @@ def prompt_gpt35(prompt, model_params, experimental=False):
                         },
                         "set_methods": {
                             "type": "string",
-                            "description": "A comma separated list of driver methods that can set parameter values on the instrument",
+                            "description": "A comma separated list of driver methods that can set parameter values on the instrument beginning with 'set_'",
                         },
                         "get_methods": {
                             "type": "string",
-                            "description": "A comma separated list of driver methods that can get parameter values on the instrument",
+                            "description": "A comma separated list of driver methods that can get parameter values on the instrument beginning with 'get_",
                         },
                     },
                     "required": [
@@ -123,12 +123,53 @@ def prompt_gpt35(prompt, model_params, experimental=False):
             model="gpt-3.5-turbo-0613",
             messages=messages,
             functions=functions,
-            function_call="auto",  # auto is default, but we'll be explicit
+            function_call="auto",  # auto is default, but we'll be explicit,
         )
         print(
             "Driver info:",
             response_retval["choices"][0]["message"]["function_call"]["arguments"],
         )
+        # print(pretty_print_conversation(response_retval['choices'][0]['message']))
+        function_args = json.loads(response_retval["choices"][0]["message"]["function_call"]["arguments"])
+        # generate the set methods
+        COMPLETE_FUNC = []
+        for setter in function_args.get('get_methods').split(","):
+            head, tail = setter.split('_')[:2]
+            messages = [
+                {
+                    "role": "user",
+                    "content": f"Generate a Python3.10 function to {head} the {tail} on the {function_args.get('instrument_name')} using the QCodes library and VisaInstrument class of QCodes",
+                }
+            ]
+            # print(messages[0]['content'])
+            response_retval = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo-0613",
+                messages=messages,
+                **model_params
+            )
+            result = response_retval["choices"][0]["message"]['content']
+            if 'import VisaInstrument' not in result:
+                raise TypeError("Incorrect response returned.")
+            # ===============================================================
+            # Now we need to process the fragements into one single class ...
+            # ===============================================================
+            # first, we need to only get the python code delimited in markdown syntax
+            fragment = result[result.find('```'):result.find("```", result.find("```") + 1)]
+            fragment = fragment[:fragment.find('# Example usage')]
+            # now, we remove the leading ```python line
+            fragment = "\n".join(fragment.split('\n')[1:])
+            COMPLETE_FUNC.append(fragment)
+            # print(fragment)
+        headers = []
+        functionality = []
+        for fragment in COMPLETE_FUNC:
+            for idl, line in enumerate(fragment.split('\n')):
+                if line.startswith('from') or line.startswith('import'):
+                    headers.append(line)
+                else: 
+                    functionality.append(line)
+        print("\n".join(set(headers)) + "\n".join(functionality))
+
 
 
 if __name__ == "__main__":
