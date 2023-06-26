@@ -11,7 +11,7 @@ from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
-from typing import Union, cast, Any, Literal, Callable, List, Optional, Type
+from typing import Union, cast, Any, Literal, Callable, List, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
 
@@ -22,7 +22,7 @@ def get_flojoy_root_dir() -> str:
     stream = open(path, "r")
     yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
     root_dir = ""
-    if isinstance(yaml_dict, str) == True:
+    if isinstance(yaml_dict, str):
         root_dir = yaml_dict.split(":")[1]
     else:
         root_dir = yaml_dict["PATH"]
@@ -63,7 +63,7 @@ def fetch_inputs(
     -------
     inputs : list of DataContainer objects
     """
-    if mock is True:
+    if mock:
         return [DataContainer(x=np.linspace(0, 10, 100))]
 
     inputs: list[DataContainer] = []
@@ -134,7 +134,11 @@ def format_param_value(value: Any, value_type: ParamValTypes):
 flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
 
 
-def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
+def flojoy(
+    original_function=Callable[..., DataContainer | dict[str, Any]],
+    *,
+    deps: Optional[dict[str, str]] = None,
+):
     """
     Decorator to turn Python functions with numerical return
     values into Flojoy nodes.
@@ -178,112 +182,122 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
     ```
     """
 
-    @wraps(func)
-    def wrapper(**kwargs: flojoyKwargs):
-        node_id = cast(str, kwargs["node_id"])
-        job_id = cast(str, kwargs["job_id"])
-        jobset_id = cast(str, kwargs["jobset_id"])
-        try:
-            mock = False
-            previous_job_ids = cast(list[str], kwargs.get("previous_job_ids", []))
-            ctrls = cast(
-                Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
-            )
-            FN = func.__name__
-            # remove this node from redis ALL_NODES key
-            redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
-            sys_status = "🏃‍♀️ Running python job: " + FN
-            send_to_socket(
-                json.dumps(
-                    {
-                        "SYSTEM_STATUS": sys_status,
-                        "jobsetId": jobset_id,
-                        "RUNNING_NODE": node_id,
-                    }
+    def decorator(func):
+        @wraps(func)
+        def wrapper(**kwargs: flojoyKwargs):
+            node_id = cast(str, kwargs["node_id"])
+            job_id = cast(str, kwargs["job_id"])
+            jobset_id = cast(str, kwargs["jobset_id"])
+            try:
+                mock = False
+                previous_job_ids = cast(list[str], kwargs.get("previous_job_ids", []))
+                ctrls = cast(
+                    Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
                 )
-            )
-            # Get default command paramaters
-            default_params: dict[str, Any] = {}
-            func_params = {}
-            pm = get_parameter_manifest()
-            if FN in pm:
-                for param in pm[FN]:
-                    default_params[param] = pm[FN][param]["default"]
-                # Get command parameters set by the user through the control panel
-                func_params = {}
-                if ctrls is not None:
-                    for key, input in ctrls.items():
-                        param = input["param"]
-                        val = input["value"]
-                        func_params[param] = format_param_value(
-                            val, pm[FN][param]["type"]
-                        )
-                # Make sure that function parameters set is fully loaded
-                # If function is missing a parameter, fill-in with default value
-                for key in default_params.keys():
-                    if key not in func_params.keys():
-                        func_params[key] = default_params[key]
-
-            func_params["jobset_id"] = jobset_id
-            func_params["type"] = "default"
-            func_params["node_id"] = node_id
-            func_params["job_id"] = job_id
-
-            print("executing node_id:", node_id, "previous_job_ids:", previous_job_ids)
-            print(node_id, " params: ", json.dumps(func_params, indent=2))
-            node_inputs = fetch_inputs(previous_job_ids, mock)
-
-            # running the node
-            dc_obj = func(node_inputs, func_params)  # DataContainer object from node
-            if isinstance(
-                dc_obj, DataContainer
-            ):  # some special nodes like LOOP return dict instead of `DataContainer`
-                dc_obj.validate()  # Validate returned DataContainer object
-            result = get_frontend_res_obj_from_result(
-                dc_obj
-            )  # Response object to send to FE
-            send_to_socket(
-                json.dumps(
-                    {
-                        "NODE_RESULTS": {
-                            "cmd": FN,
-                            "id": node_id,
-                            "result": result,
-                        },
-                        "jobsetId": jobset_id,
-                    },
-                    cls=PlotlyJSONEncoder,
-                )
-            )
-
-            if func.__name__ == "END":
+                FN = func.__name__
+                # remove this node from redis ALL_NODES key
+                redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
+                sys_status = "🏃‍♀️ Running python job: " + FN
                 send_to_socket(
                     json.dumps(
                         {
-                            "SYSTEM_STATUS": "🤙 python script run successful",
-                            "RUNNING_NODE": "",
+                            "SYSTEM_STATUS": sys_status,
+                            "jobsetId": jobset_id,
+                            "RUNNING_NODE": node_id,
+                        }
+                    )
+                )
+                # Get default command paramaters
+                default_params: dict[str, Any] = {}
+                func_params = {}
+                pm = get_parameter_manifest()
+                if FN in pm:
+                    for param in pm[FN]:
+                        default_params[param] = pm[FN][param]["default"]
+                    # Get command parameters set by the user through the control panel
+                    func_params = {}
+                    if ctrls is not None:
+                        for key, input in ctrls.items():
+                            param = input["param"]
+                            val = input["value"]
+                            func_params[param] = format_param_value(
+                                val, pm[FN][param]["type"]
+                            )
+                    # Make sure that function parameters set is fully loaded
+                    # If function is missing a parameter, fill-in with default value
+                    for key in default_params.keys():
+                        if key not in func_params.keys():
+                            func_params[key] = default_params[key]
+
+                func_params["jobset_id"] = jobset_id
+                func_params["type"] = "default"
+                func_params["node_id"] = node_id
+                func_params["job_id"] = job_id
+
+                print(
+                    "executing node_id:", node_id, "previous_job_ids:", previous_job_ids
+                )
+                print(node_id, " params: ", json.dumps(func_params, indent=2))
+                node_inputs = fetch_inputs(previous_job_ids, mock)
+
+                # running the node
+                dc_obj = func(
+                    node_inputs, func_params
+                )  # DataContainer object from node
+                if isinstance(
+                    dc_obj, DataContainer
+                ):  # some special nodes like LOOP return dict instead of `DataContainer`
+                    dc_obj.validate()  # Validate returned DataContainer object
+                result = get_frontend_res_obj_from_result(
+                    dc_obj
+                )  # Response object to send to FE
+                send_to_socket(
+                    json.dumps(
+                        {
+                            "NODE_RESULTS": {
+                                "cmd": FN,
+                                "id": node_id,
+                                "result": result,
+                            },
+                            "jobsetId": jobset_id,
+                        },
+                        cls=PlotlyJSONEncoder,
+                    )
+                )
+
+                if func.__name__ == "END":
+                    send_to_socket(
+                        json.dumps(
+                            {
+                                "SYSTEM_STATUS": "🤙 python script run successful",
+                                "RUNNING_NODE": "",
+                                "jobsetId": jobset_id,
+                            }
+                        )
+                    )
+                print("final result:", dump_str(result, limit=100))
+                return result
+            except Exception as e:
+                send_to_socket(
+                    json.dumps(
+                        {
+                            "SYSTEM_STATUS": f"Failed to run: {func.__name__}",
+                            "FAILED_NODES": node_id,
+                            "FAILURE_REASON": e.args[0],
                             "jobsetId": jobset_id,
                         }
                     )
                 )
-            print("final result:", dump_str(result, limit=100))
-            return result
-        except Exception as e:
-            send_to_socket(
-                json.dumps(
-                    {
-                        "SYSTEM_STATUS": f"Failed to run: {func.__name__}",
-                        "FAILED_NODES": node_id,
-                        "FAILURE_REASON": e.args[0],
-                        "jobsetId": jobset_id,
-                    }
-                )
-            )
-            print("error occured while running the node")
-            print(traceback.format_exc())
-            raise e
+                print("error occured while running the node")
+                print(traceback.format_exc())
+                raise e
 
-    return wrapper
+        return wrapper
+
+    if original_function:
+        return decorator(original_function)
+
+    return decorator
 
 
 def reactflow_to_networkx(elems: list[Any], edges: list[Any]):
