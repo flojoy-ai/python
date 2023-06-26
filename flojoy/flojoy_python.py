@@ -11,7 +11,7 @@ from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
-from typing import Union, cast, Any, Literal, Callable, List, Optional
+from typing import Union, cast, Any, Literal, Callable, List, Optional, Type
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
 from inspect import signature
@@ -24,7 +24,7 @@ def get_flojoy_root_dir() -> str:
     stream = open(path, "r")
     yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
     root_dir = ""
-    if isinstance(yaml_dict, str):
+    if isinstance(yaml_dict, str) == True:
         root_dir = yaml_dict.split(":")[1]
     else:
         root_dir = yaml_dict["PATH"]
@@ -144,7 +144,7 @@ def format_param_value(value: Any, value_type: ParamValTypes):
 flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
 
 
-def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
+def flojoy(original_function=None, *, deps:Optional[dict[str, str]]=None):
     """
     Decorator to turn Python functions with numerical return
     values into Flojoy nodes.
@@ -187,115 +187,115 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
     print(SINE(previous_job_ids = pj_ids, mock = True))
     ```
     """
-
-    @wraps(func)
-    def wrapper(**kwargs: flojoyKwargs):
-        node_id = cast(str, kwargs["node_id"])
-        job_id = cast(str, kwargs["job_id"])
-        jobset_id = cast(str, kwargs["jobset_id"])
-        try:
-            previous_jobs = cast(list[dict[str, str]], kwargs.get("previous_jobs", []))
-            ctrls = cast(
-                Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
-            )
-            FN = func.__name__
-            # remove this node from redis ALL_NODES key
-            redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
-            sys_status = "🏃‍♀️ Running python job: " + FN
-            send_to_socket(
-                json.dumps(
-                    {
-                        "SYSTEM_STATUS": sys_status,
-                        "jobsetId": jobset_id,
-                        "RUNNING_NODE": node_id,
-                    }
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs: flojoyKwargs):
+            node_id = cast(str, kwargs["node_id"])
+            job_id = cast(str, kwargs["job_id"])
+            jobset_id = cast(str, kwargs["jobset_id"])
+            try:
+                previous_jobs = cast(list[dict[str, str]], kwargs.get("previous_jobs", []))
+                ctrls = cast(
+                    Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
                 )
-            )
-            # Get default command parameters
-            default_params: dict[str, Any] = {}
-            func_params = {}
-            pm = get_parameter_manifest()
-            if FN in pm:
-                for param in pm[FN]:
-                    default_params[param] = pm[FN][param]["default"]
-                # Get command parameters set by the user through the control panel
+                FN = func.__name__
+                # remove this node from redis ALL_NODES key
+                redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
+                sys_status = "🏃‍♀️ Running python job: " + FN
+                send_to_socket(
+                    json.dumps(
+                        {
+                            "SYSTEM_STATUS": sys_status,
+                            "jobsetId": jobset_id,
+                            "RUNNING_NODE": node_id,
+                        }
+                    )
+                )
+                # Get default command parameters
+                default_params: dict[str, Any] = {}
                 func_params = {}
-                if ctrls is not None:
-                    for key, input in ctrls.items():
-                        param = input["param"]
-                        val = input["value"]
-                        func_params[param] = format_param_value(
-                            val, pm[FN][param]["type"]
-                        )
-                # Make sure that function parameters set is fully loaded
-                # If function is missing a parameter, fill-in with default value
-                for key in default_params.keys():
-                    if key not in func_params.keys():
-                        func_params[key] = default_params[key]
+                pm = get_parameter_manifest()
+                if FN in pm:
+                    for param in pm[FN]:
+                        default_params[param] = pm[FN][param]["default"]
+                    # Get command parameters set by the user through the control panel
+                    func_params = {}
+                    if ctrls is not None:
+                        for key, input in ctrls.items():
+                            param = input["param"]
+                            val = input["value"]
+                            func_params[param] = format_param_value(
+                                val, pm[FN][param]["type"]
+                            )
+                    # Make sure that function parameters set is fully loaded
+                    # If function is missing a parameter, fill-in with default value
+                    for key in default_params.keys():
+                        if key not in func_params.keys():
+                            func_params[key] = default_params[key]
 
                 func_params["jobset_id"] = jobset_id
                 func_params["type"] = "default"
                 func_params["node_id"] = node_id
                 func_params["job_id"] = job_id
 
-            print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
-            print(node_id, " params: ", json.dumps(func_params, indent=2))
-            node_inputs, dict_inputs = fetch_inputs(previous_jobs)
+                print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
+                print(node_id, " params: ", json.dumps(func_params, indent=2))
+                node_inputs, dict_inputs = fetch_inputs(previous_jobs)
 
-            # constructing the inputs
-            print(f"constructing inputs for {func}")
-            args = {}
-            sig = signature(func)
+                # constructing the inputs
+                print(f"constructing inputs for {func}")
+                args = {}
+                sig = signature(func)
 
-            # once all the nodes are migrated to the new node api, remove the if condition
-            keys = list(sig.parameters)
-            if (
-                len(sig.parameters) == 2
-                and sig.parameters[keys[0]].annotation == list[DataContainer]
-            ):
-                args[keys[0]] = node_inputs
-            else:
-                args = {**args, **dict_inputs}
+                # once all the nodes are migrated to the new node api, remove the if condition
+                keys = list(sig.parameters)
+                if (
+                    len(sig.parameters) == 2
+                    and sig.parameters[keys[0]].annotation == list[DataContainer]
+                ):
+                    args[keys[0]] = node_inputs
+                else:
+                    args = {**args, **dict_inputs}
 
-            # once all the nodes are migrated to the new node api, remove the if condition
-            if len(sig.parameters) == 2 and sig.parameters[keys[1]].annotation == dict:
-                args[keys[1]] = func_params
-            else:
-                for param, value in func_params.items():
-                    if param in sig.parameters:
-                        args[param] = value
+                # once all the nodes are migrated to the new node api, remove the if condition
+                if len(sig.parameters) == 2 and sig.parameters[keys[1]].annotation == dict:
+                    args[keys[1]] = func_params
+                else:
+                    for param, value in func_params.items():
+                        if param in sig.parameters:
+                            args[param] = value
 
-            print("calling node with args keys:", args.keys())
+                print("calling node with args keys:", args.keys())
 
-            ##########################
-            # calling the node function
-            ##########################
-            dc_obj = func(**args)  # DataContainer object from node
-            ##########################
-            # end calling the node function
-            ##########################
+                ##########################
+                # calling the node function
+                ##########################
+                dc_obj = func(**args)  # DataContainer object from node
+                ##########################
+                # end calling the node function
+                ##########################
 
-            if isinstance(
-                dc_obj, DataContainer
-            ):  # some special nodes like LOOP return dict instead of `DataContainer`
-                dc_obj.validate()  # Validate returned DataContainer object
-            result = get_frontend_res_obj_from_result(
-                dc_obj
-            )  # Response object to send to FE
+                if isinstance(
+                    dc_obj, DataContainer
+                ):  # some special nodes like LOOP return dict instead of `DataContainer`
+                    dc_obj.validate()  # Validate returned DataContainer object
+                result = get_frontend_res_obj_from_result(
+                    dc_obj
+                )  # Response object to send to FE
 
-            send_to_socket(
-                json.dumps(
-                    {
-                        "NODE_RESULTS": {
-                            "cmd": FN,
-                            "id": node_id,
-                            "result": result,
+                send_to_socket(
+                    json.dumps(
+                        {
+                            "NODE_RESULTS": {
+                                "cmd": FN,
+                                "id": node_id,
+                                "result": result,
+                            },
+                            "jobsetId": jobset_id,
                         },
-                        "jobsetId": jobset_id,
-                    },
-                    cls=PlotlyJSONEncoder,
+                        cls=PlotlyJSONEncoder,
+                    )
                 )
-            )
 
                 if func.__name__ == "END":
                     send_to_socket(
@@ -323,7 +323,6 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
                 print("error occured while running the node")
                 print(traceback.format_exc())
                 raise e
-
         return wrapper
 
     if original_function:
