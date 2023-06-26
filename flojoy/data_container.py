@@ -293,22 +293,3 @@ class Grayscale(DataContainer):
 class ParametricGrayscale(DataContainer):
     def __init__(self, img: DCNpArrayType, t: DCNpArrayType):
         super().__init__(type="grayscale", m=img, t=t)
-
-
-# DCType = Literal[
-#     "grayscale",
-#     "matrix",
-#     "dataframe",
-#     "image",
-#     "ordered_pair",
-#     "ordered_triple",
-#     "scalar",
-#     "plotly",
-#     "parametric_grayscale",
-#     "parametric_matrix",
-#     "parametric_dataframe",
-#     "parametric_image",
-#     "parametric_ordered_pair",
-#     "parametric_ordered_triple",
-#     "parametric_scalar",
-#     "parametric_plotly",
