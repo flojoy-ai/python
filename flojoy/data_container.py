@@ -61,7 +61,7 @@ class DataContainer(Box):
 
     """
 
-    allowed_types = typing.get_args(DCType)
+    allowed_types = list(typing.get_args(DCType))
     allowed_keys = ["x", "y", "z", "t", "m", "c", "r", "g", "b", "a", "fig", "extra"]
     combinations = {
         "x": ["y", "t", "z", "fig", "extra"],
@@ -122,7 +122,8 @@ class DataContainer(Box):
             return value
         else:
             raise ValueError(
-                f"DataContainer keys must be any of following types: {get_args(DCKwargsValue)}"
+                f"DataContainer keys must be any of "
+                f"following types: {get_args(DCKwargsValue)}"
             )
 
     def __init__(  # type:ignore
@@ -132,8 +133,11 @@ class DataContainer(Box):
         for k, v in kwargs.items():
             self[k] = v
 
+    def __getattribute__(self, __name: str) -> Any:
+        return super().__getattribute__(__name)
+
     def __getitem__(self, key: str, _ignore_default: bool = False) -> Any:
-        return super().__getitem__(key, _ignore_default)  # type: ignore
+        return super().__getitem__(key, _ignore_default)
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
         if key != "type" and key != "extra":
@@ -178,7 +182,10 @@ class DataContainer(Box):
                     raise KeyError(f'"{k}" key must be provided for type "{dc_type}"')
 
     def __build_error_text(self, key: str, data_type: str, available_keys: list[str]):
-        return f'Invalid key "{key}" provided for data type "{data_type}", supported keys: {", ".join(available_keys)}'
+        return (
+            f'Invalid key "{key}" provided for data type "{data_type}", '
+            f'supported keys: {", ".join(available_keys)}'
+        )
 
     def validate(self):
         dc_type = self.type
@@ -190,7 +197,8 @@ class DataContainer(Box):
                 else f'allowed types: "{", ".join(self.allowed_types)}"'
             )
             raise ValueError(
-                f'unsupported type "{dc_type}" passed to DataContainer class, {helper_text}'
+                f'unsupported type "{dc_type}" passed to '
+                f"DataContainer class, {helper_text}"
             )
         dc_keys = list(cast(list[str], self.keys()))
         for k in dc_keys:
