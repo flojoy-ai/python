@@ -14,6 +14,8 @@ from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
 from typing import Union, cast, Any, Literal, Callable, List, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
+from inspect import signature
+import os
 
 
 def get_flojoy_root_dir() -> str:
@@ -50,27 +52,34 @@ def get_parameter_manifest() -> dict[str, Any]:
 
 
 def fetch_inputs(
-    previous_job_ids: list[str], mock: bool = False
+    previous_jobs: list[dict[str, str]], mock: bool = False
 ) -> list[DataContainer]:
     """
     Queries Redis for job results
 
     Parameters
     ----------
-    previous_job_ids : list of Redis job IDs that directly precede this node
+    previous_jobs : list of Redis jobs that directly precede this node.
+    Each item representing a job contains `job_id` and `input_name`.
+    `input_name` is the port where the previous job with `job_id` connects to.
 
     Returns
     -------
     inputs : list of DataContainer objects
     """
-    if mock:
-        return [DataContainer(x=np.linspace(0, 10, 100))]
-
     inputs: list[DataContainer] = []
+    dict_inputs: dict[str, DataContainer] = dict()
 
     try:
-        for prev_job_id in previous_job_ids:
-            print("fetching input from prev job id:", prev_job_id)
+        for prev_job in previous_jobs:
+            prev_job_id = prev_job.get("job_id")
+            input_name = prev_job.get("input_name")
+            print(
+                "fetching input from prev job id:",
+                prev_job_id,
+                " for input:",
+                input_name,
+            )
             job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
             job_result: dict[str, Any] = job.result  # type:ignore
             result = get_dc_from_result(job_result)
@@ -82,10 +91,11 @@ def fetch_inputs(
             )
             if result is not None:
                 inputs.append(result)
+                dict_inputs[input_name] = result
     except Exception:
         print(traceback.format_exc())
 
-    return inputs
+    return inputs, dict_inputs
 
 
 def get_redis_obj(id: str) -> dict[str, Any]:
@@ -178,90 +188,114 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
     ```
     """
 
-    def decorator(func):
-        # *args is required here for some reason, calling the decorator
-        # with 'deps' provided gives an error otherwise
-        @wraps(func)
-        def wrapper(*args, **kwargs: flojoyKwargs):
-            node_id = cast(str, kwargs["node_id"])
-            job_id = cast(str, kwargs["job_id"])
-            jobset_id = cast(str, kwargs["jobset_id"])
-            try:
-                mock = False
-                previous_job_ids = cast(list[str], kwargs.get("previous_job_ids", []))
-                ctrls = cast(
-                    Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
+    @wraps(func)
+    def wrapper(**kwargs: flojoyKwargs):
+        node_id = cast(str, kwargs["node_id"])
+        job_id = cast(str, kwargs["job_id"])
+        jobset_id = cast(str, kwargs["jobset_id"])
+        try:
+            previous_jobs = cast(list[dict[str, str]], kwargs.get("previous_jobs", []))
+            ctrls = cast(
+                Union[dict[str, dict[str, str]], None], kwargs.get("ctrls", None)
+            )
+            FN = func.__name__
+            # remove this node from redis ALL_NODES key
+            redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
+            sys_status = "🏃‍♀️ Running python job: " + FN
+            send_to_socket(
+                json.dumps(
+                    {
+                        "SYSTEM_STATUS": sys_status,
+                        "jobsetId": jobset_id,
+                        "RUNNING_NODE": node_id,
+                    }
                 )
-                FN = func.__name__
-                # remove this node from redis ALL_NODES key
-                redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
-                sys_status = "🏃‍♀️ Running python job: " + FN
-                send_to_socket(
-                    json.dumps(
-                        {
-                            "SYSTEM_STATUS": sys_status,
-                            "jobsetId": jobset_id,
-                            "RUNNING_NODE": node_id,
-                        }
-                    )
-                )
-                # Get default command paramaters
-                default_params: dict[str, Any] = {}
+            )
+            # Get default command parameters
+            default_params: dict[str, Any] = {}
+            func_params = {}
+            pm = get_parameter_manifest()
+            if FN in pm:
+                for param in pm[FN]:
+                    default_params[param] = pm[FN][param]["default"]
+                # Get command parameters set by the user through the control panel
                 func_params = {}
-                pm = get_parameter_manifest()
-                if FN in pm:
-                    for param in pm[FN]:
-                        default_params[param] = pm[FN][param]["default"]
-                    # Get command parameters set by the user through the control panel
-                    func_params = {}
-                    if ctrls is not None:
-                        for key, input in ctrls.items():
-                            param = input["param"]
-                            val = input["value"]
-                            func_params[param] = format_param_value(
-                                val, pm[FN][param]["type"]
-                            )
-                    # Make sure that function parameters set is fully loaded
-                    # If function is missing a parameter, fill-in with default value
-                    for key in default_params.keys():
-                        if key not in func_params.keys():
-                            func_params[key] = default_params[key]
+                if ctrls is not None:
+                    for key, input in ctrls.items():
+                        param = input["param"]
+                        val = input["value"]
+                        func_params[param] = format_param_value(
+                            val, pm[FN][param]["type"]
+                        )
+                # Make sure that function parameters set is fully loaded
+                # If function is missing a parameter, fill-in with default value
+                for key in default_params.keys():
+                    if key not in func_params.keys():
+                        func_params[key] = default_params[key]
 
                 func_params["jobset_id"] = jobset_id
                 func_params["type"] = "default"
                 func_params["node_id"] = node_id
                 func_params["job_id"] = job_id
 
-                print(
-                    "executing node_id:", node_id, "previous_job_ids:", previous_job_ids
-                )
-                print(node_id, " params: ", json.dumps(func_params, indent=2))
-                node_inputs = fetch_inputs(previous_job_ids, mock)
+            print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
+            print(node_id, " params: ", json.dumps(func_params, indent=2))
+            node_inputs, dict_inputs = fetch_inputs(previous_jobs)
 
-                # running the node
-                dc_obj = func(
-                    node_inputs, func_params
-                )  # DataContainer object from node
-                if isinstance(
-                    dc_obj, DataContainer
-                ):  # some special nodes like LOOP return dict instead of `DataContainer`
-                    dc_obj.validate()  # Validate returned DataContainer object
-                result = get_frontend_res_obj_from_result(
-                    dc_obj
-                )  # Response object to send to FE
-                send_to_socket(
-                    json.dumps(
-                        {
-                            "NODE_RESULTS": {
-                                "cmd": FN,
-                                "id": node_id,
-                                "result": result,
-                            },
-                            "jobsetId": jobset_id,
+            # constructing the inputs
+            print(f"constructing inputs for {func}")
+            args = {}
+            sig = signature(func)
+
+            # once all the nodes are migrated to the new node api, remove the if condition
+            keys = list(sig.parameters)
+            if (
+                len(sig.parameters) == 2
+                and sig.parameters[keys[0]].annotation == list[DataContainer]
+            ):
+                args[keys[0]] = node_inputs
+            else:
+                args = {**args, **dict_inputs}
+
+            # once all the nodes are migrated to the new node api, remove the if condition
+            if len(sig.parameters) == 2 and sig.parameters[keys[1]].annotation == dict:
+                args[keys[1]] = func_params
+            else:
+                for param, value in func_params.items():
+                    if param in sig.parameters:
+                        args[param] = value
+
+            print("calling node with args keys:", args.keys())
+
+            ##########################
+            # calling the node function
+            ##########################
+            dc_obj = func(**args)  # DataContainer object from node
+            ##########################
+            # end calling the node function
+            ##########################
+
+            if isinstance(
+                dc_obj, DataContainer
+            ):  # some special nodes like LOOP return dict instead of `DataContainer`
+                dc_obj.validate()  # Validate returned DataContainer object
+            result = get_frontend_res_obj_from_result(
+                dc_obj
+            )  # Response object to send to FE
+
+            send_to_socket(
+                json.dumps(
+                    {
+                        "NODE_RESULTS": {
+                            "cmd": FN,
+                            "id": node_id,
+                            "result": result,
                         },
-                        cls=PlotlyJSONEncoder,
-                    )
+                        "jobsetId": jobset_id,
+                    },
+                    cls=PlotlyJSONEncoder,
                 )
+            )
 
                 if func.__name__ == "END":
                     send_to_socket(
