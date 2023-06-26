@@ -10,6 +10,7 @@ from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
 from typing import Union, cast, Any, Literal, Callable, List, Optional, Type
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
+from time import sleep
 
 
 def get_flojoy_root_dir() -> str:
@@ -47,17 +48,24 @@ def fetch_inputs(
     try:
         for prev_job_id in previous_job_ids:
             print("fetching input from prev job id:", prev_job_id)
-            job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
-            job_result: dict[str, Any] = job.result  # type:ignore
-            result = get_dc_from_result(job_result)
-            print(
-                "fetch input from prev job id:",
-                prev_job_id,
-                " result:",
-                dump_str(result, limit=100),
-            )
-            if result is not None:
-                inputs.append(result)
+            num_time_waited = 0
+            while num_time_waited < 3:
+                job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
+                job_result: dict[str, Any] = job.result  # type:ignore
+                result = get_dc_from_result(job_result)
+                print(
+                    "fetch input from prev job id:",
+                    prev_job_id,
+                    " result:",
+                    dump_str(result, limit=100),
+                )
+                if result is not None:
+                    inputs.append(result)
+                    break
+                else:
+                    sleep(1)
+                    num_time_waited += 1
+
     except Exception:
         print(traceback.format_exc())
 
