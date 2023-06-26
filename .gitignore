@@ -2,4 +2,5 @@ dist/
 flojoy.egg-info
 .idea
 **/__pycache__
+flojoy/aiprompter/PyCodeGPT
 build
