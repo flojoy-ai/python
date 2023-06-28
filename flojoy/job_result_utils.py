@@ -3,7 +3,7 @@ from flojoy.plotly_utils import data_container_to_plotly
 from rq.job import Job  # type:ignore
 from .utils import redis_instance
 from .data_container import DataContainer
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 __all__ = ["get_job_result"]
 
@@ -17,10 +17,11 @@ def is_flow_controled(result: dict[str, Any] | DataContainer):
     return False
 
 
-def get_next_directions(result: dict[str, Any] | None) -> list[str]:
+def get_next_directions(result: dict[str, Any] | None) -> Optional[list[str]]:
     if result is None:
-        return ["main"]
-    return result.get(FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS, ["main"])
+        return None
+
+    return result.get(FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS)
 
 
 def get_next_nodes(result: dict[str, Any] | None) -> list[str]:
