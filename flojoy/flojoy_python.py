@@ -2,6 +2,7 @@ import os
 import json
 import yaml
 import traceback
+from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
 import networkx as nx
 from rq.job import Job  # type:ignore
 from pathlib import Path
@@ -120,7 +121,12 @@ def format_param_value(value: Any, value_type: ParamValTypes):
 flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
 
 
-def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
+def flojoy(
+    original_function=None,
+    *,
+    node_type: Optional[str] = None,
+    deps: Optional[dict[str, str]] = None,
+):
     """
     Decorator to turn Python functions with numerical return
     values into Flojoy nodes.
@@ -174,6 +180,7 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
                 previous_jobs = cast(
                     list[dict[str, str]], kwargs.get("previous_jobs", [])
                 )
+
                 ctrls = cast(
                     Union[dict[str, dict[str, Any]], None], kwargs.get("ctrls", None)
                 )
@@ -190,7 +197,7 @@ def flojoy(original_function=None, *, deps: Optional[dict[str, str]] = None):
                         }
                     )
                 )
-
+                print("previous jobs:", previous_jobs)
                 # Get command parameters set by the user through the control panel
                 func_params = {}
                 if ctrls is not None:
