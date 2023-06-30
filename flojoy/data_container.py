@@ -7,8 +7,6 @@ from typing import Union, Literal, get_args, Any, cast
 from .utils import find_closest_match
 
 
-__all__ = ["DataContainer"]
-
 DCType = Literal[
     "grayscale",
     "matrix",

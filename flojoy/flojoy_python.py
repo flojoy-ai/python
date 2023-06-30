@@ -27,9 +27,7 @@ def get_flojoy_root_dir() -> str:
     return root_dir
 
 
-def fetch_inputs(
-    previous_jobs: list[dict[str, str]]
-):
+def fetch_inputs(previous_jobs: list[dict[str, str]]):
     """
     Queries Redis for job results
 
@@ -46,12 +44,10 @@ def fetch_inputs(
     dict_inputs: dict[str, DataContainer] = dict()
 
     try:
-
-
         for prev_job in previous_jobs:
             num_of_time_attempted = 0
             prev_job_id = prev_job.get("job_id")
-            input_name = prev_job.get("input_name","")
+            input_name = prev_job.get("input_name", "")
             print(
                 "fetching input from prev job id:",
                 prev_job_id,
@@ -124,8 +120,18 @@ def format_param_value(value: Any, value_type: ParamValTypes):
     return value
 
 
+class DefaultParams:
+    def __init__(
+        self, node_id: str, job_id: str, jobset_id: str, node_type: str
+    ) -> None:
+        self.node_id = node_id
+        self.job_id = job_id
+        self.jobset_id = jobset_id
+        self.node_type = node_type
+
+
 def flojoy(
-    original_function:Callable[..., DataContainer | dict[str, Any]] |None =None,
+    original_function: Callable[..., DataContainer | dict[str, Any]] | None = None,
     *,
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
@@ -175,7 +181,13 @@ def flojoy(
 
     def decorator(func: Callable[..., DataContainer | dict[str, Any]]):
         @wraps(func)
-        def wrapper(node_id:str, job_id:str, jobset_id:str, previous_jobs:list[dict[str, str]] = [], ctrls:dict[str,Any] |None =None):
+        def wrapper(
+            node_id: str,
+            job_id: str,
+            jobset_id: str,
+            previous_jobs: list[dict[str, str]] = [],
+            ctrls: dict[str, Any] | None = None,
+        ):
             try:
                 FN = func.__name__
                 # remove this node from redis ALL_NODES key
@@ -192,7 +204,7 @@ def flojoy(
                 )
                 print("previous jobs:", previous_jobs)
                 # Get command parameters set by the user through the control panel
-                func_params:dict[str, Any] = {}
+                func_params: dict[str, Any] = {}
                 if ctrls is not None:
                     for _, input in ctrls.items():
                         param = input["param"]
@@ -205,29 +217,29 @@ def flojoy(
                                 value
                             ),  # else condition is for backward compatibility
                         )
-
-                func_params["jobset_id"] = jobset_id
                 func_params["type"] = "default"
-                func_params["node_id"] = node_id
-                func_params["job_id"] = job_id
 
                 print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
-                print(node_id, " params: ", json.dumps(func_params, indent=2))
                 dict_inputs = fetch_inputs(previous_jobs)
 
                 # constructing the inputs
                 print(f"constructing inputs for {func}")
-                args:dict[str, Any] = {}
+                args: dict[str, Any] = {}
                 sig = signature(func)
 
                 args = {**args, **dict_inputs}
 
-
                 for param, value in func_params.items():
                     if param in sig.parameters:
                         args[param] = value
+                args["default_params"] = DefaultParams(
+                    job_id=job_id,
+                    node_id=node_id,
+                    jobset_id=jobset_id,
+                    node_type="default",
+                )
 
-                print("calling node with args keys:", args.keys())
+                print(node_id, " params: ", json.dumps(args, indent=2))
 
                 ##########################
                 # calling the node function

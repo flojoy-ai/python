@@ -1,4 +1,4 @@
-from .flojoy_python import flojoy
+from .flojoy_python import flojoy, DefaultParams
 from .job_result_builder import JobResultBuilder
 from .flojoy_instruction import FLOJOY_INSTRUCTION
 from .plotly_utils import *
