@@ -10,9 +10,10 @@ from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
-from typing import Union, cast, Any, Literal, List, Optional
+from typing import Union, Callable, Any, Literal, List, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
+from time import sleep
 from inspect import signature
 
 
@@ -29,7 +30,9 @@ def get_flojoy_root_dir() -> str:
     return root_dir
 
 
-def fetch_inputs(previous_jobs: list[dict[str, str]]) -> list[DataContainer]:
+def fetch_inputs(
+    previous_jobs: list[dict[str, str]]
+):
     """
     Queries Redis for job results
 
@@ -47,27 +50,35 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]) -> list[DataContainer]:
     dict_inputs: dict[str, DataContainer] = dict()
 
     try:
+
+
         for prev_job in previous_jobs:
+            num_of_time_attempted = 0
             prev_job_id = prev_job.get("job_id")
-            input_name = prev_job.get("input_name")
+            input_name = prev_job.get("input_name","")
             print(
                 "fetching input from prev job id:",
                 prev_job_id,
                 " for input:",
                 input_name,
             )
-            job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
-            job_result: dict[str, Any] = job.result  # type:ignore
-            result = get_dc_from_result(job_result)
-            print(
-                "fetch input from prev job id:",
-                prev_job_id,
-                " result:",
-                dump_str(result, limit=100),
-            )
-            if result is not None:
-                inputs.append(result)
-                dict_inputs[input_name] = result
+            while num_of_time_attempted < 3:
+                job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
+                job_result: dict[str, Any] = job.result  # type:ignore
+                result = get_dc_from_result(job_result)
+                print(
+                    "fetch input from prev job id:",
+                    prev_job_id,
+                    " result:",
+                    dump_str(result, limit=100),
+                )
+                if result is not None:
+                    inputs.append(result)
+                    dict_inputs[input_name] = result
+                    break
+                else:
+                    sleep(1)
+                    num_of_time_attempted += 1
     except Exception:
         print(traceback.format_exc())
 
@@ -118,11 +129,8 @@ def format_param_value(value: Any, value_type: ParamValTypes):
     return value
 
 
-flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
-
-
 def flojoy(
-    original_function=None,
+    original_function:Callable[..., DataContainer | dict[str, Any]] |None =None,
     *,
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
@@ -170,20 +178,10 @@ def flojoy(
     ```
     """
 
-    def decorator(func):
+    def decorator(func: Callable[..., DataContainer | dict[str, Any]]):
         @wraps(func)
-        def wrapper(*args, **kwargs: flojoyKwargs):
-            node_id = cast(str, kwargs["node_id"])
-            job_id = cast(str, kwargs["job_id"])
-            jobset_id = cast(str, kwargs["jobset_id"])
+        def wrapper(node_id:str, job_id:str, jobset_id:str, previous_jobs:list[dict[str, str]] = [], ctrls:dict[str,Any] |None =None):
             try:
-                previous_jobs = cast(
-                    list[dict[str, str]], kwargs.get("previous_jobs", [])
-                )
-
-                ctrls = cast(
-                    Union[dict[str, dict[str, Any]], None], kwargs.get("ctrls", None)
-                )
                 FN = func.__name__
                 # remove this node from redis ALL_NODES key
                 redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
@@ -313,36 +311,3 @@ def flojoy(
         return decorator(original_function)
 
     return decorator
-
-
-def reactflow_to_networkx(elems: list[Any], edges: list[Any]):
-    nx_graph: nx.DiGraph = nx.DiGraph()
-    for i in range(len(elems)):
-        el = elems[i]
-        node_id = el["id"]
-        data = el["data"]
-        cmd = el["data"]["func"]
-        ctrls: dict[str, Any] = data["ctrls"] if "ctrls" in data else {}
-        inputs: dict[str, Any] = data["inputs"] if "inputs" in data else {}
-        label: dict[str, Any] = data["label"] if "label" in data else {}
-        nx_graph.add_node(  # type:ignore
-            node_id,
-            pos=(el["position"]["x"], el["position"]["y"]),
-            id=el["id"],
-            ctrls=ctrls,
-            inputs=inputs,
-            label=label,
-            cmd=cmd,
-        )
-
-    for i in range(len(edges)):
-        e = edges[i]
-        _id = e["id"]
-        u = e["source"]
-        v = e["target"]
-        label = e["sourceHandle"]
-        nx_graph.add_edge(u, v, label=label, id=_id)  # type:ignore
-
-    nx_draw(nx_graph, with_labels=True)
-
-    return nx_graph
