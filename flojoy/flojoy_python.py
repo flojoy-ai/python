@@ -2,14 +2,11 @@ import os
 import json
 import yaml
 import traceback
-from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
-import networkx as nx
 from rq.job import Job  # type:ignore
 from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
-from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
 from typing import Union, Callable, Any, Literal, List, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
@@ -46,7 +43,6 @@ def fetch_inputs(
     -------
     inputs : list of DataContainer objects
     """
-    inputs: list[DataContainer] = []
     dict_inputs: dict[str, DataContainer] = dict()
 
     try:
@@ -73,7 +69,6 @@ def fetch_inputs(
                     dump_str(result, limit=100),
                 )
                 if result is not None:
-                    inputs.append(result)
                     dict_inputs[input_name] = result
                     break
                 else:
@@ -82,7 +77,7 @@ def fetch_inputs(
     except Exception:
         print(traceback.format_exc())
 
-    return inputs, dict_inputs
+    return dict_inputs
 
 
 def get_redis_obj(id: str) -> dict[str, Any]:
@@ -197,7 +192,7 @@ def flojoy(
                 )
                 print("previous jobs:", previous_jobs)
                 # Get command parameters set by the user through the control panel
-                func_params = {}
+                func_params:dict[str, Any] = {}
                 if ctrls is not None:
                     for _, input in ctrls.items():
                         param = input["param"]
@@ -218,35 +213,19 @@ def flojoy(
 
                 print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
                 print(node_id, " params: ", json.dumps(func_params, indent=2))
-                node_inputs, dict_inputs = fetch_inputs(previous_jobs)
+                dict_inputs = fetch_inputs(previous_jobs)
 
                 # constructing the inputs
                 print(f"constructing inputs for {func}")
-                args = {}
+                args:dict[str, Any] = {}
                 sig = signature(func)
 
-                # once all the nodes are migrated to the new node api,
-                # remove the if condition
-                keys = list(sig.parameters)
-                if (
-                    len(sig.parameters) == 2
-                    and sig.parameters[keys[0]].annotation == list[DataContainer]
-                ):
-                    args[keys[0]] = node_inputs
-                else:
-                    args = {**args, **dict_inputs}
+                args = {**args, **dict_inputs}
 
-                # once all the nodes are migrated to the new node api,
-                # remove the if condition
-                if (
-                    len(sig.parameters) == 2
-                    and sig.parameters[keys[1]].annotation == dict
-                ):
-                    args[keys[1]] = func_params
-                else:
-                    for param, value in func_params.items():
-                        if param in sig.parameters:
-                            args[param] = value
+
+                for param, value in func_params.items():
+                    if param in sig.parameters:
+                        args[param] = value
 
                 print("calling node with args keys:", args.keys())
 

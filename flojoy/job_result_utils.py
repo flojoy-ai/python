@@ -41,10 +41,13 @@ def get_dc_from_result(result: dict[str, Any] | DataContainer) -> DataContainer 
 
 
 def get_job_result(job_id: str) -> DataContainer | None:
-    job = Job.fetch(job_id, connection=redis_instance)  # type:ignore
-    job_result: dict[str, Any] = job.result  # type:ignore
-    result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
-    return result
+    try:
+        job = Job.fetch(job_id, connection=redis_instance)  # type:ignore
+        job_result: dict[str, Any] = job.result  # type:ignore
+        result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
+        return result
+    except Exception:
+        return None
 
 
 def get_frontend_res_obj_from_result(
