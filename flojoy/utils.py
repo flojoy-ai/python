@@ -11,8 +11,6 @@ import requests
 from redis import Redis
 from dotenv import dotenv_values  # type:ignore
 import difflib
-from .data_container import DataContainer
-from .job_result_builder import JobResultBuilder
 
 
 env_vars = dotenv_values("../.env")
@@ -34,9 +32,6 @@ def find_closest_match(given_str: str, available_str: list[str]):
         return closest_match[0]
     else:
         return None
-
-
-SpecialNodeOutput = dict[str, dict[str, str | list[str] | DataContainer] | DataContainer]        
 
 
 class PlotlyJSONEncoder(_json.JSONEncoder):

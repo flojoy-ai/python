@@ -48,16 +48,23 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
             num_of_time_attempted = 0
             prev_job_id = prev_job.get("job_id")
             input_name = prev_job.get("input_name", "")
+            edge = prev_job.get("edge", "")
             print(
                 "fetching input from prev job id:",
                 prev_job_id,
                 " for input:",
                 input_name,
+                "edge: ",
+                edge,
             )
             while num_of_time_attempted < 3:
                 job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
                 job_result: dict[str, Any] = job.result  # type:ignore
-                result = get_dc_from_result(job_result)
+                result = (
+                    get_dc_from_result(job_result[edge])
+                    if edge != "default"
+                    else get_dc_from_result(job_result)
+                )
                 print(
                     "fetch input from prev job id:",
                     prev_job_id,
@@ -239,7 +246,7 @@ def flojoy(
                     node_type="default",
                 )
 
-                print(node_id, " params: ", json.dumps(args, indent=2))
+                print(node_id, " params: ", args.keys())
 
                 ##########################
                 # calling the node function
@@ -252,6 +259,10 @@ def flojoy(
                 # some special nodes like LOOP return dict instead of `DataContainer`
                 if isinstance(dc_obj, DataContainer):
                     dc_obj.validate()  # Validate returned DataContainer object
+                else:
+                    for _, value in dc_obj.items():
+                        if isinstance(value, DataContainer):
+                            value.validate()
                 # Response object to send to FE
                 result = get_frontend_res_obj_from_result(dc_obj)
 
@@ -280,7 +291,7 @@ def flojoy(
                         )
                     )
                 print("final result:", dump_str(result, limit=100))
-                return result
+                return dc_obj
             except Exception as e:
                 send_to_socket(
                     json.dumps(
