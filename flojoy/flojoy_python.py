@@ -7,7 +7,7 @@ from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
-from typing import Callable, Any, Optional
+from typing import Callable, Any, Optional, TypedDict
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket, ParameterTypes
 from time import sleep
@@ -102,7 +102,7 @@ class DefaultParams:
 
 
 def flojoy(
-    original_function: Callable[..., DataContainer | dict[str, Any]] | None = None,
+    original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict] | None = None,
     *,
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
