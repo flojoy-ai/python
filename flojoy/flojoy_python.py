@@ -7,11 +7,13 @@ from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
-from typing import Union, Callable, Any, Literal, List, Optional
+from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
-from .utils import redis_instance, send_to_socket
+from .utils import redis_instance, send_to_socket, ParameterTypes
 from time import sleep
 from inspect import signature
+
+__all__ = ["flojoy", "DefaultParams"]
 
 
 def get_flojoy_root_dir() -> str:
@@ -89,44 +91,6 @@ def get_redis_obj(id: str) -> dict[str, Any]:
     return parse_obj
 
 
-def parse_array(str_value: str) -> List[Union[int, float, str]]:
-    if not str_value:
-        return []
-
-    val_list = [val.strip() for val in str_value.split(",")]
-    val = list(map(str, val_list))
-    # First try to cast into int, then float, then keep as string if all else fails
-    for t in [int, float]:
-        try:
-            val: list[int | float | str] = list(map(t, val_list))
-            break
-        except Exception:
-            continue
-    return val
-
-
-ParamValTypes = Literal[
-    "array", "float", "int", "boolean", "select", "node_reference", "string"
-]
-
-
-def format_param_value(value: Any, value_type: ParamValTypes):
-    match value_type:
-        case "array":
-            s = str(value)
-            parsed_value = parse_array(s)
-            return parsed_value
-        case "float":
-            return float(value)
-        case "int":
-            return int(value)
-        case "boolean":
-            return bool(value)
-        case "select" | "string" | "node_reference":
-            return str(value)
-    return value
-
-
 class DefaultParams:
     def __init__(
         self, node_id: str, job_id: str, jobset_id: str, node_type: str
@@ -142,6 +106,7 @@ def flojoy(
     *,
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
+    inject_node_metadata: bool = False,
 ):
     """
     Decorator to turn Python functions with numerical return
@@ -216,13 +181,8 @@ def flojoy(
                     for _, input in ctrls.items():
                         param = input["param"]
                         value = input["value"]
-                        func_params[param] = format_param_value(
-                            value,
-                            input["type"]
-                            if "type" in input
-                            else type(
-                                value
-                            ),  # else condition is for backward compatibility
+                        func_params[param] = ParameterTypes().format_param_value(
+                            value, input["type"]
                         )
                 func_params["type"] = "default"
 
@@ -230,7 +190,7 @@ def flojoy(
                 dict_inputs = fetch_inputs(previous_jobs)
 
                 # constructing the inputs
-                print(f"constructing inputs for {func}")
+                print(f"constructing inputs for {func.__name__}")
                 args: dict[str, Any] = {}
                 sig = signature(func)
 
@@ -239,12 +199,13 @@ def flojoy(
                 for param, value in func_params.items():
                     if param in sig.parameters:
                         args[param] = value
-                args["default_params"] = DefaultParams(
-                    job_id=job_id,
-                    node_id=node_id,
-                    jobset_id=jobset_id,
-                    node_type="default",
-                )
+                if inject_node_metadata:
+                    args["default_params"] = DefaultParams(
+                        job_id=job_id,
+                        node_id=node_id,
+                        jobset_id=jobset_id,
+                        node_type="default",
+                    )
 
                 print(node_id, " params: ", args.keys())
 
@@ -260,7 +221,7 @@ def flojoy(
                 if isinstance(dc_obj, DataContainer):
                     dc_obj.validate()  # Validate returned DataContainer object
                 else:
-                    for _, value in dc_obj.items():
+                    for value in dc_obj.values():
                         if isinstance(value, DataContainer):
                             value.validate()
                 # Response object to send to FE

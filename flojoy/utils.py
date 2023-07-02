@@ -11,10 +11,18 @@ import requests
 from redis import Redis
 from dotenv import dotenv_values  # type:ignore
 import difflib
+from typing import Literal
 
+__all__ = [
+    "ParameterTypes",
+    "send_to_socket",
+    "get_frontier_api_key",
+    "set_frontier_api_key",
+    "set_frontier_s3_key",
+]
 
 env_vars = dotenv_values("../.env")
-port = env_vars.get("VITE_BACKEND_PORT", "8000")
+port = env_vars.get("VITE_BACKEND_PORT", "8001")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = os.environ.get("REDIS_PORT", 6379)
@@ -211,6 +219,54 @@ def dump_str(result: Any, limit: int | None = None):
         if limit is None or len(result_str) <= limit
         else result_str[:limit] + "..."
     )
+
+
+class ParameterTypes:
+    """
+    Parameter type class to use in Flojoy node functions
+    """
+
+    NODE_REFERENCE = str
+    ARRAY = list[str | float | int]
+    STRING = str
+    BOOLEAN = bool
+    SELECT = Literal
+    INT = int
+    FLOAT = float
+
+    def format_param_value(self, value: Any, value_type: str):
+        value_type = value_type.upper()
+
+        match value_type:
+            case "ARRAY":
+                s = str(value)
+                parsed_value = self._parse_array(s)
+                return parsed_value
+            case "FLOAT":
+                return float(value)
+            case "INT":
+                return int(value)
+            case "BOOLEAN":
+                return bool(value)
+            case "SELECT" | "STRING" | "NODE_REFERENCE":
+                return str(value)
+            case _:
+                return value
+
+    def _parse_array(self, str_value: str) -> list[Union[int, float, str]]:
+        if not str_value:
+            return []
+
+        val_list = [val.strip() for val in str_value.split(",")]
+        val = list(map(str, val_list))
+        # First try to cast into int, then float, then keep as string if all else fails
+        for t in [int, float]:
+            try:
+                val: list[int | float | str] = list(map(t, val_list))
+                break
+            except Exception:
+                continue
+        return val
 
 
 def get_frontier_api_key() -> Union[str, None]:

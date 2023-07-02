@@ -5,7 +5,7 @@ from .utils import redis_instance
 from .data_container import DataContainer
 from typing import Any, cast
 
-__all__ = ["get_job_result"]
+__all__ = ["get_job_result", "get_next_directions", "get_next_nodes", "get_job_result"]
 
 
 def is_flow_controled(result: dict[str, Any] | DataContainer):
@@ -21,12 +21,14 @@ def get_next_directions(result: dict[str, Any] | None) -> list[str]:
     if result is None:
         return ["default"]
     direction = ["default"]
-    if result.get(FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS, None) is None:
-        for _, value in result.items():
+    if not result.get(FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS):
+        for value in result.values():
             if isinstance(value, dict) and value.get(
-                FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS, None
+                FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS
             ):
-                direction = value[FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS]
+                direction = cast(
+                    list[str], value[FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS]
+                )
                 break
     else:
         direction = result[FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS]
@@ -71,8 +73,5 @@ def get_frontend_res_obj_from_result(
         data = result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]]
         plotly_fig = data_container_to_plotly(data=data)
         return {**result, "default_fig": plotly_fig, "data": data}
-    if isinstance(result, dict):
-        keys = list(result.keys())
-        return get_frontend_res_obj_from_result(result[keys[0]])
-
-    return result
+    keys = list(result.keys())
+    return get_frontend_res_obj_from_result(result[keys[0]])
