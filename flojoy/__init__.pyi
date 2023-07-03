@@ -10,7 +10,8 @@ from .data_container import *
 from .utils import *
 
 def flojoy(
-    original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict] | None = None,
+    original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict]
+    | None = None,
     *,
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
