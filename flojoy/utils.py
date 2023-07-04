@@ -221,56 +221,6 @@ def dump_str(result: Any, limit: int | None = None):
     )
 
 
-class ParamType:
-    """
-    Parameter type class to use in Flojoy node functions
-    """
-
-    NODE_REFERENCE = str
-    ARRAY = list[str | float | int]
-    STRING = str
-    BOOLEAN = bool
-    SELECT = Literal
-    INT = int
-    FLOAT = float
-
-    @classmethod
-    def format_param_value(cls, value: Any, value_type: str):
-        value_type = value_type.upper()
-
-        match value_type:
-            case "ARRAY":
-                s = str(value)
-                parsed_value = cls._parse_array(s)
-                return parsed_value
-            case "FLOAT":
-                return float(value)
-            case "INT":
-                return int(value)
-            case "BOOLEAN":
-                return bool(value)
-            case "SELECT" | "STRING" | "NODE_REFERENCE":
-                return str(value)
-            case _:
-                return value
-
-    @classmethod
-    def _parse_array(cls, str_value: str) -> list[Union[int, float, str]]:
-        if not str_value:
-            return []
-
-        val_list = [val.strip() for val in str_value.split(",")]
-        val = list(map(str, val_list))
-        # First try to cast into int, then float, then keep as string if all else fails
-        for t in [int, float]:
-            try:
-                val: list[int | float | str] = list(map(t, val_list))
-                break
-            except Exception:
-                continue
-        return val
-
-
 def get_frontier_api_key() -> Union[str, None]:
     home = str(Path.home())
     api_key = None

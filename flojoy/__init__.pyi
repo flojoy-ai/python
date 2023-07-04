@@ -8,6 +8,7 @@ from .module_scraper import *
 from .job_result_utils import *
 from .data_container import *
 from .utils import *
+from .parameter_types import *
 
 def flojoy(
     original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict]

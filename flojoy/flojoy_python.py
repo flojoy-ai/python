@@ -7,9 +7,10 @@ from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
-from typing import Callable, Any, Optional, TypedDict
+from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
-from .utils import redis_instance, send_to_socket, ParamType
+from .utils import redis_instance, send_to_socket
+from .parameter_types import format_param_value
 from time import sleep
 from inspect import signature
 
@@ -181,9 +182,7 @@ def flojoy(
                     for _, input in ctrls.items():
                         param = input["param"]
                         value = input["value"]
-                        func_params[param] = ParamType.format_param_value(
-                            value, input["type"]
-                        )
+                        func_params[param] = format_param_value(value, input["type"])
                 func_params["type"] = "default"
 
                 print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
