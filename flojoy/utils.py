@@ -14,7 +14,7 @@ import difflib
 from typing import Literal
 
 __all__ = [
-    "ParameterTypes",
+    "ParamType",
     "send_to_socket",
     "get_frontier_api_key",
     "set_frontier_api_key",
@@ -221,7 +221,7 @@ def dump_str(result: Any, limit: int | None = None):
     )
 
 
-class ParameterTypes:
+class ParamType:
     """
     Parameter type class to use in Flojoy node functions
     """
@@ -234,13 +234,14 @@ class ParameterTypes:
     INT = int
     FLOAT = float
 
-    def format_param_value(self, value: Any, value_type: str):
+    @classmethod
+    def format_param_value(cls, value: Any, value_type: str):
         value_type = value_type.upper()
 
         match value_type:
             case "ARRAY":
                 s = str(value)
-                parsed_value = self._parse_array(s)
+                parsed_value = cls._parse_array(s)
                 return parsed_value
             case "FLOAT":
                 return float(value)
@@ -253,7 +254,8 @@ class ParameterTypes:
             case _:
                 return value
 
-    def _parse_array(self, str_value: str) -> list[Union[int, float, str]]:
+    @classmethod
+    def _parse_array(cls, str_value: str) -> list[Union[int, float, str]]:
         if not str_value:
             return []
 

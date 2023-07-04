@@ -17,10 +17,10 @@ def is_flow_controled(result: dict[str, Any] | DataContainer):
     return False
 
 
-def get_next_directions(result: dict[str, Any] | None) -> list[str]:
+def get_next_directions(result: dict[str, Any] | None) -> list[str] | None:
+    direction = None
     if result is None:
-        return ["default"]
-    direction = ["default"]
+        return direction
     if not result.get(FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS):
         for value in result.values():
             if isinstance(value, dict) and value.get(

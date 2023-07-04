@@ -9,7 +9,7 @@ from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from typing import Callable, Any, Optional, TypedDict
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
-from .utils import redis_instance, send_to_socket, ParameterTypes
+from .utils import redis_instance, send_to_socket, ParamType
 from time import sleep
 from inspect import signature
 
@@ -77,7 +77,7 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
                     dict_inputs[input_name] = result
                     break
                 else:
-                    sleep(1)
+                    sleep(0.3)
                     num_of_time_attempted += 1
     except Exception:
         print(traceback.format_exc())
@@ -181,7 +181,7 @@ def flojoy(
                     for _, input in ctrls.items():
                         param = input["param"]
                         value = input["value"]
-                        func_params[param] = ParameterTypes().format_param_value(
+                        func_params[param] = ParamType.format_param_value(
                             value, input["type"]
                         )
                 func_params["type"] = "default"
