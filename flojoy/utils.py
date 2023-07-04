@@ -14,7 +14,6 @@ import difflib
 from typing import Literal
 
 __all__ = [
-    "ParamType",
     "send_to_socket",
     "get_frontier_api_key",
     "set_frontier_api_key",
