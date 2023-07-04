@@ -50,6 +50,7 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]) -> list[DataContainer]:
         for prev_job in previous_jobs:
             prev_job_id = prev_job.get("job_id")
             input_name = prev_job.get("input_name")
+            multiple = prev_job.get("multiple")
             print(
                 "fetching input from prev job id:",
                 prev_job_id,
@@ -67,7 +68,13 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]) -> list[DataContainer]:
             )
             if result is not None:
                 inputs.append(result)
-                dict_inputs[input_name] = result
+                if multiple:
+                    if input_name not in dict_inputs:
+                        dict_inputs[input_name] = [result]
+                    else:
+                        dict_inputs[input_name].append(result)
+                else:
+                    dict_inputs[input_name] = result
     except Exception:
         print(traceback.format_exc())
 
