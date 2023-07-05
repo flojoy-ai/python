@@ -7,8 +7,6 @@ from typing import Union, Literal, get_args, Any, cast
 from .utils import find_closest_match
 
 
-__all__ = ["DataContainer"]
-
 DCType = Literal[
     "grayscale",
     "matrix",
@@ -137,7 +135,7 @@ class DataContainer(Box):
         return super().__getattribute__(__name)
 
     def __getitem__(self, key: str, _ignore_default: bool = False) -> Any:
-        return super().__getitem__(key, _ignore_default)
+        return super().__getitem__(key, _ignore_default)  # type:ignore
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
         if key != "type" and key != "extra":
@@ -213,76 +211,131 @@ class DataContainer(Box):
 
 
 class OrderedPair(DataContainer):
-    def __init__(self, x: DCNpArrayType, y: DCNpArrayType):
+    x: DCNpArrayType
+    y: DCNpArrayType
+
+    def __init__(self, x: DCNpArrayType, y: DCNpArrayType):  # type:ignore
         super().__init__(type="ordered_pair", x=x, y=y)
 
 
 class ParametricOrderedPair(DataContainer):
-    def __init__(self, x: DCNpArrayType, y: DCNpArrayType, t: DCNpArrayType):
+    x: DCNpArrayType
+    y: DCNpArrayType
+    t: DCNpArrayType
+
+    def __init__(
+        self, x: DCNpArrayType, y: DCNpArrayType, t: DCNpArrayType
+    ):  # type:ignore
         super().__init__(type="parametric_ordered_pair", x=x, y=y, t=t)
 
 
 class OrderedTriple(DataContainer):
-    def __init__(self, x: DCNpArrayType, y: DCNpArrayType, z: DCNpArrayType):
+    x: DCNpArrayType
+    y: DCNpArrayType
+    z: DCNpArrayType
+
+    def __init__(
+        self, x: DCNpArrayType, y: DCNpArrayType, z: DCNpArrayType
+    ):  # type:ignore
         super().__init__(type="ordered_triple", x=x, y=y, z=z)
 
 
 class ParametricOrderedTriple(DataContainer):
-    def __init__(
+    x: DCNpArrayType
+    y: DCNpArrayType
+    z: DCNpArrayType
+    t: DCNpArrayType
+
+    def __init__(  # type:ignore
         self, x: DCNpArrayType, y: DCNpArrayType, z: DCNpArrayType, t: DCNpArrayType
     ):
         super().__init__(type="parametric_ordered_triple", x=x, y=y, z=z, t=t)
 
 
 class Scalar(DataContainer):
-    def __init__(self, c: int | float):
+    c: int | float
+
+    def __init__(self, c: int | float):  # type:ignore
         super().__init__(type="scalar", c=c)
 
 
 class ParametricScalar(DataContainer):
-    def __init__(self, c: int | float, t: DCNpArrayType):
+    c: int | float
+    t: DCNpArrayType
+
+    def __init__(self, c: int | float, t: DCNpArrayType):  # type:ignore
         super().__init__(type="scalar", c=c, t=t)
 
 
 class Matrix(DataContainer):
-    def __init__(self, m: DCNpArrayType):
+    m: DCNpArrayType
+
+    def __init__(self, m: DCNpArrayType):  # type:ignore
         super().__init__(type="matrix", m=m)
 
 
 class ParametricMatrix(DataContainer):
-    def __init__(self, m: DCNpArrayType, t: DCNpArrayType):
+    m: DCNpArrayType
+    t: DCNpArrayType
+
+    def __init__(self, m: DCNpArrayType, t: DCNpArrayType):  # type:ignore
         super().__init__(type="matrix", m=m, t=t)
 
 
 class DataFrame(DataContainer):
-    def __init__(self, df: pd.DataFrame):
+    m: pd.DataFrame
+
+    def __init__(self, df: pd.DataFrame):  # type:ignore
         super().__init__(type="dataframe", m=df)
 
 
 class ParametricDataFrame(DataContainer):
-    def __init__(self, df: pd.DataFrame, t: DCNpArrayType):
+    m: pd.DataFrame
+    t: DCNpArrayType
+
+    def __init__(self, df: pd.DataFrame, t: DCNpArrayType):  # type:ignore
         super().__init__(type="dataframe", m=df, t=t)
 
 
 class Plotly(DataContainer):
-    def __init__(self, fig: go.Figure):
+    fig: go.Figure
+
+    def __init__(self, fig: go.Figure):  # type:ignore
         super().__init__(type="plotly", fig=fig)
 
 
 class ParametricPlotly(DataContainer):
-    def __init__(self, fig: go.Figure, t: DCNpArrayType):
+    fig: go.Figure
+    t: DCNpArrayType
+
+    def __init__(self, fig: go.Figure, t: DCNpArrayType):  # type:ignore
         super().__init__(type="plotly", fig=fig, t=t)
 
 
 class Image(DataContainer):
-    def __init__(
-        self, r: DCNpArrayType, g: DCNpArrayType, b: DCNpArrayType, a: DCNpArrayType
+    r: DCNpArrayType
+    g: DCNpArrayType
+    b: DCNpArrayType
+    a: DCNpArrayType | None
+
+    def __init__(  # type:ignore
+        self,
+        r: DCNpArrayType,
+        g: DCNpArrayType,
+        b: DCNpArrayType,
+        a: DCNpArrayType | None = None,
     ):
         super().__init__(type="image", r=r, g=g, b=b, a=a)
 
 
 class ParametricImage(DataContainer):
-    def __init__(
+    t: DCNpArrayType
+    r: DCNpArrayType
+    g: DCNpArrayType
+    b: DCNpArrayType
+    a: DCNpArrayType | None
+
+    def __init__(  # type:ignore
         self,
         r: DCNpArrayType,
         g: DCNpArrayType,
@@ -294,10 +347,15 @@ class ParametricImage(DataContainer):
 
 
 class Grayscale(DataContainer):
-    def __init__(self, img: DCNpArrayType):
+    m: DCNpArrayType
+
+    def __init__(self, img: DCNpArrayType):  # type:ignore
         super().__init__(type="grayscale", m=img)
 
 
 class ParametricGrayscale(DataContainer):
-    def __init__(self, img: DCNpArrayType, t: DCNpArrayType):
+    m: DCNpArrayType
+    t: DCNpArrayType
+
+    def __init__(self, img: DCNpArrayType, t: DCNpArrayType):  # type:ignore
         super().__init__(type="grayscale", m=img, t=t)

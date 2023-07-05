@@ -1,7 +1,7 @@
 from .data_container import DataContainer
 import numpy as np
 from typing import Union
-from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
+from .flojoy_instruction import FLOJOY_INSTRUCTION
 
 
 class JobResultBuilder:
@@ -41,13 +41,13 @@ class JobResultBuilder:
         return self
 
     def flow_by_flag(
-        self, flag: bool, directionsWhenTrue: list[str], directionsWhenFalse: list[str]
+        self, flag: bool, true_direction: list[str], false_direction: list[str]
     ):
         self._add_instructions(
             {
-                FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directionsWhenTrue
+                FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: true_direction
                 if flag
-                else directionsWhenFalse
+                else false_direction
             }
         )
         return self

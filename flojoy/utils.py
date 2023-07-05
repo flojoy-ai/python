@@ -11,7 +11,14 @@ import requests
 from redis import Redis
 from dotenv import dotenv_values  # type:ignore
 import difflib
+from typing import Literal
 
+__all__ = [
+    "send_to_socket",
+    "get_frontier_api_key",
+    "set_frontier_api_key",
+    "set_frontier_s3_key",
+]
 
 env_vars = dotenv_values("../.env")
 port = env_vars.get("VITE_BACKEND_PORT", "8000")
@@ -266,14 +273,14 @@ def set_frontier_api_key(api_key: str):
         raise e
 
 
-def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
+def set_frontier_s3_key(s3_name: str, s3_access_key: str, s3_secret_key: str):
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
 
     data = {
-        f"{s3Name}": s3Name,
-        f"{s3Name}accessKey": s3AccessKey,
-        f"{s3Name}secretKey": s3SecretKey,
+        f"{s3_name}": s3_name,
+        f"{s3_name}accessKey": s3_access_key,
+        f"{s3_name}secretKey": s3_secret_key,
     }
     if not os.path.exists(file_path):
         # Create a new file and write the ACCSS_KEY to it
@@ -285,9 +292,9 @@ def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
     with open(file_path, "r") as file:
         load = yaml.safe_load(file)
 
-    load[f"{s3Name}"] = s3Name
-    load[f"{s3Name}accessKey"] = s3AccessKey
-    load[f"{s3Name}secretKey"] = s3SecretKey
+    load[f"{s3_name}"] = s3_name
+    load[f"{s3_name}accessKey"] = s3_access_key
+    load[f"{s3_name}secretKey"] = s3_secret_key
 
     with open(file_path, "w") as file:
         yaml.dump(load, file)

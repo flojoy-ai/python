@@ -2,18 +2,19 @@ import os
 import json
 import yaml
 import traceback
-from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
-import networkx as nx
 from rq.job import Job  # type:ignore
 from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
-from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
-from typing import Union, cast, Any, Literal, List, Optional
+from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
+from .parameter_types import format_param_value
+from time import sleep
 from inspect import signature
+
+__all__ = ["flojoy", "DefaultParams"]
 
 
 def get_flojoy_root_dir() -> str:
@@ -29,7 +30,7 @@ def get_flojoy_root_dir() -> str:
     return root_dir
 
 
-def fetch_inputs(previous_jobs: list[dict[str, str]]) -> list[DataContainer]:
+def fetch_inputs(previous_jobs: list[dict[str, str]]):
     """
     Queries Redis for job results
 
@@ -43,35 +44,46 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]) -> list[DataContainer]:
     -------
     inputs : list of DataContainer objects
     """
-    inputs: list[DataContainer] = []
     dict_inputs: dict[str, DataContainer] = dict()
 
     try:
         for prev_job in previous_jobs:
+            num_of_time_attempted = 0
             prev_job_id = prev_job.get("job_id")
-            input_name = prev_job.get("input_name")
+            input_name = prev_job.get("input_name", "")
+            edge = prev_job.get("edge", "")
             print(
                 "fetching input from prev job id:",
                 prev_job_id,
                 " for input:",
                 input_name,
+                "edge: ",
+                edge,
             )
-            job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
-            job_result: dict[str, Any] = job.result  # type:ignore
-            result = get_dc_from_result(job_result)
-            print(
-                "fetch input from prev job id:",
-                prev_job_id,
-                " result:",
-                dump_str(result, limit=100),
-            )
-            if result is not None:
-                inputs.append(result)
-                dict_inputs[input_name] = result
+            while num_of_time_attempted < 3:
+                job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
+                job_result: dict[str, Any] = job.result  # type:ignore
+                result = (
+                    get_dc_from_result(job_result[edge])
+                    if edge != "default"
+                    else get_dc_from_result(job_result)
+                )
+                print(
+                    "fetch input from prev job id:",
+                    prev_job_id,
+                    " result:",
+                    dump_str(result, limit=100),
+                )
+                if result is not None:
+                    dict_inputs[input_name] = result
+                    break
+                else:
+                    sleep(0.3)
+                    num_of_time_attempted += 1
     except Exception:
         print(traceback.format_exc())
 
-    return inputs, dict_inputs
+    return dict_inputs
 
 
 def get_redis_obj(id: str) -> dict[str, Any]:
@@ -80,52 +92,22 @@ def get_redis_obj(id: str) -> dict[str, Any]:
     return parse_obj
 
 
-def parse_array(str_value: str) -> List[Union[int, float, str]]:
-    if not str_value:
-        return []
-
-    val_list = [val.strip() for val in str_value.split(",")]
-    val = list(map(str, val_list))
-    # First try to cast into int, then float, then keep as string if all else fails
-    for t in [int, float]:
-        try:
-            val: list[int | float | str] = list(map(t, val_list))
-            break
-        except Exception:
-            continue
-    return val
-
-
-ParamValTypes = Literal[
-    "array", "float", "int", "boolean", "select", "node_reference", "string"
-]
-
-
-def format_param_value(value: Any, value_type: ParamValTypes):
-    match value_type:
-        case "array":
-            s = str(value)
-            parsed_value = parse_array(s)
-            return parsed_value
-        case "float":
-            return float(value)
-        case "int":
-            return int(value)
-        case "boolean":
-            return bool(value)
-        case "select" | "string" | "node_reference":
-            return str(value)
-    return value
-
-
-flojoyKwargs = Union[str, dict[str, dict[str, str]], list[str]]
+class DefaultParams:
+    def __init__(
+        self, node_id: str, job_id: str, jobset_id: str, node_type: str
+    ) -> None:
+        self.node_id = node_id
+        self.job_id = job_id
+        self.jobset_id = jobset_id
+        self.node_type = node_type
 
 
 def flojoy(
-    original_function=None,
+    original_function: Callable[..., DataContainer | dict[str, Any]] | None = None,
     *,
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
+    inject_node_metadata: bool = False,
 ):
     """
     Decorator to turn Python functions with numerical return
@@ -170,20 +152,16 @@ def flojoy(
     ```
     """
 
-    def decorator(func):
+    def decorator(func: Callable[..., DataContainer | dict[str, Any]]):
         @wraps(func)
-        def wrapper(*args, **kwargs: flojoyKwargs):
-            node_id = cast(str, kwargs["node_id"])
-            job_id = cast(str, kwargs["job_id"])
-            jobset_id = cast(str, kwargs["jobset_id"])
+        def wrapper(
+            node_id: str,
+            job_id: str,
+            jobset_id: str,
+            previous_jobs: list[dict[str, str]] = [],
+            ctrls: dict[str, Any] | None = None,
+        ):
             try:
-                previous_jobs = cast(
-                    list[dict[str, str]], kwargs.get("previous_jobs", [])
-                )
-
-                ctrls = cast(
-                    Union[dict[str, dict[str, Any]], None], kwargs.get("ctrls", None)
-                )
                 FN = func.__name__
                 # remove this node from redis ALL_NODES key
                 redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
@@ -199,58 +177,36 @@ def flojoy(
                 )
                 print("previous jobs:", previous_jobs)
                 # Get command parameters set by the user through the control panel
-                func_params = {}
+                func_params: dict[str, Any] = {}
                 if ctrls is not None:
                     for _, input in ctrls.items():
                         param = input["param"]
                         value = input["value"]
-                        func_params[param] = format_param_value(
-                            value,
-                            input["type"]
-                            if "type" in input
-                            else type(
-                                value
-                            ),  # else condition is for backward compatibility
-                        )
-
-                func_params["jobset_id"] = jobset_id
+                        func_params[param] = format_param_value(value, input["type"])
                 func_params["type"] = "default"
-                func_params["node_id"] = node_id
-                func_params["job_id"] = job_id
 
                 print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
-                print(node_id, " params: ", json.dumps(func_params, indent=2))
-                node_inputs, dict_inputs = fetch_inputs(previous_jobs)
+                dict_inputs = fetch_inputs(previous_jobs)
 
                 # constructing the inputs
-                print(f"constructing inputs for {func}")
-                args = {}
+                print(f"constructing inputs for {func.__name__}")
+                args: dict[str, Any] = {}
                 sig = signature(func)
 
-                # once all the nodes are migrated to the new node api,
-                # remove the if condition
-                keys = list(sig.parameters)
-                if (
-                    len(sig.parameters) == 2
-                    and sig.parameters[keys[0]].annotation == list[DataContainer]
-                ):
-                    args[keys[0]] = node_inputs
-                else:
-                    args = {**args, **dict_inputs}
+                args = {**args, **dict_inputs}
 
-                # once all the nodes are migrated to the new node api,
-                # remove the if condition
-                if (
-                    len(sig.parameters) == 2
-                    and sig.parameters[keys[1]].annotation == dict
-                ):
-                    args[keys[1]] = func_params
-                else:
-                    for param, value in func_params.items():
-                        if param in sig.parameters:
-                            args[param] = value
+                for param, value in func_params.items():
+                    if param in sig.parameters:
+                        args[param] = value
+                if inject_node_metadata:
+                    args["default_params"] = DefaultParams(
+                        job_id=job_id,
+                        node_id=node_id,
+                        jobset_id=jobset_id,
+                        node_type="default",
+                    )
 
-                print("calling node with args keys:", args.keys())
+                print(node_id, " params: ", args.keys())
 
                 ##########################
                 # calling the node function
@@ -263,6 +219,10 @@ def flojoy(
                 # some special nodes like LOOP return dict instead of `DataContainer`
                 if isinstance(dc_obj, DataContainer):
                     dc_obj.validate()  # Validate returned DataContainer object
+                else:
+                    for value in dc_obj.values():
+                        if isinstance(value, DataContainer):
+                            value.validate()
                 # Response object to send to FE
                 result = get_frontend_res_obj_from_result(dc_obj)
 
@@ -291,7 +251,7 @@ def flojoy(
                         )
                     )
                 print("final result:", dump_str(result, limit=100))
-                return result
+                return dc_obj
             except Exception as e:
                 send_to_socket(
                     json.dumps(
@@ -313,36 +273,3 @@ def flojoy(
         return decorator(original_function)
 
     return decorator
-
-
-def reactflow_to_networkx(elems: list[Any], edges: list[Any]):
-    nx_graph: nx.DiGraph = nx.DiGraph()
-    for i in range(len(elems)):
-        el = elems[i]
-        node_id = el["id"]
-        data = el["data"]
-        cmd = el["data"]["func"]
-        ctrls: dict[str, Any] = data["ctrls"] if "ctrls" in data else {}
-        inputs: dict[str, Any] = data["inputs"] if "inputs" in data else {}
-        label: dict[str, Any] = data["label"] if "label" in data else {}
-        nx_graph.add_node(  # type:ignore
-            node_id,
-            pos=(el["position"]["x"], el["position"]["y"]),
-            id=el["id"],
-            ctrls=ctrls,
-            inputs=inputs,
-            label=label,
-            cmd=cmd,
-        )
-
-    for i in range(len(edges)):
-        e = edges[i]
-        _id = e["id"]
-        u = e["source"]
-        v = e["target"]
-        label = e["sourceHandle"]
-        nx_graph.add_edge(u, v, label=label, id=_id)  # type:ignore
-
-    nx_draw(nx_graph, with_labels=True)
-
-    return nx_graph
