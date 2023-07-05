@@ -44,13 +44,14 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
     -------
     inputs : list of DataContainer objects
     """
-    dict_inputs: dict[str, DataContainer] = dict()
+    dict_inputs: dict[str, DataContainer | list[DataContainer]] = dict()
 
     try:
         for prev_job in previous_jobs:
             num_of_time_attempted = 0
             prev_job_id = prev_job.get("job_id")
             input_name = prev_job.get("input_name", "")
+            multiple = prev_job.get("multiple", False)
             edge = prev_job.get("edge", "")
             print(
                 "fetching input from prev job id:",
@@ -75,14 +76,20 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
                     dump_str(result, limit=100),
                 )
                 if result is not None:
-                    dict_inputs[input_name] = result
+                    if multiple:
+                        if input_name not in dict_inputs:
+                            dict_inputs[input_name] = [result]
+                        else:
+                            dict_inputs[input_name].append(result)
+                    else:
+                        dict_inputs[input_name] = result
                     break
                 else:
                     sleep(0.3)
                     num_of_time_attempted += 1
+
     except Exception:
         print(traceback.format_exc())
-
     return dict_inputs
 
 
