@@ -26,8 +26,6 @@ class Array:
 
 
 def format_param_value(value: Any, value_type: str):
-    value_type = value_type.upper()
-
     match value_type:
         case "Array":
             s = str(value)
