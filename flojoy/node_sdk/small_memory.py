@@ -1,7 +1,7 @@
 import traceback
-import os, sys
-from utils import redis_instance
-from dao.redis_dao import RedisDao
+# import os, sys
+from flojoy.utils import redis_instance
+from flojoy.dao.redis_dao import RedisDao
 
 class SmallMemory:
     """

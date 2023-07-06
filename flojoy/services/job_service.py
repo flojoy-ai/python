@@ -1,11 +1,7 @@
-import os
-import sys
+# import os
+# import sys
 from typing import Any, Callable
-
-dir_path = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.abspath(os.path.join(dir_path, os.pardir)))
-
-from common.CONSTANTS import (
+from flojoy.common.CONSTANTS import (
     KEY_ALL_JOBEST_IDS,
     KEY_RQ_WORKER_JOBS,
 )
