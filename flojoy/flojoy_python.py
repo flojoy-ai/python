@@ -11,7 +11,7 @@ from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
-from typing import Union, cast, Any, Literal, Callable, List, Optional, Type
+from typing import Union, cast, Any, Literal, Callable, List, Optional, Type, Dict
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import redis_instance, send_to_socket
 from inspect import signature
@@ -251,21 +251,19 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
             keys = list(sig.parameters)
             if (
                 len(sig.parameters) == 2
-                and sig.parameters[keys[0]].annotation == list[DataContainer]
+                and sig.parameters[keys[0]].annotation in [list[DataContainer], List[DataContainer]]
             ):
                 args[keys[0]] = node_inputs
             else:
                 args = {**args, **dict_inputs}
 
             # once all the nodes are migrated to the new node api, remove the if condition
-            if len(sig.parameters) == 2 and sig.parameters[keys[1]].annotation == dict:
+            if len(sig.parameters) == 2 and (sig.parameters[keys[1]].annotation in [dict, Dict]):
                 args[keys[1]] = func_params
             else:
                 for param, value in func_params.items():
                     if param in sig.parameters:
                         args[param] = value
-
-            print("calling node with args keys:", args.keys())
 
             ##########################
             # calling the node function
