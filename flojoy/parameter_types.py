@@ -54,21 +54,18 @@ def format_param_value(value: Any, value_type: str):
 def parse_array(
     str_value: str, type_list: list[Any], param_type: str
 ) -> list[Union[int, float, str]]:
-    val = []
     if not str_value:
-        return val
+        return []
 
     val_list = [val.strip() for val in str_value.split(",")]
     # First try to cast into int, then float, then keep as string if all else fails
     for t in type_list:
         try:
-            val: list[int | float | str] = list(map(t, val_list))
-            break
-        except Exception:
+            return list(map(t, val_list))
+        except ValueError:
             continue
-    if not val:
-        raise ValueError(
-            f"Couldn't parse list items with type {','.join([str(t) for t in type_list])}."
-            + f"Value should be comma (',') separated {' | '.join([t.__name__ for t in type_list])} for parameter type {param_type}."
-        )
-    return val
+
+    raise ValueError(
+        f"Couldn't parse list items with type {','.join([str(t) for t in type_list])}."
+        + f"Value should be comma (',') separated {' | '.join([t.__name__ for t in type_list])} for parameter type {param_type}."
+    )
