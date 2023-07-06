@@ -11,6 +11,7 @@ import requests
 from redis import Redis
 from dotenv import dotenv_values  # type:ignore
 import difflib
+import base64
 
 
 env_vars = dotenv_values("../.env")
@@ -121,6 +122,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             self.encode_as_date,
             self.encode_as_list,  # because some values have `tolist` do last.
             self.encode_as_decimal,
+            self.encode_as_base64
         )
         for encoding_method in encoding_methods:
             try:
@@ -128,6 +130,14 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             except NotEncodable:
                 pass
         return _json.JSONEncoder.default(self, obj)
+    
+    @staticmethod
+    def encode_as_base64(value: bytes):
+        """Attempt to convert to base64."""
+        try:
+            return base64.b64encode(value).decode()
+        except AttributeError:
+            raise NotEncodable
 
     @staticmethod
     def encode_as_plotly(obj: dict[str, Any]):

@@ -5,6 +5,7 @@ from box import Box, box_list
 import plotly.graph_objects as go  # type:ignore
 from typing import Union, Literal, get_args, Any, cast
 from .utils import find_closest_match
+import base64
 
 
 __all__ = ["DataContainer"]
@@ -18,6 +19,7 @@ DCType = Literal[
     "ordered_triple",
     "scalar",
     "plotly",
+    "bytes",
     "parametric_grayscale",
     "parametric_matrix",
     "parametric_dataframe",
@@ -37,6 +39,7 @@ DCKwargsValue = Union[
     DCNpArrayType,
     pd.DataFrame,
     go.Figure,
+    bytes,
     None,
 ]
 
@@ -74,6 +77,7 @@ class DataContainer(Box):
         "g": ["r", "b", "t", "a", "fig", "extra"],
         "b": ["r", "g", "t", "a", "fig", "extra"],
         "a": ["r", "g", "b", "t", "fig", "extra"],
+        "bytes": ["extra"],
         "extra": [*(k for k in allowed_keys if k not in ["extra"])],
         "fig": [*(k for k in allowed_keys if k not in ["fig"])],
     }
@@ -85,6 +89,7 @@ class DataContainer(Box):
         "ordered_pair": ["x", "y"],
         "ordered_triple": ["x", "y", "z"],
         "scalar": ["c"],
+        "bytes": ["bytes"],
         "plotly": ["fig"],
     }
 
@@ -98,6 +103,7 @@ class DataContainer(Box):
     def _ndarrayify(
         self, value: DCKwargsValue
     ) -> Union[DCNpArrayType, pd.DataFrame, dict[str, DCNpArrayType], go.Figure, None]:
+
         if isinstance(value, int) or isinstance(value, float):
             return np.array([value])
         elif isinstance(value, dict):
@@ -117,6 +123,8 @@ class DataContainer(Box):
         elif isinstance(value, list):
             return np.array(value)
         elif isinstance(value, go.Figure):
+            return value
+        elif isinstance(value, bytes):
             return value
         elif value is None:
             return value
