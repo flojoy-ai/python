@@ -74,7 +74,7 @@ def fetch_inputs(
                     dict_inputs[input_name] = result
                     break
                 else:
-                    sleep(1)
+                    sleep(0.05)
                     num_of_time_attempted += 1
     except Exception:
         print(traceback.format_exc())
