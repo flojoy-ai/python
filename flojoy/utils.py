@@ -216,7 +216,7 @@ def dump_str(result: Any, limit: int | None = None):
 def get_frontier_api_key() -> Union[str, None]:
     home = str(Path.home())
     api_key = None
-    path = os.path.join(home, ".flojoy/credentials")
+    path = os.path.join(home, ".flojoy/credentials.yaml")
     if not os.path.exists(path):
         return api_key
 
@@ -234,37 +234,49 @@ def get_frontier_api_key() -> Union[str, None]:
     return api_key
 
 
-def set_frontier_api_key(api_key: str):
-    try:
-        home = str(Path.home())
-        file_path = os.path.join(home, ".flojoy/credentials")
+def set_frontier_cloud_api(api_key: str):
+    home = str(Path.home())
+    file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
 
-        if not os.path.exists(file_path):
-            # Create a new file and write the API_KEY to it
-            with open(file_path, "w") as file:
-                file.write(f"FRONTIER_API_KEY:{api_key}\n")
-        else:
-            # Read the contents of the file
-            with open(file_path, "r") as file:
-                lines = file.readlines()
+    data = {
+        "CLOUD_API_KEY": api_key,
+    }
+    if not os.path.exists(file_path):
+        # Create a new file and write the ACCSS_KEY to it
+        with open(file_path, "w") as file:
+            yaml.dump(data, file)
+        return
 
-            # Update the API key if it exists, otherwise append a new line
-            updated = False
-            for i, line in enumerate(lines):
-                if line.startswith("FRONTIER_API_KEY:"):
-                    lines[i] = f"FRONTIER_API_KEY:{api_key}\n"
-                    updated = True
-                    break
+    # Read the contents of the file
+    with open(file_path, "r") as file:
+        load = yaml.safe_load(file)
 
-            if not updated:
-                lines.append(f"FRONTIER_API_KEY:{api_key}\n")
-            # Write the updated contents to the file
-            with open(file_path, "w") as file:
-                file.writelines(lines)
+    load["CLOUD_API_KEY"] = api_key
 
-    except Exception as e:
-        raise e
+    with open(file_path, "w") as file:
+        yaml.dump(load, file)
 
+def set_frontier_openai_api(api_key: str):
+    home = str(Path.home())
+    file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
+
+    data = {
+        "OPENAI_API_KEY": api_key,
+    }
+    if not os.path.exists(file_path):
+        # Create a new file and write the ACCSS_KEY to it
+        with open(file_path, "w") as file:
+            yaml.dump(data, file)
+        return
+
+    # Read the contents of the file
+    with open(file_path, "r") as file:
+        load = yaml.safe_load(file)
+
+    load["OPENAI_API_KEY"] = api_key
+
+    with open(file_path, "w") as file:
+        yaml.dump(load, file)
 
 def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
     home = str(Path.home())
