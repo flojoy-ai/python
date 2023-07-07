@@ -1,6 +1,5 @@
-from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
-from flojoy.plotly_utils import data_container_to_plotly
-from rq.job import Job  # type:ignore
+from .flojoy_instruction import FLOJOY_INSTRUCTION
+from .plotly_utils import data_container_to_plotly
 from .utils import redis_instance
 from .data_container import DataContainer
 from typing import Any, cast
@@ -40,8 +39,8 @@ def get_dc_from_result(result: dict[str, Any] | DataContainer) -> DataContainer 
 
 
 def get_job_result(job_id: str) -> DataContainer | None:
-    job = Job.fetch(job_id, connection=redis_instance)  # type:ignore
-    job_result: dict[str, Any] = job.result  # type:ignore
+    job = Job.fetch(job_id, connection=redis_instance)  
+    job_result: dict[str, Any] = job.result  
     result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
     return result
 

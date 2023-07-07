@@ -1,7 +1,6 @@
 import os, json, yaml, traceback
 import numpy as np
 import networkx as nx
-from rq.job import Job  # type:ignore
 from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
@@ -60,8 +59,8 @@ def fetch_inputs(
                 input_name,
             )
             while num_of_time_attempted < 3:
-                job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
-                job_result: dict[str, Any] = job.result  # type:ignore
+                job = Job.fetch(prev_job_id, connection=redis_instance)  
+                job_result: dict[str, Any] = job.result  
                 result = get_dc_from_result(job_result)
                 print(
                     "fetch input from prev job id:",

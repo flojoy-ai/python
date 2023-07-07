@@ -1,7 +1,6 @@
 import traceback
 # import os, sys
-from flojoy.utils import redis_instance
-from flojoy.dao.redis_dao import RedisDao
+from .dao import Dao
 
 class SmallMemory:
     """
@@ -11,14 +10,14 @@ class SmallMemory:
     tracing_key = "ALL_MEMORY_KEYS"
 
     def add_to_tracing_list(self, memory_key):
-        RedisDao.get_instance().add_to_set(self.tracing_key, memory_key)
+        Dao.get_instance().add_to_set(self.tracing_key, memory_key)
 
     def clear_memory(self):
-        all_traced_keys = RedisDao.get_instance().get_set_list(self.tracing_key)
+        all_traced_keys = Dao.get_instance().get_set_list(self.tracing_key)
         try:
             for key in all_traced_keys:
-                RedisDao.get_instance().delete_redis_object(key)
-            RedisDao.get_instance().delete_redis_object(self.tracing_key)
+                Dao.get_instance().delete_object(key)
+            Dao.get_instance().delete_object(self.tracing_key)
         except Exception:
             print(Exception, traceback.format_exc())
 
@@ -43,27 +42,27 @@ class SmallMemory:
                 meta_data["type"] = "np_array"
                 meta_data["d_type"] = array_dtype
                 meta_data["dimensions"] = value.shape
-                RedisDao.get_instance().set_redis_obj(value_type_key, meta_data)
+                Dao.get_instance().set_obj(value_type_key, meta_data)
                 self.add_to_tracing_list(value_type_key)
-                RedisDao.get_instance().set_np_array(memory_key, value)
+                Dao.get_instance().set_np_array(memory_key, value)
                 self.add_to_tracing_list(memory_key)
             case "pandas.core.frame.DataFrame":
                 meta_data["type"] = "pd_dframe"
-                RedisDao.get_instance().set_redis_obj(value_type_key, meta_data)
+                Dao.get_instance().set_obj(value_type_key, meta_data)
                 self.add_to_tracing_list(value_type_key)
-                RedisDao.get_instance().set_pandas_dataframe(memory_key, value)
+                Dao.get_instance().set_pandas_dataframe(memory_key, value)
                 self.add_to_tracing_list(memory_key)
             case "str" | "numpy.float64":
                 meta_data["type"] = "string"
-                RedisDao.get_instance().set_redis_obj(value_type_key, meta_data)
+                Dao.get_instance().set_obj(value_type_key, meta_data)
                 self.add_to_tracing_list(value_type_key)
-                RedisDao.get_instance().set_str(memory_key, value)
+                Dao.get_instance().set_str(memory_key, value)
                 self.add_to_tracing_list(memory_key)
             case "dict":
                 meta_data["type"] = "dict"
-                RedisDao.get_instance().set_redis_obj(value_type_key, meta_data)
+                Dao.get_instance().set_obj(value_type_key, meta_data)
                 self.add_to_tracing_list(value_type_key)
-                RedisDao.get_instance().set_redis_obj(memory_key, value)
+                Dao.get_instance().set_obj(memory_key, value)
                 self.add_to_tracing_list(memory_key)
             case _:
                 raise ValueError(
@@ -76,17 +75,17 @@ class SmallMemory:
         """
         memory_key = f"{job_id}-{key}"
         value_type_key = f"{memory_key}_value_type_key"
-        meta_data = RedisDao.get_instance().get_redis_obj(value_type_key)
+        meta_data = Dao.get_instance().get_obj(value_type_key)
         meta_type = meta_data.get("type")
         match meta_type:
             case "string":
-                return RedisDao.get_instance().get_str(memory_key)
+                return Dao.get_instance().get_str(memory_key)
             case "dict":
-                return RedisDao.get_instance().get_redis_obj(memory_key)
+                return Dao.get_instance().get_obj(memory_key)
             case "np_array":
-                return RedisDao.get_instance().get_np_array(memory_key, meta_data)
+                return Dao.get_instance().get_np_array(memory_key, meta_data)
             case "pd_dframe":
-                return RedisDao.get_instance().get_pd_dataframe(memory_key)
+                return Dao.get_instance().get_pd_dataframe(memory_key)
             case _:
                 return None
 
@@ -95,4 +94,4 @@ class SmallMemory:
         Removes object stored in internal DB by the given key. The memory is job specific.
         """
         memory_key = f"{job_id}-{key}"
-        return RedisDao.get_instance().delete_redis_object(memory_key)
+        return Dao.get_instance().delete_object(memory_key)
