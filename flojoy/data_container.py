@@ -37,7 +37,7 @@ DCKwargsValue = Union[
     go.Figure,
     None,
 ]
-ExtraType = dict[str, Any] | None = None
+ExtraType = dict[str, Any] | None
 
 
 class DataContainer(Box):
@@ -215,7 +215,8 @@ class OrderedPair(DataContainer):
     x: DCNpArrayType
     y: DCNpArrayType
 
-    def __init__(self, x: DCNpArrayType, y: DCNpArrayType, extra: ExtraType):  # type:ignore
+    def __init__(self, x: DCNpArrayType, y: DCNpArrayType, 
+                 extra: ExtraType = None):  # type:ignore
         super().__init__(type="ordered_pair", x=x, y=y, extra=extra)
 
 class ParametricOrderedPair(DataContainer):
@@ -225,8 +226,7 @@ class ParametricOrderedPair(DataContainer):
 
     def __init__(
             self, x: DCNpArrayType, y: DCNpArrayType, t: DCNpArrayType, 
-            extra: ExtraType
-    ):  # type:ignore
+            extra: ExtraType = None):  # type:ignore
         super().__init__(type="parametric_ordered_pair", x=x, y=y, t=t, extra=extra)
 
 
@@ -237,8 +237,7 @@ class OrderedTriple(DataContainer):
 
     def __init__(
             self, x: DCNpArrayType, y: DCNpArrayType, z: DCNpArrayType, 
-            extra: ExtraType
-    ):  # type:ignore
+            extra: ExtraType = None):  # type:ignore
         super().__init__(type="ordered_triple", x=x, y=y, z=z, extra=extra)
 
 
@@ -250,15 +249,14 @@ class ParametricOrderedTriple(DataContainer):
 
     def __init__(  # type:ignore
                  self, x: DCNpArrayType, y: DCNpArrayType, z: DCNpArrayType, t: DCNpArrayType, 
-                 extra: ExtraType
-    ):
+                 extra: ExtraType = None):
         super().__init__(type="parametric_ordered_triple", x=x, y=y, z=z, t=t, extra=extra)
 
 
 class Scalar(DataContainer):
     c: int | float
 
-    def __init__(self, c: int | float, extra: ExtraType):  # type:ignore
+    def __init__(self, c: int | float, extra: ExtraType = None):  # type:ignore
         super().__init__(type="scalar", c=c, extra=extra)
 
 
@@ -266,14 +264,15 @@ class ParametricScalar(DataContainer):
     c: int | float
     t: DCNpArrayType
 
-    def __init__(self, c: int | float, t: DCNpArrayType, extra: ExtraType):  # type:ignore
+    def __init__(self, c: int | float, t: DCNpArrayType, 
+                 extra: ExtraType = None):  # type:ignore
         super().__init__(type="scalar", c=c, t=t, extra=extra)
 
 
 class Matrix(DataContainer):
     m: DCNpArrayType
 
-    def __init__(self, m: DCNpArrayType, extra: ExtraType):  # type:ignore
+    def __init__(self, m: DCNpArrayType, extra: ExtraType = None):  # type:ignore
         super().__init__(type="matrix", m=m, extra=extra)
 
 
@@ -281,14 +280,15 @@ class ParametricMatrix(DataContainer):
     m: DCNpArrayType
     t: DCNpArrayType
 
-    def __init__(self, m: DCNpArrayType, t: DCNpArrayType, extra: ExtraType):  # type:ignore
+    def __init__(self, m: DCNpArrayType, t: DCNpArrayType, 
+                 extra: ExtraType = None):  # type:ignore
         super().__init__(type="matrix", m=m, t=t, extra=extra)
 
 
 class DataFrame(DataContainer):
     m: pd.DataFrame
 
-    def __init__(self, df: pd.DataFrame, extra: ExtraType):  # type:ignore
+    def __init__(self, df: pd.DataFrame, extra: ExtraType = None):  # type:_ignore
         super().__init__(type="dataframe", m=df, extra=extra)
 
 
@@ -296,14 +296,15 @@ class ParametricDataFrame(DataContainer):
     m: pd.DataFrame
     t: DCNpArrayType
 
-    def __init__(self, df: pd.DataFrame, t: DCNpArrayType, extra: ExtraType):  # type:ignore
+    def __init__(self, df: pd.DataFrame, t: DCNpArrayType, 
+                 extra: ExtraType = None):  # type:ignore
         super().__init__(type="dataframe", m=df, t=t, extra=extra)
 
 
 class Plotly(DataContainer):
     fig: go.Figure
 
-    def __init__(self, fig: go.Figure, extra: ExtraType):  # type:ignore
+    def __init__(self, fig: go.Figure, extra: ExtraType = None):  # type:ignore
         super().__init__(type="plotly", fig=fig, extra=extra)
 
 
@@ -311,7 +312,8 @@ class ParametricPlotly(DataContainer):
     fig: go.Figure
     t: DCNpArrayType
 
-    def __init__(self, fig: go.Figure, t: DCNpArrayType, extra: ExtraType):  # type:ignore
+    def __init__(self, fig: go.Figure, t: DCNpArrayType, 
+                 extra: ExtraType = None):  # type:ignore
         super().__init__(type="plotly", fig=fig, t=t, extra=extra)
 
 
@@ -327,7 +329,7 @@ class Image(DataContainer):
         g: DCNpArrayType,
         b: DCNpArrayType,
         a: DCNpArrayType | None = None,
-        extra: ExtraType
+        extra: ExtraType = None
     ):
         super().__init__(type="image", r=r, g=g, b=b, a=a, extra=extra)
 
@@ -346,7 +348,7 @@ class ParametricImage(DataContainer):
         b: DCNpArrayType,
         a: DCNpArrayType,
         t: DCNpArrayType,
-        extra: ExtraType
+        extra: ExtraType = None
     ):
         super().__init__(type="image", r=r, g=g, b=b, a=a, t=t, extra=extra)
 
@@ -354,7 +356,7 @@ class ParametricImage(DataContainer):
 class Grayscale(DataContainer):
     m: DCNpArrayType
 
-    def __init__(self, img: DCNpArrayType, extra: ExtraType):  # type:ignore
+    def __init__(self, img: DCNpArrayType, extra: ExtraType = None):  # type:ignore
         super().__init__(type="grayscale", m=img, extra=extra)
 
 
@@ -362,5 +364,6 @@ class ParametricGrayscale(DataContainer):
     m: DCNpArrayType
     t: DCNpArrayType
 
-    def __init__(self, img: DCNpArrayType, t: DCNpArrayType, extra: ExtraType):  # type:ignore
+    def __init__(self, img: DCNpArrayType, t: DCNpArrayType, extra: 
+                 ExtraType = None):  # type:ignore
         super().__init__(type="grayscale", m=img, t=t, extra=extra)
