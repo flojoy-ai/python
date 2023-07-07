@@ -35,9 +35,6 @@ class Dao:
         self.storage = {}
 
     def check_if_valid(self, result, expected_type):
-        if result is None:
-            raise ValueError("No such key found!")
-        
         if not isinstance(result, expected_type):
             raise ValueError(
                 f"Expected {expected_type} type, but got {type(result)} instead!"
@@ -59,50 +56,69 @@ class Dao:
         with self._dict_lock:
             self.storage[key] = value
 
-    def get_pd_dataframe(self, key: str) -> pd.DataFrame:
+    def get_pd_dataframe(self, key: str) -> pd.DataFrame | None:
         encoded = self.storage.get(key, None)
+        if encoded is None:
+            return None
         self.check_if_valid(encoded, pd.DataFrame)
         # decode = encoded.decode("utf-8") if encoded is not None else ""
         # read_json = pd.read_json(decode)
         return encoded.head()
 
-    def get_np_array(self, memo_key: str, np_meta_data: dict[str, str]) -> np.ndarray:
+    def get_np_array(self, memo_key: str, np_meta_data: dict[str, str]) -> np.ndarray | None:
         encoded = self.storage.get(memo_key, None)
+        if encoded is None:
+            return None
         self.check_if_valid(encoded, np.ndarray)
         return encoded
 
-    def get_str(self, key: str) -> str:
+    def get_str(self, key: str) -> str | None:
         encoded = self.storage.get(key, None)
+        if encoded is None:
+            return None
         # return encoded.decode("utf-8") if encoded is not None else None
         self.check_if_valid(encoded, str)
         return encoded
         
-    def get_obj(self, key: str) -> dict[str, Any]:
+    def get_obj(self, key: str) -> dict[str, Any] | None:
         r_obj = self.storage.get(key, None)
+        if r_obj is None:
+            return None
         # if r_obj:
         #     return cast(dict[str, Any], json.loads(r_obj))
         self.check_if_valid(r_obj, dict)
         return r_obj
 
     def set_obj(self, key: str, value: dict[str, Any]):
-        dump = json.dumps(value)
-        self.storage[key] = dump
+        # dump = json.dumps(value)
+        with self._dict_lock:
+            self.storage[key] = value
 
     def delete_object(self, key: str):
-        self.storage.pop(key)
+        with self._dict_lock:
+            self.storage.pop(key)
 
     def remove_item_from_set(self, key: str, item: Any):
         res = self.storage.get(key, None)
         self.check_if_valid(res, set)
-        res.remove(item)
+        with self._dict_lock:
+            res.remove(item)
 
     def add_to_set(self, key: str, value: Any):
         res = self.storage.get(key, None)
+        if res is None:
+            res = set()
+            res.add(value)
+            self.storage[key] = res
+            return 
         self.check_if_valid(res, set)
-        res.add(value)
+        with self._dict_lock:
+            res.add(value)
 
-    def get_set_list(self, key: str):
+    def get_set_list(self, key: str) -> list[Any] | None:
         res = self.storage.get(key, None)
+        if res is None:
+            return None
         self.check_if_valid(res, set)
         return list(res)
 
