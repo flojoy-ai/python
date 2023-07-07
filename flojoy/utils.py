@@ -213,25 +213,25 @@ def dump_str(result: Any, limit: int | None = None):
     )
 
 
-def get_frontier_api_key() -> Union[str, None]:
-    home = str(Path.home())
-    api_key = None
-    path = os.path.join(home, ".flojoy/credentials.yaml")
-    if not os.path.exists(path):
-        return api_key
+def get_frontier_api_key(name: str) -> Union[str, None]:
+    try:
+        home = str(Path.home())
+        api_key = None
+        path = os.path.join(home, ".flojoy/credentials.yaml")
+        if not os.path.exists(path):
+            return api_key
 
-    stream = open(path, "r", encoding="utf-8")
-    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
-    if yaml_dict is None:
-        return api_key
-    if isinstance(yaml_dict, str) == True:
-        split_by_line = yaml_dict.split("\n")
-        for line in split_by_line:
-            if "FRONTIER_API_KEY" in line:
-                api_key = line.split(":")[1]
-    else:
-        api_key = yaml_dict.get("FRONTIER_API_KEY", None)
-    return api_key
+        with open(path, "r") as file:
+            load = yaml.safe_load(file)
+            if name == "cloud":
+                return load["CLOUD_API_KEY"]
+            elif name == "openai":
+                return load["OPENAI_API_KEY"]
+            else:
+                return { "s3Name" : load[f"{name}"], "s3AccessKey" : load[f"{name}accessKey"], "s3SecretKey" : load[f"{name}secretKey"]}
+    except Exception as e:
+        raise e
+
 
 
 def set_frontier_cloud_api(api_key: str):
