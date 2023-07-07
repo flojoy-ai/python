@@ -56,6 +56,8 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
             fig = cast(go.Figure, data.fig)
         case "bytes":
             fig = go.Figure()
+        case "text_blob":
+            fig = go.Figure()
         case _:
             raise ValueError(
                 f"unsupported DataContainer type passed to plotly converter function, type: '{dc_type}"

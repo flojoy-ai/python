@@ -20,6 +20,7 @@ DCType = Literal[
     "scalar",
     "plotly",
     "bytes",
+    "text_blob",
     "parametric_grayscale",
     "parametric_matrix",
     "parametric_dataframe",
@@ -40,6 +41,7 @@ DCKwargsValue = Union[
     pd.DataFrame,
     go.Figure,
     bytes,
+    str,
     None,
 ]
 
@@ -78,6 +80,7 @@ class DataContainer(Box):
         "b": ["r", "g", "t", "a", "fig", "extra"],
         "a": ["r", "g", "b", "t", "fig", "extra"],
         "bytes": ["extra"],
+        "text_blob": ["extra"],
         "extra": [*(k for k in allowed_keys if k not in ["extra"])],
         "fig": [*(k for k in allowed_keys if k not in ["fig"])],
     }
@@ -89,8 +92,9 @@ class DataContainer(Box):
         "ordered_pair": ["x", "y"],
         "ordered_triple": ["x", "y", "z"],
         "scalar": ["c"],
-        "bytes": ["bytes"],
         "plotly": ["fig"],
+        "bytes": ["bytes"],
+        "text_blob": ["text_blob"]
     }
 
     type: DCType
@@ -125,6 +129,8 @@ class DataContainer(Box):
         elif isinstance(value, go.Figure):
             return value
         elif isinstance(value, bytes):
+            return value
+        elif isinstance(value, str):
             return value
         elif value is None:
             return value
