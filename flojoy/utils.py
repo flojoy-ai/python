@@ -228,10 +228,13 @@ def get_frontier_api_key(name: str) -> Union[str, None]:
             elif name == "openai":
                 return load["OPENAI_API_KEY"]
             else:
-                return { "s3Name" : load[f"{name}"], "s3AccessKey" : load[f"{name}accessKey"], "s3SecretKey" : load[f"{name}secretKey"]}
+                return {
+                    "s3Name": load[f"{name}"],
+                    "s3AccessKey": load[f"{name}accessKey"],
+                    "s3SecretKey": load[f"{name}secretKey"],
+                }
     except Exception as e:
         raise e
-
 
 
 def set_frontier_cloud_api(api_key: str):
@@ -256,6 +259,7 @@ def set_frontier_cloud_api(api_key: str):
     with open(file_path, "w") as file:
         yaml.dump(load, file)
 
+
 def set_frontier_openai_api(api_key: str):
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
@@ -277,6 +281,7 @@ def set_frontier_openai_api(api_key: str):
 
     with open(file_path, "w") as file:
         yaml.dump(load, file)
+
 
 def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
     home = str(Path.home())
