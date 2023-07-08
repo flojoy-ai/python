@@ -2,6 +2,7 @@ from .flojoy_instruction import FLOJOY_INSTRUCTION
 from .plotly_utils import data_container_to_plotly
 from .utils import redis_instance
 from .data_container import DataContainer
+from .dao import Dao
 from typing import Any, cast
 
 __all__ = ["get_job_result"]
@@ -14,7 +15,6 @@ def is_flow_controled(result: dict[str, Any] | DataContainer):
     ):
         return True
     return False
-
 
 def get_next_directions(result: dict[str, Any] | None) -> list[str]:
     if result is None:
@@ -39,8 +39,7 @@ def get_dc_from_result(result: dict[str, Any] | DataContainer) -> DataContainer 
 
 
 def get_job_result(job_id: str) -> DataContainer | None:
-    job = Job.fetch(job_id, connection=redis_instance)  
-    job_result: dict[str, Any] = job.result  
+    job_result = Dao.get_instance().get_job_result(job_id)  
     result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
     return result
 

@@ -22,7 +22,8 @@ class Dao:
 
     _instance = None
     _init_lock = Lock()
-    _dict_lock = Lock()
+    _dict_sm_lock = Lock() # dict small memory lock
+    _dict_job_lock = Lock() # dict job lock
 
     @classmethod
     def get_instance(cls):
@@ -32,7 +33,39 @@ class Dao:
             return Dao._instance
 
     def __init__(self):
-        self.storage = {}
+        self.storage = {} # small memory
+        self.job_results = {} 
+
+    """
+    METHODS FOR JOB RESULTS
+    """
+        
+    def get_job_result(self, job_id: str) -> Any | None:
+        return self.job_results.get(job_id, None)
+    
+    def post_job_result(self, job_id: str, result: Any):
+        with self._dict_job_lock:
+            self.job_results[job_id] = result
+
+    def clear_job_results(self):
+        with self._dict_job_lock:
+            self.job_results.clear()
+    
+    def job_exists(self, job_id: str) -> bool:
+        return job_id in self.job_results.keys()
+    
+    def delete_job(self, job_id: str):
+        with self._dict_job_lock:
+            self.job_results.pop(job_id, None)
+
+
+    """
+    METHODS FOR SMALL MEMORY
+    """
+
+    def clear_small_memory(self):
+        with self._dict_sm_lock:
+            self.storage.clear()
 
     def check_if_valid(self, result, expected_type):
         if not isinstance(result, expected_type):
@@ -43,17 +76,17 @@ class Dao:
     def set_np_array(self, memo_key: str, value: np.ndarray):
         # encoded = self.serialize_np(value)
         # self.storage[memo_key] = encoded
-        with self._dict_lock:
+        with self._dict_sm_lock:
             self.storage[memo_key] = value
 
     def set_pandas_dataframe(self, key: str, dframe: pd.DataFrame):
         # encode = dframe.to_json()
         #  self.storage[key] = encode
-        with self._dict_lock:
+        with self._dict_sm_lock:
             self.storage[key] = dframe
 
     def set_str(self, key: str, value: str):
-        with self._dict_lock:
+        with self._dict_sm_lock:
             self.storage[key] = value
 
     def get_pd_dataframe(self, key: str) -> pd.DataFrame | None:
@@ -91,17 +124,17 @@ class Dao:
 
     def set_obj(self, key: str, value: dict[str, Any]):
         # dump = json.dumps(value)
-        with self._dict_lock:
+        with self._dict_sm_lock:
             self.storage[key] = value
 
     def delete_object(self, key: str):
-        with self._dict_lock:
+        with self._dict_sm_lock:
             self.storage.pop(key)
 
     def remove_item_from_set(self, key: str, item: Any):
         res = self.storage.get(key, None)
         self.check_if_valid(res, set)
-        with self._dict_lock:
+        with self._dict_sm_lock:
             res.remove(item)
 
     def add_to_set(self, key: str, value: Any):
@@ -112,7 +145,7 @@ class Dao:
             self.storage[key] = res
             return 
         self.check_if_valid(res, set)
-        with self._dict_lock:
+        with self._dict_sm_lock:
             res.add(value)
 
     def get_set_list(self, key: str) -> list[Any] | None:
