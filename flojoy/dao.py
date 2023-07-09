@@ -91,19 +91,19 @@ class Dao:
         with self._dict_sm_lock:
             self.storage[key] = value
 
-    def get_pd_dataframe(self, key: str) -> pd.DataFrame | None:
+    def get_pd_dataframe(self, key: str) -> pd.DataFrame:
         encoded = self.storage.get(key, None)
         if encoded is None:
-            return None
+            return pd.read_json("")
         self.check_if_valid(encoded, pd.DataFrame)
         # decode = encoded.decode("utf-8") if encoded is not None else ""
         # read_json = pd.read_json(decode)
         return encoded.head()
 
-    def get_np_array(self, memo_key: str, np_meta_data: dict[str, str]) -> np.ndarray | None:
+    def get_np_array(self, memo_key: str, np_meta_data: dict[str, str]) -> np.ndarray:
         encoded = self.storage.get(memo_key, None)
         if encoded is None:
-            return None
+            return np.array([])
         self.check_if_valid(encoded, np.ndarray)
         return encoded
 
@@ -116,7 +116,7 @@ class Dao:
         return encoded
         
     def get_obj(self, key: str) -> dict[str, Any] | None:
-        r_obj = self.storage.get(key, None)
+        r_obj = self.storage.get(key, {})
         # if r_obj:
         #     return cast(dict[str, Any], json.loads(r_obj))
         self.check_if_valid(r_obj, dict)

@@ -51,8 +51,6 @@ class SmallMemory:
         memory_key = f"{job_id}-{key}"
         value_type_key = f"{memory_key}_value_type_key"
         meta_data = self.dao.get_obj(value_type_key)
-        if meta_data is None:
-            meta_data = {}
         meta_type = meta_data.get("type")
         match meta_type:
             case "string":
