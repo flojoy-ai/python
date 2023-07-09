@@ -43,16 +43,13 @@ class Dao:
     """
         
     def get_job_result(self, job_id: str) -> Any | None:
-        print(f"DAO: GETTING JOB {job_id}", flush=True)
         return self.job_results.get(job_id, None)
     
     def post_job_result(self, job_id: str, result: Any):
-        print(f"DAO: POSTING JOB {job_id}", flush=True)
         with self._dict_job_lock:
             self.job_results[job_id] = result
 
     def clear_job_results(self):
-        print("DAO: CLEARING JOB RESULTS", flush=True)
         with self._dict_job_lock:
             self.job_results.clear()
     
@@ -60,7 +57,6 @@ class Dao:
         return job_id in self.job_results.keys()
     
     def delete_job(self, job_id: str):
-        print(f"DAO: DELETING JOB {job_id}", flush=True)
         with self._dict_job_lock:
             self.job_results.pop(job_id, None)
 

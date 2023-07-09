@@ -273,8 +273,6 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                 )
 
             JobService().post_job_result(job_id, result) # post result to the job service
-            print("finished job:", node_id, flush=True)
-            # print("final result:", dump_str(result, limit=100), flush=True)
             return result
         except Exception as e:
             send_to_socket(
