@@ -70,7 +70,7 @@ class Dao:
             self.storage.clear()
 
     def check_if_valid(self, result, expected_type):
-        if not isinstance(result, expected_type):
+        if result is not None and not isinstance(result, expected_type):
             raise ValueError(
                 f"Expected {expected_type} type, but got {type(result)} instead!"
             )
@@ -117,8 +117,6 @@ class Dao:
         
     def get_obj(self, key: str) -> dict[str, Any] | None:
         r_obj = self.storage.get(key, None)
-        if r_obj is None:
-            return None
         # if r_obj:
         #     return cast(dict[str, Any], json.loads(r_obj))
         self.check_if_valid(r_obj, dict)
