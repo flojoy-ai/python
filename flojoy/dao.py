@@ -43,7 +43,10 @@ class Dao:
     """
         
     def get_job_result(self, job_id: str) -> Any | None:
-        return self.job_results.get(job_id, None)
+        res = self.job_results.get(job_id, None)
+        if res is None:
+            raise Exception(f"Job result with id {job_id} does not exist")
+        return res
     
     def post_job_result(self, job_id: str, result: Any):
         with self._dict_job_lock:
