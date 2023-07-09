@@ -10,11 +10,16 @@ from .small_memory import SmallMemory
 
 
 """
-Service that allows to manage jobs, intended for use OUTSIDE of the flojoy package
+Service that allows to manage jobs
 """
 class JobService:
     def __init__(self, maximum_runtime: float = 3000):
         self.dao = Dao.get_instance()
+
+    def get_job_result(self, job_id: str | None) -> dict[str, Any] | None:
+        if job_id is None:
+            return None
+        return self.dao.get_job_result(job_id)
 
     def post_job_result(self, job_id: str, result: Any):
         self.dao.post_job_result(job_id, result)

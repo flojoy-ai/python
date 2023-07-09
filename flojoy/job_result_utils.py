@@ -1,6 +1,5 @@
 from .flojoy_instruction import FLOJOY_INSTRUCTION
 from .plotly_utils import data_container_to_plotly
-from .utils import redis_instance
 from .data_container import DataContainer
 from .dao import Dao
 from typing import Any, cast
@@ -28,7 +27,7 @@ def get_next_nodes(result: dict[str, Any] | None) -> list[str]:
     return cast(list[str], result.get(FLOJOY_INSTRUCTION.FLOW_TO_NODES, []))
 
 
-def get_dc_from_result(result: dict[str, Any] | DataContainer) -> DataContainer | None:
+def get_dc_from_result(result: dict[str, Any] | DataContainer | None) -> DataContainer | None:
     if not result:
         return None
     if isinstance(result, DataContainer):

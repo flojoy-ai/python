@@ -16,13 +16,10 @@ import difflib
 env_vars = dotenv_values("../.env")
 port = env_vars.get("VITE_BACKEND_PORT", "8000")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = os.environ.get("REDIS_PORT", 6379)
-redis_instance = Redis(host=REDIS_HOST, port=int(REDIS_PORT))
 
 
 def send_to_socket(data: str):
-    print("posting data to socket:", f"{BACKEND_URL}/worker_response")
+    print("posting data to socket:", f"{BACKEND_URL}/worker_response", flush=True)
     requests.post(f"{BACKEND_URL}/worker_response", json=data)
 
 

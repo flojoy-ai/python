@@ -8,10 +8,10 @@ from .utils import PlotlyJSONEncoder, dump_str
 from networkx.drawing.nx_pylab import draw as nx_draw  # type: ignore
 from typing import Union, cast, Any, Literal, Callable, List, Optional, Type
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
-from .utils import redis_instance, send_to_socket
+from .utils import send_to_socket
 from time import sleep
 from inspect import signature
-
+from .job_service import JobService
 
 def get_flojoy_root_dir() -> str:
     home = str(Path.home())
@@ -57,34 +57,24 @@ def fetch_inputs(
                 prev_job_id,
                 " for input:",
                 input_name,
+                flush=True
             )
             while num_of_time_attempted < 3:
-                job = Job.fetch(prev_job_id, connection=redis_instance)  
-                job_result: dict[str, Any] = job.result  
+                job_result = JobService().get_job_result(prev_job_id)  
                 result = get_dc_from_result(job_result)
-                print(
-                    "fetch input from prev job id:",
-                    prev_job_id,
-                    " result:",
-                    dump_str(result, limit=100),
-                )
                 if result is not None:
+                    print(f"got job result from {prev_job_id}", flush=True)
                     inputs.append(result)
                     dict_inputs[input_name] = result
                     break
                 else:
+                    print(f"didn't get job result from {prev_job_id}", flush=True)
                     sleep(0.05)
                     num_of_time_attempted += 1
     except Exception:
-        print(traceback.format_exc())
+        print(traceback.format_exc(), flush=True)
 
     return inputs, dict_inputs
-
-
-def get_redis_obj(id: str) -> dict[str, Any]:
-    get_obj = redis_instance.get(id)
-    parse_obj: dict[str, Any] = json.loads(get_obj) if get_obj is not None else {}
-    return parse_obj
 
 
 def parse_array(str_value: str) -> List[Union[int, float, str]]:
@@ -183,8 +173,6 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                 Union[dict[str, dict[str, Any]], None], kwargs.get("ctrls", None)
             )
             FN = func.__name__
-            # remove this node from redis ALL_NODES key
-            redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
             sys_status = "🏃‍♀️ Running python job: " + FN
             send_to_socket(
                 json.dumps(
@@ -214,12 +202,12 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
             func_params["node_id"] = node_id
             func_params["job_id"] = job_id
 
-            print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
-            print(node_id, " params: ", json.dumps(func_params, indent=2))
+            print("executing node_id:", node_id, "previous_jobs:", previous_jobs, flush=True)
+            print(node_id, " params: ", json.dumps(func_params, indent=2), flush=True)
             node_inputs, dict_inputs = fetch_inputs(previous_jobs)
 
             # constructing the inputs
-            print(f"constructing inputs for {func}")
+            print(f"constructing inputs for {func}", flush=True)
             args = {}
             sig = signature(func)
 
@@ -241,7 +229,7 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                     if param in sig.parameters:
                         args[param] = value
 
-            print("calling node with args keys:", args.keys())
+            print("calling node with args keys:", args.keys(), flush=True)
 
             ##########################
             # calling the node function
@@ -283,7 +271,10 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                         }
                     )
                 )
-            print("final result:", dump_str(result, limit=100))
+
+            JobService().post_job_result(job_id, result) # post result to the job service
+            print("finished job:", node_id, flush=True)
+            # print("final result:", dump_str(result, limit=100), flush=True)
             return result
         except Exception as e:
             send_to_socket(
@@ -296,8 +287,8 @@ def flojoy(func: Callable[..., DataContainer | dict[str, Any]]):
                     }
                 )
             )
-            print("error occured while running the node")
-            print(traceback.format_exc())
+            print("error occured while running the node", flush=True)
+            print(traceback.format_exc(), flush=True)
             raise e
 
     return wrapper
