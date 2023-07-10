@@ -37,7 +37,7 @@ def get_dc_from_result(result: dict[str, Any] | DataContainer | None) -> DataCon
     return result["data"]
 
 
-def get_job_result(job_id: str) -> DataContainer | None:
+def get_job_result(job_id: str) -> DataContainer:
     job_result = Dao.get_instance().get_job_result(job_id)  
     result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
     return result
