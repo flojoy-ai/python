@@ -30,11 +30,11 @@ def fetch_inputs(
     previous_jobs: list[dict[str, str]]
 ):
     """
-    Queries Redis for job results
+    Queries for job results
 
     Parameters
     ----------
-    previous_jobs : list of Redis jobs that directly precede this node.
+    previous_jobs : list of jobs that directly precede this node.
     Each item representing a job contains `job_id` and `input_name`.
     `input_name` is the port where the previous job with `job_id` connects to.
 
