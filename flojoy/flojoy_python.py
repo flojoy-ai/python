@@ -2,17 +2,17 @@ import os
 import json
 import yaml
 import traceback
-from rq.job import Job  # type:ignore
 from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
-from .utils import redis_instance, send_to_socket
-from .parameter_types import format_param_value
+from .utils import send_to_socket
 from time import sleep
+from .parameter_types import format_param_value
 from inspect import signature
+from .job_service import JobService
 
 __all__ = ["flojoy", "DefaultParams"]
 
@@ -32,11 +32,11 @@ def get_flojoy_root_dir() -> str:
 
 def fetch_inputs(previous_jobs: list[dict[str, str]]):
     """
-    Queries Redis for job results
+    Queries for job results
 
     Parameters
     ----------
-    previous_jobs : list of Redis jobs that directly precede this node.
+    previous_jobs : list of jobs that directly precede this node.
     Each item representing a job contains `job_id` and `input_name`.
     `input_name` is the port where the previous job with `job_id` connects to.
 
@@ -53,6 +53,7 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
             input_name = prev_job.get("input_name", "")
             multiple = prev_job.get("multiple", False)
             edge = prev_job.get("edge", "")
+
             print(
                 "fetching input from prev job id:",
                 prev_job_id,
@@ -60,22 +61,20 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
                 input_name,
                 "edge: ",
                 edge,
+                flush=True
             )
             while num_of_time_attempted < 3:
-                job = Job.fetch(prev_job_id, connection=redis_instance)  # type:ignore
-                job_result: dict[str, Any] = job.result  # type:ignore
+                job_result = JobService().get_job_result(prev_job_id)  
+                if not job_result:
+                     raise Exception("Tried to get job result but it was None")
+
                 result = (
                     get_dc_from_result(job_result[edge])
                     if edge != "default"
                     else get_dc_from_result(job_result)
                 )
-                print(
-                    "fetch input from prev job id:",
-                    prev_job_id,
-                    " result:",
-                    dump_str(result, limit=100),
-                )
                 if result is not None:
+                    print(f"got job result from {prev_job_id}", flush=True)
                     if multiple:
                         if input_name not in dict_inputs:
                             dict_inputs[input_name] = [result]
@@ -85,18 +84,14 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
                         dict_inputs[input_name] = result
                     break
                 else:
-                    sleep(0.3)
+                    print(f"didn't get job result from {prev_job_id}", flush=True)
+                    sleep(0.05)
                     num_of_time_attempted += 1
 
     except Exception:
-        print(traceback.format_exc())
+        print(traceback.format_exc(), flush=True)
+
     return dict_inputs
-
-
-def get_redis_obj(id: str) -> dict[str, Any]:
-    get_obj = redis_instance.get(id)
-    parse_obj: dict[str, Any] = json.loads(get_obj) if get_obj is not None else {}
-    return parse_obj
 
 
 class DefaultParams:
@@ -170,8 +165,6 @@ def flojoy(
         ):
             try:
                 FN = func.__name__
-                # remove this node from redis ALL_NODES key
-                redis_instance.lrem(f"{jobset_id}_ALL_NODES", 1, job_id)
                 sys_status = "🏃‍♀️ Running python job: " + FN
                 send_to_socket(
                     json.dumps(
@@ -192,11 +185,12 @@ def flojoy(
                         func_params[param] = format_param_value(value, input["type"])
                 func_params["type"] = "default"
 
-                print("executing node_id:", node_id, "previous_jobs:", previous_jobs)
+                print("executing node_id:", node_id, "previous_jobs:", previous_jobs, flush=True)
+                print(node_id, " params: ", json.dumps(func_params, indent=2), flush=True)
                 dict_inputs = fetch_inputs(previous_jobs)
 
                 # constructing the inputs
-                print(f"constructing inputs for {func.__name__}")
+                print(f"constructing inputs for {func.__name__}", flush=True)
                 args: dict[str, Any] = {}
                 sig = signature(func)
 
@@ -213,7 +207,7 @@ def flojoy(
                         node_type="default",
                     )
 
-                print(node_id, " params: ", args.keys())
+                print(node_id, " params: ", args.keys(), flush=True)
 
                 ##########################
                 # calling the node function
@@ -257,7 +251,7 @@ def flojoy(
                             }
                         )
                     )
-                print("final result:", dump_str(result, limit=100))
+                JobService().post_job_result(job_id, result) # post result to the job service
                 return dc_obj
             except Exception as e:
                 send_to_socket(
@@ -270,8 +264,8 @@ def flojoy(
                         }
                     )
                 )
-                print("error occured while running the node")
-                print(traceback.format_exc())
+                print("error occured while running the node", flush=True)
+                print(traceback.format_exc(), flush=True)
                 raise e
 
         return wrapper

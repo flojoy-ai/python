@@ -1,8 +1,7 @@
-from flojoy.flojoy_instruction import FLOJOY_INSTRUCTION
-from flojoy.plotly_utils import data_container_to_plotly
-from rq.job import Job  # type:ignore
-from .utils import redis_instance
+from .flojoy_instruction import FLOJOY_INSTRUCTION
+from .plotly_utils import data_container_to_plotly
 from .data_container import DataContainer
+from .dao import Dao
 from typing import Any, cast
 
 __all__ = ["get_job_result", "get_next_directions", "get_next_nodes", "get_job_result"]
@@ -41,7 +40,7 @@ def get_next_nodes(result: dict[str, Any] | None) -> list[str]:
     return cast(list[str], result.get(FLOJOY_INSTRUCTION.FLOW_TO_NODES, []))
 
 
-def get_dc_from_result(result: dict[str, Any] | DataContainer) -> DataContainer | None:
+def get_dc_from_result(result: dict[str, Any] | DataContainer | None) -> DataContainer | None:
     if not result:
         return None
     if isinstance(result, DataContainer):
@@ -51,14 +50,10 @@ def get_dc_from_result(result: dict[str, Any] | DataContainer) -> DataContainer 
     return result["data"]
 
 
-def get_job_result(job_id: str) -> DataContainer | None:
-    try:
-        job = Job.fetch(job_id, connection=redis_instance)  # type:ignore
-        job_result: dict[str, Any] = job.result  # type:ignore
-        result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
-        return result
-    except Exception:
-        return None
+def get_job_result(job_id: str) -> DataContainer:
+    job_result = Dao.get_instance().get_job_result(job_id)  
+    result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
+    return result
 
 
 def get_frontend_res_obj_from_result(
