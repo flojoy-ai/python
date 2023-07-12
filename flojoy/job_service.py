@@ -12,6 +12,8 @@ from .small_memory import SmallMemory
 """
 Service that allows to manage jobs
 """
+
+
 class JobService:
     def __init__(self, maximum_runtime: float = 3000):
         self.dao = Dao.get_instance()
@@ -26,7 +28,7 @@ class JobService:
 
     def job_exists(self, job_id: str) -> bool:
         return self.dao.job_exists(job_id)
-    
+
     def delete_job(self, job_id: str):
         self.dao.delete_job(job_id)
 

@@ -48,7 +48,6 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
 
     try:
         for prev_job in previous_jobs:
-            num_of_time_attempted = 0
             prev_job_id = prev_job.get("job_id")
             input_name = prev_job.get("input_name", "")
             multiple = prev_job.get("multiple", False)
@@ -61,32 +60,29 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
                 input_name,
                 "edge: ",
                 edge,
-                flush=True
+                flush=True,
             )
-            while num_of_time_attempted < 3:
-                job_result = JobService().get_job_result(prev_job_id)  
-                if not job_result:
-                     raise Exception("Tried to get job result but it was None")
 
-                result = (
-                    get_dc_from_result(job_result[edge])
-                    if edge != "default"
-                    else get_dc_from_result(job_result)
+            job_result = JobService().get_job_result(prev_job_id)
+            if not job_result:
+                raise ValueError(
+                    f"Tried to get job result from {prev_job_id} but it was None"
                 )
-                if result is not None:
-                    print(f"got job result from {prev_job_id}", flush=True)
-                    if multiple:
-                        if input_name not in dict_inputs:
-                            dict_inputs[input_name] = [result]
-                        else:
-                            dict_inputs[input_name].append(result)
+
+            result = (
+                get_dc_from_result(job_result[edge])
+                if edge != "default"
+                else get_dc_from_result(job_result)
+            )
+            if result is not None:
+                print(f"got job result from {prev_job_id}", flush=True)
+                if multiple:
+                    if input_name not in dict_inputs:
+                        dict_inputs[input_name] = [result]
                     else:
-                        dict_inputs[input_name] = result
-                    break
+                        dict_inputs[input_name].append(result)
                 else:
-                    print(f"didn't get job result from {prev_job_id}", flush=True)
-                    sleep(0.05)
-                    num_of_time_attempted += 1
+                    dict_inputs[input_name] = result
 
     except Exception:
         print(traceback.format_exc(), flush=True)
@@ -185,8 +181,13 @@ def flojoy(
                         func_params[param] = format_param_value(value, input["type"])
                 func_params["type"] = "default"
 
-                print("executing node_id:", node_id, "previous_jobs:", previous_jobs, flush=True)
-                print(node_id, " params: ", json.dumps(func_params, indent=2), flush=True)
+                print(
+                    "executing node_id:",
+                    node_id,
+                    "previous_jobs:",
+                    previous_jobs,
+                    flush=True,
+                )
                 dict_inputs = fetch_inputs(previous_jobs)
 
                 # constructing the inputs
@@ -226,6 +227,9 @@ def flojoy(
                             value.validate()
                 # Response object to send to FE
                 result = get_frontend_res_obj_from_result(dc_obj)
+                JobService().post_job_result(
+                    job_id, dc_obj
+                )  # post result to the job service before sending result to socket
 
                 send_to_socket(
                     json.dumps(
@@ -251,7 +255,7 @@ def flojoy(
                             }
                         )
                     )
-                JobService().post_job_result(job_id, result) # post result to the job service
+
                 return dc_obj
             except Exception as e:
                 send_to_socket(

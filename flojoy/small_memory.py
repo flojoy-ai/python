@@ -1,6 +1,8 @@
-import traceback
-# import os, sys
 from .dao import Dao
+from typing import Any
+
+__all__ = ["SmallMemory"]
+
 
 class SmallMemory:
     """
@@ -13,7 +15,7 @@ class SmallMemory:
     def clear_memory(self):
         self.dao.clear_small_memory()
 
-    def write_to_memory(self, job_id, key, value):
+    def write_to_memory(self, job_id: str, key: str, value: Any):
         memory_key = f"{job_id}-{key}"
         value_type_key = f"{memory_key}_value_type_key"
         meta_data = {}
@@ -44,13 +46,15 @@ class SmallMemory:
                     f"SmallMemory currently does not support '{v_type}' type data!"
                 )
 
-    def read_memory(self, job_id, key):
+    def read_memory(self, job_id: str, key: str):
         """
         Reads object stored in internal DB by the given key. The memory is job specific.
         """
         memory_key = f"{job_id}-{key}"
         value_type_key = f"{memory_key}_value_type_key"
         meta_data = self.dao.get_obj(value_type_key)
+        if not meta_data:
+            return None
         meta_type = meta_data.get("type")
         match meta_type:
             case "string":
@@ -64,7 +68,7 @@ class SmallMemory:
             case _:
                 return None
 
-    def delete_object(self, job_id, key):
+    def delete_object(self, job_id: str, key: str):
         """
         Removes object stored in internal DB by the given key. The memory is job specific.
         """

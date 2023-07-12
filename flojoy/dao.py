@@ -10,8 +10,11 @@ MAX_LIST_SIZE = 1000
 """
 Used by clients to create a new instance of the datastorage
 """
+
+
 def create_storage():
     return Dao.get_instance()
+
 
 """
 This class is a Singleton that acts as a in-memory datastorage
@@ -19,12 +22,13 @@ This class is a Singleton that acts as a in-memory datastorage
 IMPORTANT: The commented code should not be removed, as it acts as a reference for the future
 in case we need to implement a Redis based datastorage
 """
-class Dao:
 
+
+class Dao:
     _instance = None
     _init_lock = Lock()
-    _dict_sm_lock = Lock() # dict small memory lock
-    _dict_job_lock = Lock() # dict job lock
+    _dict_sm_lock = Lock()  # dict small memory lock
+    _dict_job_lock = Lock()  # dict job lock
 
     @classmethod
     def get_instance(cls):
@@ -34,19 +38,19 @@ class Dao:
             return Dao._instance
 
     def __init__(self):
-        self.storage = {} # small memory
-        self.job_results = {} 
+        self.storage: dict[str, Any] = {}  # small memory
+        self.job_results = {}
 
     """
     METHODS FOR JOB RESULTS
     """
-        
+
     def get_job_result(self, job_id: str) -> Any | None:
         res = self.job_results.get(job_id, None)
         if res is None:
             raise Exception(f"Job result with id {job_id} does not exist")
         return res
-    
+
     def post_job_result(self, job_id: str, result: Any):
         with self._dict_job_lock:
             self.job_results[job_id] = result
@@ -54,14 +58,13 @@ class Dao:
     def clear_job_results(self):
         with self._dict_job_lock:
             self.job_results.clear()
-    
+
     def job_exists(self, job_id: str) -> bool:
         return job_id in self.job_results.keys()
-    
+
     def delete_job(self, job_id: str):
         with self._dict_job_lock:
             self.job_results.pop(job_id, None)
-
 
     """
     METHODS FOR SMALL MEMORY
@@ -113,10 +116,8 @@ class Dao:
         encoded = self.storage.get(key, None)
         if encoded is None:
             return None
-        # return encoded.decode("utf-8") if encoded is not None else None
-        self.check_if_valid(encoded, str)
         return encoded
-        
+
     def get_obj(self, key: str) -> dict[str, Any] | None:
         r_obj = self.storage.get(key, {})
         # if r_obj:
@@ -145,7 +146,7 @@ class Dao:
             res = set()
             res.add(value)
             self.storage[key] = res
-            return 
+            return
         self.check_if_valid(res, set)
         with self._dict_sm_lock:
             res.add(value)

@@ -40,7 +40,9 @@ def get_next_nodes(result: dict[str, Any] | None) -> list[str]:
     return cast(list[str], result.get(FLOJOY_INSTRUCTION.FLOW_TO_NODES, []))
 
 
-def get_dc_from_result(result: dict[str, Any] | DataContainer | None) -> DataContainer | None:
+def get_dc_from_result(
+    result: dict[str, Any] | DataContainer | None
+) -> DataContainer | None:
     if not result:
         return None
     if isinstance(result, DataContainer):
@@ -50,10 +52,13 @@ def get_dc_from_result(result: dict[str, Any] | DataContainer | None) -> DataCon
     return result["data"]
 
 
-def get_job_result(job_id: str) -> DataContainer:
-    job_result = Dao.get_instance().get_job_result(job_id)  
-    result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
-    return result
+def get_job_result(job_id: str) -> dict[str, Any] | DataContainer | None:
+    try:
+        job_result: Any = Dao.get_instance().get_job_result(job_id)
+        result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
+        return result
+    except Exception:
+        return None
 
 
 def get_frontend_res_obj_from_result(
