@@ -237,13 +237,10 @@ def get_frontier_api_key(name: str) -> Union[str, None]:
         raise e
 
 
-def set_frontier_cloud_api(api_key: str):
+def set_frontier_api_key(data: dict, api: str, s3Name: str = ""):
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
 
-    data = {
-        "CLOUD_API_KEY": api_key,
-    }
     if not os.path.exists(file_path):
         # Create a new file and write the ACCSS_KEY to it
         with open(file_path, "w") as file:
@@ -254,57 +251,12 @@ def set_frontier_cloud_api(api_key: str):
     with open(file_path, "r") as file:
         load = yaml.safe_load(file)
 
-    load["CLOUD_API_KEY"] = api_key
-
-    with open(file_path, "w") as file:
-        yaml.dump(load, file)
-
-
-def set_frontier_openai_api(api_key: str):
-    home = str(Path.home())
-    file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
-
-    data = {
-        "OPENAI_API_KEY": api_key,
-    }
-    if not os.path.exists(file_path):
-        # Create a new file and write the ACCSS_KEY to it
-        with open(file_path, "w") as file:
-            yaml.dump(data, file)
-        return
-
-    # Read the contents of the file
-    with open(file_path, "r") as file:
-        load = yaml.safe_load(file)
-
-    load["OPENAI_API_KEY"] = api_key
-
-    with open(file_path, "w") as file:
-        yaml.dump(load, file)
-
-
-def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
-    home = str(Path.home())
-    file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
-
-    data = {
-        f"{s3Name}": s3Name,
-        f"{s3Name}accessKey": s3AccessKey,
-        f"{s3Name}secretKey": s3SecretKey,
-    }
-    if not os.path.exists(file_path):
-        # Create a new file and write the ACCSS_KEY to it
-        with open(file_path, "w") as file:
-            yaml.dump(data, file)
-        return
-
-    # Read the contents of the file
-    with open(file_path, "r") as file:
-        load = yaml.safe_load(file)
-
-    load[f"{s3Name}"] = s3Name
-    load[f"{s3Name}accessKey"] = s3AccessKey
-    load[f"{s3Name}secretKey"] = s3SecretKey
+    if api == "S3":
+        load[f"{s3Name}"] = data[s3Name]
+        load[f"{s3Name}accessKey"] = data[f"{s3Name}accessKey"]
+        load[f"{s3Name}secretKey"] = data[f"{s3Name}secretKey"]
+    else:
+        load[f"{api}_API_KEY"] = data[f"{api}_API_KEY"]
 
     with open(file_path, "w") as file:
         yaml.dump(load, file)
