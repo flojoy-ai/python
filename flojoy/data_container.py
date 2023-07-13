@@ -368,6 +368,15 @@ class Image(DataContainer):
     ):
         super().__init__(type="image", r=r, g=g, b=b, a=a, extra=extra)
 
+class Bytes(DataContainer):
+    bytes: bytes
+
+    def __init__(
+        self,
+        bytes: bytes,
+    ):
+        super().__init__(type="bytes", bytes=bytes)
+
 
 class ParametricImage(DataContainer):
     t: DCNpArrayType
@@ -403,3 +412,4 @@ class ParametricGrayscale(DataContainer):
         self, img: DCNpArrayType, t: DCNpArrayType, extra: ExtraType = None
     ):  # type:ignore
         super().__init__(type="grayscale", m=img, t=t, extra=extra)
+
