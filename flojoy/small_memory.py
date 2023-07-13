@@ -1,4 +1,6 @@
 import traceback
+
+from flojoy.types import NodeInitContainer
 # import os, sys
 from .dao import Dao
 
@@ -7,6 +9,11 @@ class SmallMemory:
     SmallMemory - available during jobset execution - intended to be used ONLY inside node functions
     """
 
+
+    """_______________________________________________________________________
+
+    Methods used inside of node function:
+    """
     tracing_key = "ALL_MEMORY_KEYS"
     dao = Dao.get_instance()
 
@@ -70,3 +77,9 @@ class SmallMemory:
         """
         memory_key = f"{job_id}-{key}"
         return self.dao.delete_object(memory_key)
+    """_______________________________________________________________________
+    """
+
+
+
+ 

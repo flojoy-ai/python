@@ -33,3 +33,4 @@ class JobService:
     def reset(self):
         self.dao.clear_job_results()
         self.dao.clear_small_memory()
+        self.dao.clear_node_init()

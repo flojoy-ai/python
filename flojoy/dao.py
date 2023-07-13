@@ -5,6 +5,8 @@ import pandas as pd
 from typing import Any, cast
 from threading import Lock
 
+from flojoy.types import NodeInitContainer
+
 MAX_LIST_SIZE = 1000
 
 """
@@ -25,6 +27,7 @@ class Dao:
     _init_lock = Lock()
     _dict_sm_lock = Lock() # dict small memory lock
     _dict_job_lock = Lock() # dict job lock
+    _dict_node_init_lock = Lock() # dict node init lock
 
     @classmethod
     def get_instance(cls):
@@ -36,6 +39,7 @@ class Dao:
     def __init__(self):
         self.storage = {} # small memory
         self.job_results = {} 
+        self.node_init = {} # node init
 
     """
     METHODS FOR JOB RESULTS
@@ -165,3 +169,23 @@ class Dao:
         dimensions = np_meta_data.get("dimensions", [])
         shapes_in_int = [int(shape) for shape in dimensions]
         return np.fromstring(encoded, dtype=d_type).reshape(*shapes_in_int)
+
+    """
+    METHODS FOR NODE INIT 
+    """
+    
+    def clear_node_init(self):
+        with self._dict_node_init_lock:
+            self.node_init.clear()
+
+    def set_init_container(self, node_id: str, value: NodeInitContainer):
+        with self._dict_node_init_lock:
+            self.node_init[node_id] = value
+
+    def get_init_container(self, node_id: str) -> NodeInitContainer | None:
+        res = self.node_init.get(node_id, None)
+        self.check_if_valid(res, NodeInitContainer)
+        return res
+    
+    def has_init_container(self, node_id: str) -> bool:
+        return node_id in self.node_init.keys()
