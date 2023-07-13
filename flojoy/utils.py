@@ -10,7 +10,6 @@ from typing import Union, Any
 import requests
 from dotenv import dotenv_values  # type:ignore
 import difflib
-from typing import Literal
 
 __all__ = [
     "send_to_socket",
@@ -216,7 +215,8 @@ def dump_str(result: Any, limit: int | None = None):
     )
 
 
-def get_frontier_api_key(name: str) -> Union[str, None]:
+def get_frontier_api_key(name: str) -> Union[dict, None]:
+    # TODO: Use keyring instead
     try:
         home = str(Path.home())
         api_key = None
@@ -226,16 +226,19 @@ def get_frontier_api_key(name: str) -> Union[str, None]:
 
         with open(path, "r") as file:
             load = yaml.safe_load(file)
-            if name == "cloud":
-                return load["CLOUD_API_KEY"]
-            elif name == "openai":
-                return load["OPENAI_API_KEY"]
-            else:
-                return {
-                    "s3Name": load[f"{name}"],
-                    "s3AccessKey": load[f"{name}accessKey"],
-                    "s3SecretKey": load[f"{name}secretKey"],
-                }
+
+        if name == "cloud":
+            return {"CLOUD_API_KEY": load["CLOUD_API_KEY"]}
+        elif name == "openai":
+            return {"OPENAI_API_KEY": load["OPENAI_API_KEY"]}
+        elif name == "s3":
+            return {
+                "s3Name": load["s3Name"],
+                "s3AccessKey": load["s3accessKey"],
+                "s3SecretKey": load["s3secretKey"],
+            }
+        else:
+            raise Exception("Invalid API name")
     except Exception as e:
         raise e
 
