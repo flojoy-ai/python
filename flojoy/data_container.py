@@ -7,8 +7,6 @@ from typing import Union, Literal, get_args, Any, cast
 from .utils import find_closest_match
 
 
-__all__ = ["DataContainer"]
-
 DCType = Literal[
     "grayscale",
     "matrix",
@@ -39,6 +37,7 @@ DCKwargsValue = Union[
     go.Figure,
     None,
 ]
+ExtraType = dict[str, Any] | None
 
 
 class DataContainer(Box):
@@ -61,7 +60,7 @@ class DataContainer(Box):
 
     """
 
-    allowed_types = typing.get_args(DCType)
+    allowed_types = list(typing.get_args(DCType))
     allowed_keys = ["x", "y", "z", "t", "m", "c", "r", "g", "b", "a", "fig", "extra"]
     combinations = {
         "x": ["y", "t", "z", "fig", "extra"],
@@ -122,7 +121,8 @@ class DataContainer(Box):
             return value
         else:
             raise ValueError(
-                f"DataContainer keys must be any of following types: {get_args(DCKwargsValue)}"
+                f"DataContainer keys must be any of "
+                f"following types: {get_args(DCKwargsValue)}"
             )
 
     def __init__(  # type:ignore
@@ -132,8 +132,11 @@ class DataContainer(Box):
         for k, v in kwargs.items():
             self[k] = v
 
+    def __getattribute__(self, __name: str) -> Any:
+        return super().__getattribute__(__name)
+
     def __getitem__(self, key: str, _ignore_default: bool = False) -> Any:
-        return super().__getitem__(key, _ignore_default)  # type: ignore
+        return super().__getitem__(key, _ignore_default)  # type:ignore
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
         if key != "type" and key != "extra":
@@ -178,7 +181,10 @@ class DataContainer(Box):
                     raise KeyError(f'"{k}" key must be provided for type "{dc_type}"')
 
     def __build_error_text(self, key: str, data_type: str, available_keys: list[str]):
-        return f'Invalid key "{key}" provided for data type "{data_type}", supported keys: {", ".join(available_keys)}'
+        return (
+            f'Invalid key "{key}" provided for data type "{data_type}", '
+            f'supported keys: {", ".join(available_keys)}'
+        )
 
     def validate(self):
         dc_type = self.type
@@ -190,7 +196,8 @@ class DataContainer(Box):
                 else f'allowed types: "{", ".join(self.allowed_types)}"'
             )
             raise ValueError(
-                f'unsupported type "{dc_type}" passed to DataContainer class, {helper_text}'
+                f'unsupported type "{dc_type}" passed to '
+                f"DataContainer class, {helper_text}"
             )
         dc_keys = list(cast(list[str], self.keys()))
         for k in dc_keys:
@@ -202,3 +209,183 @@ class DataContainer(Box):
                 )
                 self.__validate_key_for_type(dc_type, k)
         self.__check_for_missing_keys(dc_type, dc_keys)
+
+
+class OrderedPair(DataContainer):
+    x: DCNpArrayType
+    y: DCNpArrayType
+
+    def __init__(
+        self, x: DCNpArrayType, y: DCNpArrayType, extra: ExtraType = None
+    ):  # type:ignore
+        super().__init__(type="ordered_pair", x=x, y=y, extra=extra)
+
+
+class ParametricOrderedPair(DataContainer):
+    x: DCNpArrayType
+    y: DCNpArrayType
+    t: DCNpArrayType
+
+    def __init__(
+        self,
+        x: DCNpArrayType,
+        y: DCNpArrayType,
+        t: DCNpArrayType,
+        extra: ExtraType = None,
+    ):  # type:ignore
+        super().__init__(type="parametric_ordered_pair", x=x, y=y, t=t, extra=extra)
+
+
+class OrderedTriple(DataContainer):
+    x: DCNpArrayType
+    y: DCNpArrayType
+    z: DCNpArrayType
+
+    def __init__(
+        self,
+        x: DCNpArrayType,
+        y: DCNpArrayType,
+        z: DCNpArrayType,
+        extra: ExtraType = None,
+    ):  # type:ignore
+        super().__init__(type="ordered_triple", x=x, y=y, z=z, extra=extra)
+
+
+class ParametricOrderedTriple(DataContainer):
+    x: DCNpArrayType
+    y: DCNpArrayType
+    z: DCNpArrayType
+    t: DCNpArrayType
+
+    def __init__(  # type:ignore
+        self,
+        x: DCNpArrayType,
+        y: DCNpArrayType,
+        z: DCNpArrayType,
+        t: DCNpArrayType,
+        extra: ExtraType = None,
+    ):
+        super().__init__(
+            type="parametric_ordered_triple", x=x, y=y, z=z, t=t, extra=extra
+        )
+
+
+class Scalar(DataContainer):
+    c: int | float
+
+    def __init__(self, c: int | float, extra: ExtraType = None):  # type:ignore
+        super().__init__(type="scalar", c=c, extra=extra)
+
+
+class ParametricScalar(DataContainer):
+    c: int | float
+    t: DCNpArrayType
+
+    def __init__(
+        self, c: int | float, t: DCNpArrayType, extra: ExtraType = None
+    ):  # type:ignore
+        super().__init__(type="scalar", c=c, t=t, extra=extra)
+
+
+class Matrix(DataContainer):
+    m: DCNpArrayType
+
+    def __init__(self, m: DCNpArrayType, extra: ExtraType = None):  # type:ignore
+        super().__init__(type="matrix", m=m, extra=extra)
+
+
+class ParametricMatrix(DataContainer):
+    m: DCNpArrayType
+    t: DCNpArrayType
+
+    def __init__(
+        self, m: DCNpArrayType, t: DCNpArrayType, extra: ExtraType = None
+    ):  # type:ignore
+        super().__init__(type="matrix", m=m, t=t, extra=extra)
+
+
+class DataFrame(DataContainer):
+    m: pd.DataFrame
+
+    def __init__(self, df: pd.DataFrame, extra: ExtraType = None):  # type:_ignore
+        super().__init__(type="dataframe", m=df, extra=extra)
+
+
+class ParametricDataFrame(DataContainer):
+    m: pd.DataFrame
+    t: DCNpArrayType
+
+    def __init__(
+        self, df: pd.DataFrame, t: DCNpArrayType, extra: ExtraType = None
+    ):  # type:ignore
+        super().__init__(type="dataframe", m=df, t=t, extra=extra)
+
+
+class Plotly(DataContainer):
+    fig: go.Figure
+
+    def __init__(self, fig: go.Figure, extra: ExtraType = None):  # type:ignore
+        super().__init__(type="plotly", fig=fig, extra=extra)
+
+
+class ParametricPlotly(DataContainer):
+    fig: go.Figure
+    t: DCNpArrayType
+
+    def __init__(
+        self, fig: go.Figure, t: DCNpArrayType, extra: ExtraType = None
+    ):  # type:ignore
+        super().__init__(type="plotly", fig=fig, t=t, extra=extra)
+
+
+class Image(DataContainer):
+    r: DCNpArrayType
+    g: DCNpArrayType
+    b: DCNpArrayType
+    a: DCNpArrayType | None
+
+    def __init__(  # type:ignore
+        self,
+        r: DCNpArrayType,
+        g: DCNpArrayType,
+        b: DCNpArrayType,
+        a: DCNpArrayType | None = None,
+        extra: ExtraType = None,
+    ):
+        super().__init__(type="image", r=r, g=g, b=b, a=a, extra=extra)
+
+
+class ParametricImage(DataContainer):
+    t: DCNpArrayType
+    r: DCNpArrayType
+    g: DCNpArrayType
+    b: DCNpArrayType
+    a: DCNpArrayType | None
+
+    def __init__(  # type:ignore
+        self,
+        r: DCNpArrayType,
+        g: DCNpArrayType,
+        b: DCNpArrayType,
+        a: DCNpArrayType,
+        t: DCNpArrayType,
+        extra: ExtraType = None,
+    ):
+        super().__init__(type="image", r=r, g=g, b=b, a=a, t=t, extra=extra)
+
+
+class Grayscale(DataContainer):
+    m: DCNpArrayType
+
+    def __init__(self, img: DCNpArrayType, extra: ExtraType = None):  # type:ignore
+        super().__init__(type="grayscale", m=img, extra=extra)
+
+
+class ParametricGrayscale(DataContainer):
+    m: DCNpArrayType
+    t: DCNpArrayType
+
+    def __init__(
+        self, img: DCNpArrayType, t: DCNpArrayType, extra: ExtraType = None
+    ):  # type:ignore
+        super().__init__(type="grayscale", m=img, t=t, extra=extra)
