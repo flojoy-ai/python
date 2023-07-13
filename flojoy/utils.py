@@ -8,22 +8,24 @@ import os
 import yaml
 from typing import Union, Any
 import requests
-from redis import Redis
 from dotenv import dotenv_values  # type:ignore
 import difflib
 import base64
 
+__all__ = [
+    "send_to_socket",
+    "get_frontier_api_key",
+    "set_frontier_api_key",
+    "set_frontier_s3_key",
+]
 
 env_vars = dotenv_values("../.env")
 port = env_vars.get("VITE_BACKEND_PORT", "8000")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = os.environ.get("REDIS_PORT", 6379)
-redis_instance = Redis(host=REDIS_HOST, port=int(REDIS_PORT))
 
 
 def send_to_socket(data: str):
-    print("posting data to socket:", f"{BACKEND_URL}/worker_response")
+    print("posting data to socket:", f"{BACKEND_URL}/worker_response", flush=True)
     requests.post(f"{BACKEND_URL}/worker_response", json=data)
 
 
@@ -276,14 +278,14 @@ def set_frontier_api_key(api_key: str):
         raise e
 
 
-def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
+def set_frontier_s3_key(s3_name: str, s3_access_key: str, s3_secret_key: str):
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
 
     data = {
-        f"{s3Name}": s3Name,
-        f"{s3Name}accessKey": s3AccessKey,
-        f"{s3Name}secretKey": s3SecretKey,
+        f"{s3_name}": s3_name,
+        f"{s3_name}accessKey": s3_access_key,
+        f"{s3_name}secretKey": s3_secret_key,
     }
     if not os.path.exists(file_path):
         # Create a new file and write the ACCSS_KEY to it
@@ -295,9 +297,9 @@ def set_frontier_s3_key(s3Name: str, s3AccessKey: str, s3SecretKey: str):
     with open(file_path, "r") as file:
         load = yaml.safe_load(file)
 
-    load[f"{s3Name}"] = s3Name
-    load[f"{s3Name}accessKey"] = s3AccessKey
-    load[f"{s3Name}secretKey"] = s3SecretKey
+    load[f"{s3_name}"] = s3_name
+    load[f"{s3_name}accessKey"] = s3_access_key
+    load[f"{s3_name}secretKey"] = s3_secret_key
 
     with open(file_path, "w") as file:
         yaml.dump(load, file)
