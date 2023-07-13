@@ -1,6 +1,5 @@
 import decimal
 import json as _json
-
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Union, Any
 import requests
 from dotenv import dotenv_values  # type:ignore
 import difflib
+import keyring
 
 __all__ = [
     "send_to_socket",
@@ -215,53 +215,27 @@ def dump_str(result: Any, limit: int | None = None):
     )
 
 
-def get_frontier_api_key(name: str) -> Union[dict, None]:
-    # TODO: Use keyring instead
-    try:
-        home = str(Path.home())
-        api_key = None
-        path = os.path.join(home, ".flojoy/credentials.yaml")
-        if not os.path.exists(path):
-            return api_key
-
-        with open(path, "r") as file:
-            load = yaml.safe_load(file)
-
-        if name == "cloud":
-            return {"CLOUD_API_KEY": load["CLOUD_API_KEY"]}
-        elif name == "openai":
-            return {"OPENAI_API_KEY": load["OPENAI_API_KEY"]}
-        elif name == "s3":
-            return {
-                "s3Name": load["s3Name"],
-                "s3AccessKey": load["s3accessKey"],
-                "s3SecretKey": load["s3secretKey"],
-            }
-        else:
-            raise Exception("Invalid API name")
-    except Exception as e:
-        raise e
-
-
-def set_frontier_api_key(data: dict, api: str, s3Name: str = ""):
-    home = str(Path.home())
-    file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
-    if not os.path.exists(file_path):
-        # Create a new file and write the ACCSS_KEY to it
-        with open(file_path, "w") as file:
-            yaml.dump(data, file)
-        return
-
-    # Read the contents of the file
-    with open(file_path, "r") as file:
-        load = yaml.safe_load(file)
-
-    if api == "S3":
-        load[f"{s3Name}"] = data[s3Name]
-        load[f"{s3Name}accessKey"] = data[f"{s3Name}accessKey"]
-        load[f"{s3Name}secretKey"] = data[f"{s3Name}secretKey"]
+def get_frontier_api_key(name: str, s3Name: str = "") -> Union[dict, None]:
+    if name == "CLOUD":
+        return {"CLOUD": keyring.get_password("system", "CLOUD_API_KEY")}
+    elif name == "OPENAI":
+        return {"OPENAI": keyring.get_password("system", "OPENAI_API_KEY")}
+    elif name == "S3":
+        return {
+            "accessKey": keyring.get_password("system", f"{s3Name}accessKey"),
+            "secretKey": keyring.get_password("system", f"{s3Name}secretKey"),
+        }
     else:
-        load[f"{api}_API_KEY"] = data[f"{api}_API_KEY"]
+        raise AssertionError("No such API Key exists")
 
-    with open(file_path, "w") as file:
-        yaml.dump(load, file)
+
+def set_frontier_api_key(data: dict, name: str, s3Name: str = ""):
+    if name == "CLOUD":
+        keyring.set_password("system", "CLOUD_API_KEY", data["CLOUD_API_KEY"])
+    elif name == "OPENAI":
+        keyring.set_password("system", "OPENAI_API_KEY", data["OPENAI_API_KEY"])
+    elif name == "S3":
+        keyring.set_password("system", f"{s3Name}accessKey", data[f"{s3Name}accessKey"])
+        keyring.set_password("system", f"{s3Name}secretKey", data[f"{s3Name}secretKey"])
+    else:
+        raise AssertionError("Invalid API Key")
