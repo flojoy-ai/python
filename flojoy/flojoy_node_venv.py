@@ -22,6 +22,7 @@ def TORCH_NODE(default: Matrix) -> Matrix:
 import hashlib
 import os
 import importlib.metadata
+import shutil
 import sys
 import subprocess
 import multiprocessing
@@ -114,10 +115,15 @@ def run_in_venv(pip_dependencies=[]):
         venv.create(venv_path, with_pip=True)
         # Install the pip dependencies into the virtual environment
         if pip_dependencies:
-            _install_pip_dependencies(
-                venv_executable=venv_executable,
-                pip_dependencies=tuple(pip_dependencies)
-            )
+            try:
+                _install_pip_dependencies(
+                    venv_executable=venv_executable,
+                    pip_dependencies=tuple(pip_dependencies)
+                )
+            except subprocess.CalledProcessError as e:
+                shutil.rmtree(venv_path)
+                raise e
+
     # Define the decorator
     def decorator(func):
         @wraps(func)
