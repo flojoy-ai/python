@@ -10,6 +10,7 @@ from .data_container import *
 from .utils import *
 from .parameter_types import *
 from .small_memory import *
+from .flojoy_node_venv import *
 
 def flojoy(
     original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict]

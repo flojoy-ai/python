@@ -5,7 +5,7 @@ import traceback
 from pathlib import Path
 from functools import wraps
 from .data_container import DataContainer
-from .utils import PlotlyJSONEncoder, dump_str
+from .utils import PlotlyJSONEncoder
 from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import send_to_socket

@@ -36,6 +36,7 @@ setup(
         "torch>=1.9",
         "torchvision>=0.10",
         "Pillow",
+        "cloudpickle"
     ],
     classifiers=[
         "Development Status :: 3 - Alpha",
