@@ -112,7 +112,7 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
 def _get_venv_cache_dir():
     return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
 
-def run_in_venv(pip_dependencies: list[str] = [], verbose: bool =False):
+def run_in_venv(pip_dependencies: list[str] = [], verbose: bool = False):
     """A decorator that allows a function to be executed in a virtual environment.
     
     Args:
