@@ -1,4 +1,4 @@
-name: Pytest
+name: Test flojoy_node_env
 
 # Trigger on push if flojoy_node_env.py is modified
 # for any branch
