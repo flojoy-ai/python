@@ -17,7 +17,7 @@ def mock_tempdir():
     with patch("tempfile.tempdir", _test_tempdir):
         yield _test_tempdir
     # Clean up
-    # shutil.rmtree(_test_tempdir)
+    shutil.rmtree(_test_tempdir)
 
 
 def test_run_in_venv_imports_properly(mock_tempdir):
@@ -30,6 +30,7 @@ def test_run_in_venv_imports_properly(mock_tempdir):
         import sys
         import importlib.metadata
         import jax
+
         # Get the list of installed packages
         packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
         return packages_dict, sys.path, sys.executable
