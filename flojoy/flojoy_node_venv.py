@@ -20,17 +20,18 @@ def TORCH_NODE(default: Matrix) -> Matrix:
 
 """
 import hashlib
-import os
 import importlib.metadata
-import shutil
-import sys
-import subprocess
+import logging
 import multiprocessing
-import cloudpickle
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import venv
-from functools import  wraps
+from functools import wraps
 
+import cloudpickle
 
 __all__ = ["run_in_venv"]
 
@@ -100,6 +101,13 @@ class PickleableFunctionWithPipeIO:
             result = fn(*args, **kwargs)
         self._child_conn.send(result)
 
+def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str:
+    """Get the path to the python executable of the virtual environment."""
+    if sys.platform == "win32":
+        return os.path.join(venv_path, "Scripts", "python.exe")
+    else:
+        return os.path.join(venv_path, "bin", "python")
+
 def run_in_venv(pip_dependencies=[]):
     # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
     packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
@@ -108,14 +116,13 @@ def run_in_venv(pip_dependencies=[]):
         f"cloudpickle=={packages_dict['cloudpickle']}"] \
         + pip_dependencies
     )
-    # TODO(roulbac): support WINDOWS paths for both (1) venv and (2) interpreter executable
     # Get the system's temporary directory path
     temp_dirpath = tempfile.gettempdir()
     # Generate a path-safe hash of the pip dependencies
     # this prevents the duplication of virtual environments
     pip_dependencies_hash = hashlib.sha256("".join(pip_dependencies).encode()).hexdigest()
     venv_path = os.path.join(temp_dirpath, f"flojoy_node_venv_{pip_dependencies_hash}")
-    venv_executable = os.path.join(venv_path, "bin", "python")
+    venv_executable = _get_venv_executable_path(venv_path)
     # Create the node_env virtual environment if it does not exist
     if not os.path.exists(venv_path):
         venv.create(venv_path, with_pip=True)
@@ -128,6 +135,7 @@ def run_in_venv(pip_dependencies=[]):
                 )
             except subprocess.CalledProcessError as e:
                 shutil.rmtree(venv_path)
+                logging.error(f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}")
                 raise e
 
     # Define the decorator
