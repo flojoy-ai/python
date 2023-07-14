@@ -1,9 +1,12 @@
 name: Pytest
 
 # Trigger on push if flojoy_node_env.py is modified
+# for any branch
 
 on:
   push:
+    branches:
+      - "*"
     paths:
       - "flojoy/flojoy_node_env.py"
       - "tests/flojoy_node_venv_test_.py"
