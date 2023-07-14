@@ -4,6 +4,8 @@ import yaml
 import traceback
 from pathlib import Path
 from functools import wraps
+
+from flojoy.node_init import NodeInitService
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder, dump_str
 from typing import Callable, Any, Optional
@@ -13,6 +15,7 @@ from time import sleep
 from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
+from .small_memory import SmallMemory
 
 __all__ = ["flojoy", "DefaultParams"]
 
@@ -209,6 +212,10 @@ def flojoy(
                     )
 
                 print(node_id, " params: ", args.keys(), flush=True)
+
+                # check if node has an init container and if so, inject it
+                if NodeInitService().has_init_store(node_id):
+                    args["init_container"] = NodeInitService().get_init_store(node_id)
 
                 ##########################
                 # calling the node function
