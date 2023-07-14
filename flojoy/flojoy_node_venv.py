@@ -112,7 +112,26 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
 def _get_venv_cache_dir():
     return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
 
-def run_in_venv(pip_dependencies=[], verbose=False):
+def run_in_venv(pip_dependencies: list[str] = [], verbose: bool =False):
+    """A decorator that allows a function to be executed in a virtual environment.
+    
+    Args:
+        pip_dependencies (list[str]): A list of pip dependencies to install into the virtual environment. Defaults to [].
+        verbose (bool): Whether to print the pip install output. Defaults to False.
+
+    Example usage:
+    ```python
+    from flojoy import flojoy, run_in_venv
+    
+    @flojoy
+    @run_in_venv(pip_dependencies=["torch==2.0.1", "torchvision==0.15.2"])
+    def TORCH_NODE(default: Matrix) -> Matrix:
+        import torch
+        import torchvision
+        # Do stuff with torch
+        ...
+        return Matrix(...)
+    """
     # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
     packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
     pip_dependencies = sorted([
