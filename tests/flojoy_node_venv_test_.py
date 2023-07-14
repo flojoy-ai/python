@@ -9,7 +9,9 @@ from flojoy import flojoy, run_in_venv
 # Define a fixture to patch tempfile.tempdir
 @pytest.fixture
 def mock_tempdir():
-    _test_tempdir = "/tmp/run_in_venv_tests"
+    import tempfile
+    _test_tempdir = os.path.join(tempfile.gettempdir(), "test_flojoy_node_venv")
+    del tempfile
     # Wipe the directory to be patched if it exists
     shutil.rmtree(_test_tempdir, ignore_errors=True)
     os.makedirs(_test_tempdir)
