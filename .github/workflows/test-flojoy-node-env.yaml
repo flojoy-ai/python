@@ -5,8 +5,10 @@ name: Test flojoy_node_env
 
 on:
   push:
-    branches:
-      - "*"
+    paths:
+      - "flojoy/flojoy_node_env.py"
+      - "tests/flojoy_node_venv_test_.py"
+  pull_request:
     paths:
       - "flojoy/flojoy_node_env.py"
       - "tests/flojoy_node_venv_test_.py"
