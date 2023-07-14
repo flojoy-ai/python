@@ -21,6 +21,7 @@ def TORCH_NODE(default: Matrix) -> Matrix:
 """
 import hashlib
 import os
+import importlib.metadata
 import sys
 import subprocess
 import multiprocessing
@@ -94,7 +95,13 @@ class PickleableFunctionWithPipeIO:
 
 def run_in_venv(pip_dependencies=[]):
     # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
-    pip_dependencies = sorted(["flojoy", "cloudpickle"] + pip_dependencies)
+    packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
+    pip_dependencies = sorted([
+        f"flojoy=={packages_dict['flojoy']}",
+        f"cloudpickle=={packages_dict['cloudpickle']}"] \
+        + pip_dependencies
+    )
+    # TODO(roulbac): support WINDOWS paths for both (1) venv and (2) interpreter executable
     # Get the system's temporary directory path
     temp_dirpath = tempfile.gettempdir()
     # Generate a path-safe hash of the pip dependencies
@@ -105,12 +112,12 @@ def run_in_venv(pip_dependencies=[]):
     # Create the node_env virtual environment if it does not exist
     if not os.path.exists(venv_path):
         venv.create(venv_path, with_pip=True)
-    # Install the pip dependencies into the virtual environment
-    if pip_dependencies:
-        _install_pip_dependencies(
-            venv_executable=venv_executable,
-            pip_dependencies=tuple(pip_dependencies)
-        )
+        # Install the pip dependencies into the virtual environment
+        if pip_dependencies:
+            _install_pip_dependencies(
+                venv_executable=venv_executable,
+                pip_dependencies=tuple(pip_dependencies)
+            )
     # Define the decorator
     def decorator(func):
         @wraps(func)
@@ -119,11 +126,11 @@ def run_in_venv(pip_dependencies=[]):
             parent_conn, child_conn = multiprocessing.Pipe()
             args = [cloudpickle.dumps(arg) for arg in args]
             kwargs = {key: cloudpickle.dumps(value) for key, value in kwargs.items()}
-            pickleable_func_with_queue = PickleableFunctionWithPipeIO(func, child_conn, venv_executable)
+            pickleable_func_with_pipe = PickleableFunctionWithPipeIO(func, child_conn, venv_executable)
             # Start the context manager that will change the executable used by multiprocessing
             with MultiprocessingExecutableContextManager(venv_executable):
                 # Create a new process that will run the Python code
-                process = multiprocessing.Process(target=pickleable_func_with_queue, args=args, kwargs=kwargs)
+                process = multiprocessing.Process(target=pickleable_func_with_pipe, args=args, kwargs=kwargs)
                 # Start the process
                 process.start()
                 # Fetch result from the child process
