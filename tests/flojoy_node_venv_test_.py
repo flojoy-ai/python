@@ -40,9 +40,9 @@ def test_run_in_venv_imports_properly(mock_tempdir):
     print("EXECUTABLE: ", sys_executable)
     print("SYS_PATH: ", sys_path)
     print("PACKAGES_DICT: ", packages_dict)
-    # # Test for executable
-    # assert sys_executable.startswith(mock_tempdir)
-    # # Test for sys.path
-    # assert sys_path[-1].startswith(mock_tempdir)
-    # # Test for package version
-    # assert packages_dict["jax"] == "0.4.13"
+    # Test for executable
+    assert sys_executable.startswith(mock_tempdir)
+    # Test for sys.path
+    assert sys_path[-1].startswith(mock_tempdir)
+    # Test for package version
+    assert packages_dict["jax"] == "0.4.13"
