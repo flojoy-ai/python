@@ -44,11 +44,13 @@ class MultiprocessingExecutableContextManager:
         self.original_start_method = multiprocessing.get_start_method()
 
     def __enter__(self):
+        if(self.original_start_method != "spawn"):
+            multiprocessing.set_start_method("spawn", force=True)
         multiprocessing.set_executable(self.executable_path)
-        multiprocessing.set_start_method("spawn")
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        multiprocessing.set_start_method(self.original_start_method)
+        if(self.original_start_method != "spawn"):
+            multiprocessing.set_start_method(self.original_start_method, force=True)
         multiprocessing.set_executable(self.original_executable_path)
 
 class SwapSysPath:

@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  pytest-ubuntu:
+  ubuntu:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -38,7 +38,7 @@ jobs:
       - name: Run python tests
         run: python -m pytest -vv tests/flojoy_node_venv_test_.py 
     
-  pytest-macos:
+  macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
@@ -57,7 +57,7 @@ jobs:
       - name: Run python tests
         run: python -m pytest -vv tests/flojoy_node_venv_test_.py 
   
-  pytest-windows:
+  windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
