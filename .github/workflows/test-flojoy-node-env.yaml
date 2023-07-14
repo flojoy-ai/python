@@ -1,0 +1,80 @@
+name: Test flojoy_node_env
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "flojoy/flojoy_node_env.py"
+      - "tests/flojoy_node_venv_test_.py"
+  
+  pull_request:
+    paths:
+      - "flojoy/flojoy_node_env.py"
+      - "tests/flojoy_node_venv_test_.py"
+    
+  workflow_dispatch:
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip"
+      - name: Install pip dependencies
+        run: |
+          pip install ruff pytest
+          pip install -r requirements.txt
+
+      - name: Run python tests
+        run: python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
+    
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip"
+      - name: Install pip dependencies
+        run: |
+          pip install ruff pytest
+          pip install -r requirements.txt
+
+      - name: Run python tests
+        run: python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
+  
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install pip dependencies
+        run: |
+          pip install ruff pytest
+          pip install -r requirements.txt
+        shell: powershell
+
+      - name: Run python tests
+        run: python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
+        shell: powershell
+  
+
+

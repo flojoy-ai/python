@@ -1,3 +1,4 @@
+import sys
 import decimal
 import json as _json
 
@@ -23,6 +24,11 @@ __all__ = [
     "set_frontier_api_key",
     "set_frontier_s3_key",
 ]
+
+if sys.platform == "win32":
+    FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], ".flojoy")
+else:
+    FLOJOY_CACHE_DIR = os.path.join(os.environ["HOME"], ".flojoy")
 
 env_vars = dotenv_values("../.env")
 port = env_vars.get("VITE_BACKEND_PORT", "8000")
