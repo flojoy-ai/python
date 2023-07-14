@@ -28,7 +28,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run python tests
-        run: pytest -vv tests/flojoy_node_venv_test_.py 
+        run: python -m pytest -vv tests/flojoy_node_venv_test_.py 
     
   pytest-macos:
     runs-on: macos-latest
@@ -47,7 +47,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run python tests
-        run: pytest -vv tests/flojoy_node_venv_test_.py 
+        run: python -m pytest -vv tests/flojoy_node_venv_test_.py 
   
   pytest-windows:
     runs-on: windows-latest
@@ -68,7 +68,7 @@ jobs:
         shell: powershell
 
       - name: Run python tests
-        run: pytest -vv tests/flojoy_node_venv_test_.py 
+        run: python -m pytest -vv tests/flojoy_node_venv_test_.py 
         shell: powershell
   
 
