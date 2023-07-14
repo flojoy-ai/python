@@ -14,7 +14,7 @@ def mock_tempdir():
     shutil.rmtree(_test_tempdir, ignore_errors=True)
     os.makedirs(_test_tempdir)
     # Patch the tempfile.tempdir
-    with patch("tempfile.gettempdir", _test_tempdir):
+    with patch("tempfile.gettempdir", return_value=_test_tempdir):
         yield _test_tempdir
     # Clean up
     shutil.rmtree(_test_tempdir)
