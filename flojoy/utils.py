@@ -6,11 +6,16 @@ import pandas as pd
 from pathlib import Path
 import os
 import yaml
-from typing import Union, Any
+from typing import Callable, Union, Any
 import requests
 from dotenv import dotenv_values  # type:ignore
 import difflib
 from typing import Literal
+
+
+from .node_init import NodeInit, NodeInitService
+
+from .dao import Dao
 
 __all__ = [
     "send_to_socket",
@@ -294,3 +299,11 @@ def set_frontier_s3_key(s3_name: str, s3_access_key: str, s3_secret_key: str):
 
     with open(file_path, "w") as file:
         yaml.dump(load, file)
+
+def clear_flojoy_memory():
+    Dao.get_instance().clear_job_results()
+    Dao.get_instance().clear_small_memory()
+    Dao.get_instance().clear_node_init_containers()
+
+def get_node_init_function(node_func: Callable) -> NodeInit:
+    return NodeInitService().get_node_init_function(node_func)

@@ -2,10 +2,8 @@ import json
 import os
 import numpy as np
 import pandas as pd
-from typing import Any, cast
+from typing import Any, Callable, cast
 from threading import Lock
-
-from flojoy.types import NodeInitContainer
 
 MAX_LIST_SIZE = 1000
 
@@ -25,9 +23,6 @@ class Dao:
 
     _instance = None
     _init_lock = Lock()
-    _dict_sm_lock = Lock() # dict small memory lock
-    _dict_job_lock = Lock() # dict job lock
-    _dict_node_init_lock = Lock() # dict node init lock
 
     @classmethod
     def get_instance(cls):
@@ -37,9 +32,17 @@ class Dao:
             return Dao._instance
 
     def __init__(self):
+        
         self.storage = {} # small memory
         self.job_results = {} 
-        self.node_init = {} # node init
+        self.node_init_container = {} 
+        self.node_init_func = {} 
+
+        self.dict_sm_lock = Lock()
+        self.dict_job_lock = Lock() 
+        self.dict_node_init_container_lock = Lock() 
+        self.dict_node_init_func_lock = Lock()
+        
 
     """
     METHODS FOR JOB RESULTS
@@ -52,18 +55,18 @@ class Dao:
         return res
     
     def post_job_result(self, job_id: str, result: Any):
-        with self._dict_job_lock:
+        with self.dict_job_lock:
             self.job_results[job_id] = result
 
     def clear_job_results(self):
-        with self._dict_job_lock:
+        with self.dict_job_lock:
             self.job_results.clear()
     
     def job_exists(self, job_id: str) -> bool:
         return job_id in self.job_results.keys()
     
     def delete_job(self, job_id: str):
-        with self._dict_job_lock:
+        with self.dict_job_lock:
             self.job_results.pop(job_id, None)
 
 
@@ -72,7 +75,7 @@ class Dao:
     """
 
     def clear_small_memory(self):
-        with self._dict_sm_lock:
+        with self.dict_sm_lock:
             self.storage.clear()
 
     def check_if_valid(self, result, expected_type):
@@ -84,17 +87,17 @@ class Dao:
     def set_np_array(self, memo_key: str, value: np.ndarray):
         # encoded = self.serialize_np(value)
         # self.storage[memo_key] = encoded
-        with self._dict_sm_lock:
+        with self.dict_sm_lock:
             self.storage[memo_key] = value
 
     def set_pandas_dataframe(self, key: str, dframe: pd.DataFrame):
         # encode = dframe.to_json()
         #  self.storage[key] = encode
-        with self._dict_sm_lock:
+        with self.dict_sm_lock:
             self.storage[key] = dframe
 
     def set_str(self, key: str, value: str):
-        with self._dict_sm_lock:
+        with self.dict_sm_lock:
             self.storage[key] = value
 
     def get_pd_dataframe(self, key: str) -> pd.DataFrame:
@@ -130,17 +133,17 @@ class Dao:
 
     def set_obj(self, key: str, value: dict[str, Any]):
         # dump = json.dumps(value)
-        with self._dict_sm_lock:
+        with self.dict_sm_lock:
             self.storage[key] = value
 
     def delete_object(self, key: str):
-        with self._dict_sm_lock:
+        with self.dict_sm_lock:
             self.storage.pop(key)
 
     def remove_item_from_set(self, key: str, item: Any):
         res = self.storage.get(key, None)
         self.check_if_valid(res, set)
-        with self._dict_sm_lock:
+        with self.dict_sm_lock:
             res.remove(item)
 
     def add_to_set(self, key: str, value: Any):
@@ -151,7 +154,7 @@ class Dao:
             self.storage[key] = res
             return 
         self.check_if_valid(res, set)
-        with self._dict_sm_lock:
+        with self.dict_sm_lock:
             res.add(value)
 
     def get_set_list(self, key: str) -> list[Any] | None:
@@ -171,21 +174,39 @@ class Dao:
         return np.fromstring(encoded, dtype=d_type).reshape(*shapes_in_int)
 
     """
-    METHODS FOR NODE INIT 
+    METHODS FOR NODE INIT
     """
-    
-    def clear_node_init(self):
-        with self._dict_node_init_lock:
-            self.node_init.clear()
 
-    def set_init_container(self, node_id: str, value: NodeInitContainer):
-        with self._dict_node_init_lock:
-            self.node_init[node_id] = value
+    # -- for node container --
+    def clear_node_init_containers(self):
+        with self.dict_node_init_container_lock:
+            self.node_init_container.clear()
 
-    def get_init_container(self, node_id: str) -> NodeInitContainer | None:
-        res = self.node_init.get(node_id, None)
+    def set_init_container(self, node_id: str, value):
+        with self.dict_node_init_container_lock:
+            self.node_init_container[node_id] = value
+
+    def get_init_container(self, node_id: str):
+        res = self.node_init_container.get(node_id, None)
+        from .node_init import NodeInitContainer # avoid circular import
         self.check_if_valid(res, NodeInitContainer)
         return res
     
     def has_init_container(self, node_id: str) -> bool:
-        return node_id in self.node_init.keys()
+        return node_id in self.node_init_container.keys()
+    # ------------------------
+    
+    # -- for node init function --
+    def set_init_function(self, node_func, node_init_func):
+        with self.dict_node_init_func_lock:
+            self.node_init_func[node_func] = node_init_func
+
+    def get_init_function(self, node_func: Callable):
+        res = self.node_init_func.get(node_func, None)
+        from .node_init import NodeInit # avoid circular import
+        self.check_if_valid(res, NodeInit)
+        return res
+    
+    def has_init_function(self, node_func) -> bool:
+        return node_func in self.node_init_func.keys()
+    # ----------------------------
