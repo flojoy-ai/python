@@ -10,7 +10,6 @@ from typing import Union, Any
 import requests
 from dotenv import dotenv_values  # type:ignore
 import difflib
-from typing import Literal
 
 __all__ = [
     "send_to_socket",
@@ -214,6 +213,19 @@ def dump_str(result: Any, limit: int | None = None):
         if limit is None or len(result_str) <= limit
         else result_str[:limit] + "..."
     )
+
+
+def get_flojoy_root_dir() -> str:
+    home = str(Path.home())
+    path = os.path.join(home, ".flojoy/flojoy.yaml")
+    stream = open(path, "r")
+    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
+    root_dir = ""
+    if isinstance(yaml_dict, str):
+        root_dir = yaml_dict.split(":")[1]
+    else:
+        root_dir = yaml_dict["PATH"]
+    return root_dir
 
 
 def get_frontier_api_key() -> Union[str, None]:
