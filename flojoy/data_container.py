@@ -15,6 +15,7 @@ DCType = Literal[
     "ordered_pair",
     "ordered_triple",
     "scalar",
+    "vector",
     "plotly",
     "parametric_grayscale",
     "parametric_matrix",
@@ -61,12 +62,13 @@ class DataContainer(Box):
     """
 
     allowed_types = list(typing.get_args(DCType))
-    allowed_keys = ["x", "y", "z", "t", "m", "c", "r", "g", "b", "a", "fig", "extra"]
+    allowed_keys = ["x", "y", "z", "t", "v", "m", "c", "r", "g", "b", "a", "fig", "extra"]
     combinations = {
         "x": ["y", "t", "z", "fig", "extra"],
         "y": ["x", "t", "z", "fig", "extra"],
         "z": ["x", "y", "t", "fig", "extra"],
         "c": ["t", "fig", "extra"],
+        "v": ["t", "fig", "extra"],
         "m": ["t", "fig", "extra"],
         "t": [*(value for value in allowed_keys if value not in ["t"])],
         "r": ["g", "b", "t", "a", "fig", "extra"],
@@ -79,6 +81,7 @@ class DataContainer(Box):
     type_keys_map: dict[DCType, list[str]] = {
         "dataframe": ["m"],
         "matrix": ["m"],
+        "vector": ["v"],
         "grayscale": ["m"],
         "image": ["r", "g", "b", "a"],
         "ordered_pair": ["x", "y"],
@@ -285,6 +288,22 @@ class ParametricScalar(DataContainer):
         self, c: int | float, t: DCNpArrayType, extra: ExtraType = None
     ):  # type:ignore
         super().__init__(type="scalar", c=c, t=t, extra=extra)
+
+
+class Vector(DataContainer):
+    v: DCNpArrayType
+
+    def __init__(self, v: DCNpArrayType, extra: ExtraType = None):  # type:ignore
+        super().__init__(type="vector", v=v, extra=extra)
+
+
+class ParametricVector(DataContainer):
+    v: DCNpArrayType
+
+    def __init__(
+        self, v: DCNpArrayType, t: DCNpArrayType, extra: ExtraType = None
+    ):  # type:ignore
+        super().__init__(type="vector", v=v, t=t, extra=extra)
 
 
 class Matrix(DataContainer):
