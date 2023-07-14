@@ -5,6 +5,8 @@ from unittest.mock import patch
 
 from flojoy import flojoy, run_in_venv
 
+pytestmark = pytest.mark.slow
+
 
 # Define a fixture to patch tempfile.tempdir
 @pytest.fixture
@@ -22,8 +24,8 @@ def mock_tempdir():
     shutil.rmtree(_test_tempdir)
 
 
-def test_run_in_venv_imports_properly(mock_tempdir):
-    """Test that run_in_venv imports properly a package specified in its pip_dependencies argument"""
+def test_run_in_venv_imports_jax_properly(mock_tempdir):
+    """Test that run_in_venv imports properly jax for example"""
 
     @run_in_venv(pip_dependencies=["jax[cpu]==0.4.13"])
     def empty_function_with_jax():
@@ -39,12 +41,56 @@ def test_run_in_venv_imports_properly(mock_tempdir):
 
     # Run the function
     packages_dict, sys_path, sys_executable = empty_function_with_jax()
-    print("EXECUTABLE: ", sys_executable)
-    print("SYS_PATH: ", sys_path)
-    print("PACKAGES_DICT: ", packages_dict)
     # Test for executable
     assert sys_executable.startswith(mock_tempdir)
     # Test for sys.path
     assert sys_path[-1].startswith(mock_tempdir)
     # Test for package version
     assert packages_dict["jax"] == "0.4.13"
+
+
+# Two more tests similar to the above but with flytekit and opencv-python-headless
+def test_run_in_venv_imports_flytekit_properly(mock_tempdir):
+    # Define a function that imports flytekit and returns its version
+    @run_in_venv(pip_dependencies=["flytekit==1.7.0"])
+    def empty_function_with_flytekit():
+        import sys
+        import importlib.metadata
+        import flytekit
+
+        # Get the list of installed packages
+        packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
+        return packages_dict, sys.path, sys.executable
+
+    # Run the function
+    packages_dict, sys_path, sys_executable = empty_function_with_flytekit()
+    # Test for executable
+    assert sys_executable.startswith(mock_tempdir)
+    # Test for sys.path
+    assert sys_path[-1].startswith(mock_tempdir)
+    # Test for package version
+    assert packages_dict["flytekit"] == "1.7.0"
+
+
+def test_run_in_venv_imports_opencv_properly(mock_tempdir):
+    # Define a function that imports opencv-python-headless and returns its version
+    @run_in_venv(pip_dependencies=["opencv-python-headless==4.7.0.72"])
+    def empty_function_with_opencv():
+        import sys
+        import importlib.metadata
+        import cv2
+
+        # Get the list of installed packages
+        packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
+        return packages_dict, sys.path, sys.executable
+    
+    # Run the function
+    packages_dict, sys_path, sys_executable = empty_function_with_opencv()
+    # Test for executable
+    assert sys_executable.startswith(mock_tempdir)
+    # Test for sys.path
+    assert sys_path[-1].startswith(mock_tempdir)
+    # Test for package version
+    assert packages_dict["opencv-python-headless"] == "4.7.0.72"
+
+
