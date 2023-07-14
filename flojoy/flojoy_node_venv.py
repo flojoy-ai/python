@@ -27,13 +27,14 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
 import venv
 from functools import wraps
-
 import cloudpickle
 
+from .utils import FLOJOY_CACHE_DIR
+
 __all__ = ["run_in_venv"]
+
 
 class MultiprocessingExecutableContextManager:
     """Temporarily change the executable used by multiprocessing."""
@@ -76,7 +77,7 @@ def _install_pip_dependencies(
     """Install pip dependencies into the virtual environment."""
     command = [venv_executable, "-m", "pip", "install"]
     if(not verbose):
-        command += ["-q"]  
+        command += ["-q", "-q"]  
     command += list(pip_dependencies)
     subprocess.check_call(command)
 
@@ -108,7 +109,10 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
     else:
         return os.path.join(venv_path, "bin", "python")
 
-def run_in_venv(pip_dependencies=[]):
+def _get_venv_cache_dir():
+    return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
+
+def run_in_venv(pip_dependencies=[], verbose=False):
     # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
     packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
     pip_dependencies = sorted([
@@ -116,12 +120,13 @@ def run_in_venv(pip_dependencies=[]):
         f"cloudpickle=={packages_dict['cloudpickle']}"] \
         + pip_dependencies
     )
-    # Get the system's temporary directory path
-    temp_dirpath = tempfile.gettempdir()
+    # Get the root directory for the virtual environments
+    venv_cache_dir = _get_venv_cache_dir()
+    os.makedirs(venv_cache_dir, exist_ok=True)
     # Generate a path-safe hash of the pip dependencies
     # this prevents the duplication of virtual environments
     pip_dependencies_hash = hashlib.sha256("".join(pip_dependencies).encode()).hexdigest()
-    venv_path = os.path.join(temp_dirpath, f"flojoy_node_venv_{pip_dependencies_hash}")
+    venv_path = os.path.join(venv_cache_dir, f"{pip_dependencies_hash}")
     venv_executable = _get_venv_executable_path(venv_path)
     # Create the node_env virtual environment if it does not exist
     if not os.path.exists(venv_path):
@@ -131,7 +136,8 @@ def run_in_venv(pip_dependencies=[]):
             try:
                 _install_pip_dependencies(
                     venv_executable=venv_executable,
-                    pip_dependencies=tuple(pip_dependencies)
+                    pip_dependencies=tuple(pip_dependencies),
+                    verbose=verbose
                 )
             except subprocess.CalledProcessError as e:
                 shutil.rmtree(venv_path)

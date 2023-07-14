@@ -2,30 +2,30 @@ import pytest
 import os
 import shutil
 from unittest.mock import patch
+import tempfile
 
-from flojoy import flojoy, run_in_venv
 
 pytestmark = pytest.mark.slow
 
 
 # Define a fixture to patch tempfile.tempdir
 @pytest.fixture
-def mock_tempdir():
-    import tempfile
+def mock_venv_cache_dir():
     _test_tempdir = os.path.join(tempfile.gettempdir(), "test_flojoy_node_venv")
-    del tempfile
     # Wipe the directory to be patched if it exists
     shutil.rmtree(_test_tempdir, ignore_errors=True)
     os.makedirs(_test_tempdir)
     # Patch the tempfile.tempdir
-    with patch("tempfile.gettempdir", return_value=_test_tempdir):
+    with patch("flojoy.flojoy_node_venv._get_venv_cache_dir", return_value=_test_tempdir):
         yield _test_tempdir
     # Clean up
     shutil.rmtree(_test_tempdir)
 
 
-def test_run_in_venv_imports_jax_properly(mock_tempdir):
+def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
     """Test that run_in_venv imports properly jax for example"""
+
+    from flojoy import flojoy, run_in_venv
 
     @run_in_venv(pip_dependencies=["jax[cpu]==0.4.13"])
     def empty_function_with_jax():
@@ -41,16 +41,20 @@ def test_run_in_venv_imports_jax_properly(mock_tempdir):
 
     # Run the function
     packages_dict, sys_path, sys_executable = empty_function_with_jax()
+    print(sys_executable)
     # Test for executable
-    assert sys_executable.startswith(mock_tempdir)
+    assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_tempdir)
+    assert sys_path[-1].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["jax"] == "0.4.13"
 
 
 # Two more tests similar to the above but with flytekit and opencv-python-headless
-def test_run_in_venv_imports_flytekit_properly(mock_tempdir):
+def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
+    
+    from flojoy import flojoy, run_in_venv
+
     # Define a function that imports flytekit and returns its version
     @run_in_venv(pip_dependencies=["flytekit==1.7.0"])
     def empty_function_with_flytekit():
@@ -65,15 +69,18 @@ def test_run_in_venv_imports_flytekit_properly(mock_tempdir):
     # Run the function
     packages_dict, sys_path, sys_executable = empty_function_with_flytekit()
     # Test for executable
-    assert sys_executable.startswith(mock_tempdir)
+    assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_tempdir)
+    assert sys_path[-1].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["flytekit"] == "1.7.0"
 
 
-def test_run_in_venv_imports_opencv_properly(mock_tempdir):
+def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
     # Define a function that imports opencv-python-headless and returns its version
+
+    from flojoy import flojoy, run_in_venv
+
     @run_in_venv(pip_dependencies=["opencv-python-headless==4.7.0.72"])
     def empty_function_with_opencv():
         import sys
@@ -87,9 +94,9 @@ def test_run_in_venv_imports_opencv_properly(mock_tempdir):
     # Run the function
     packages_dict, sys_path, sys_executable = empty_function_with_opencv()
     # Test for executable
-    assert sys_executable.startswith(mock_tempdir)
+    assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_tempdir)
+    assert sys_path[-1].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["opencv-python-headless"] == "4.7.0.72"
 
