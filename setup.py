@@ -32,9 +32,7 @@ setup(
         "python-dotenv",
         "pyyaml",
         "plotly==5.8.2",
-        "transformers>=4.26.0",
-        "torch>=1.9",
-        "torchvision>=0.10",
+        "huggingface-hub==0.16.4",
         "Pillow",
         "cloudpickle"
     ],
