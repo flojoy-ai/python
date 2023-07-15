@@ -33,7 +33,7 @@ else:
 
 # Make as a function to mock at test-time
 def _get_hf_hub_cache_path() -> str:
-    return os.path.join(FLOJOY_CACHE_DIR, "hf_hub_cache")
+    return os.path.join(FLOJOY_CACHE_DIR, "cache", "hf_hub")
 
 
 def hf_hub_download(*args, **kwargs):
