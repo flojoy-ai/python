@@ -1,34 +1,51 @@
-import sys
 import decimal
+import difflib
 import json as _json
+import os
+import sys
+from contextlib import contextmanager
+from functools import partial
+from pathlib import Path
+from typing import Any, Callable, Union
 
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import os
-import yaml
-from typing import Callable, Union, Any
 import requests
+import yaml
 from dotenv import dotenv_values  # type:ignore
-import difflib
-from typing import Literal
-
-
-from .node_init import NodeInit, NodeInitService
+from huggingface_hub import hf_hub_download as _hf_hub_download
 
 from .dao import Dao
+from .node_init import NodeInit, NodeInitService
 
 __all__ = [
     "send_to_socket",
     "get_frontier_api_key",
     "set_frontier_api_key",
     "set_frontier_s3_key",
+    "hf_hub_download"
 ]
 
 if sys.platform == "win32":
     FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], ".flojoy")
 else:
     FLOJOY_CACHE_DIR = os.path.join(os.environ["HOME"], ".flojoy")
+
+# Make as a function to mock at test-time
+def _get_hf_hub_cache_path() -> str:
+    return os.path.join(FLOJOY_CACHE_DIR, "cache", "hf_hub")
+
+
+def hf_hub_download(*args, **kwargs):
+    if("cache_dir" not in kwargs):
+        kwargs["cache_dir"] = _get_hf_hub_cache_path() 
+    else:
+        if(kwargs["cache_dir"] != _get_hf_hub_cache_path()):
+            raise ValueError(
+                f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
+            )
+    return _hf_hub_download(*args, **kwargs)
+
 
 env_vars = dotenv_values("../.env")
 port = env_vars.get("VITE_BACKEND_PORT", "8000")

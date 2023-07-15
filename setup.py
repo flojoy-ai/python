@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="flojoy",
     packages=find_packages(exclude=["tests"]),
-    version="0.1.5-dev5",
+    version="0.1.5-dev6",
     license="MIT",
     description="Python client library for Flojoy.",
     author="flojoy",
@@ -32,9 +32,7 @@ setup(
         "python-dotenv",
         "pyyaml",
         "plotly==5.8.2",
-        "transformers>=4.26.0",
-        "torch>=1.9",
-        "torchvision>=0.10",
+        "huggingface-hub==0.16.4",
         "Pillow",
         "cloudpickle"
     ],
