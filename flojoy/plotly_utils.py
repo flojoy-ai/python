@@ -32,7 +32,10 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
         case "scalar":
             fig = px.histogram(x=data_copy.c)
         case "vector":
-            fig = px.histogram(x=data_copy.v)
+            df = pd.DataFrame(data_copy.v)
+            fig = go.Figure(
+                data=[go.Table(header=dict(values=["Vector"]), cells=dict(values=[df]))]
+            )
         case "dataframe":
             df = cast(pd.DataFrame, data_copy.m)
             fig = go.Figure(
