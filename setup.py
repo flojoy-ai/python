@@ -25,8 +25,6 @@ setup(
         "requests",
         "networkx",
         "numpy",
-        "redis",
-        "rq",
         "scipy",
         "pandas",
         "pytest",

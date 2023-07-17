@@ -3,8 +3,6 @@ import difflib
 import json as _json
 import os
 import sys
-from contextlib import contextmanager
-from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Union
 
@@ -25,13 +23,19 @@ __all__ = [
     "set_frontier_api_key",
     "set_frontier_s3_key",
     "hf_hub_download",
-    "snapshot_download"
+    "snapshot_download",
+    "get_node_init_function",
+    "clear_flojoy_memory",
 ]
 
+FLOJOY_DIR = ".flojoy"
+
+
 if sys.platform == "win32":
-    FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], ".flojoy")
+    FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], FLOJOY_DIR)
 else:
-    FLOJOY_CACHE_DIR = os.path.join(os.environ["HOME"], ".flojoy")
+    FLOJOY_CACHE_DIR = os.path.join(os.environ["HOME"], FLOJOY_DIR)
+
 
 # Make as a function to mock at test-time
 def _get_hf_hub_cache_path() -> str:
@@ -39,20 +43,21 @@ def _get_hf_hub_cache_path() -> str:
 
 
 def hf_hub_download(*args, **kwargs):
-    if("cache_dir" not in kwargs):
-        kwargs["cache_dir"] = _get_hf_hub_cache_path() 
+    if "cache_dir" not in kwargs:
+        kwargs["cache_dir"] = _get_hf_hub_cache_path()
     else:
-        if(kwargs["cache_dir"] != _get_hf_hub_cache_path()):
+        if kwargs["cache_dir"] != _get_hf_hub_cache_path():
             raise ValueError(
                 f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
             )
     return _hf_hub_download(*args, **kwargs)
 
+
 def snapshot_download(*args, **kwargs):
-    if("cache_dir" not in kwargs):
-        kwargs["cache_dir"] = _get_hf_hub_cache_path() 
+    if "cache_dir" not in kwargs:
+        kwargs["cache_dir"] = _get_hf_hub_cache_path()
     else:
-        if(kwargs["cache_dir"] != _get_hf_hub_cache_path()):
+        if kwargs["cache_dir"] != _get_hf_hub_cache_path():
             raise ValueError(
                 f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
             )
@@ -256,6 +261,19 @@ def dump_str(result: Any, limit: int | None = None):
     )
 
 
+def get_flojoy_root_dir() -> str:
+    home = str(Path.home())
+    path = os.path.join(home, ".flojoy/flojoy.yaml")
+    stream = open(path, "r")
+    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
+    root_dir = ""
+    if isinstance(yaml_dict, str):
+        root_dir = yaml_dict.split(":")[1]
+    else:
+        root_dir = yaml_dict["PATH"]
+    return root_dir
+
+
 def get_frontier_api_key() -> Union[str, None]:
     home = str(Path.home())
     api_key = None
@@ -280,7 +298,7 @@ def get_frontier_api_key() -> Union[str, None]:
 def set_frontier_api_key(api_key: str):
     try:
         home = str(Path.home())
-        file_path = os.path.join(home, ".flojoy/credentials")
+        file_path = os.path.join(home, FLOJOY_DIR, "credentials")
 
         if not os.path.exists(file_path):
             # Create a new file and write the API_KEY to it
@@ -311,7 +329,7 @@ def set_frontier_api_key(api_key: str):
 
 def set_frontier_s3_key(s3_name: str, s3_access_key: str, s3_secret_key: str):
     home = str(Path.home())
-    file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
+    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.yaml"))
 
     data = {
         f"{s3_name}": s3_name,
@@ -335,10 +353,12 @@ def set_frontier_s3_key(s3_name: str, s3_access_key: str, s3_secret_key: str):
     with open(file_path, "w") as file:
         yaml.dump(load, file)
 
+
 def clear_flojoy_memory():
     Dao.get_instance().clear_job_results()
     Dao.get_instance().clear_small_memory()
     Dao.get_instance().clear_node_init_containers()
+
 
 def get_node_init_function(node_func: Callable) -> NodeInit:
     return NodeInitService().get_node_init_function(node_func)

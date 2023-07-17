@@ -1,4 +1,4 @@
-from typing import Optional, Union, Any, Literal
+from typing import Optional, Union, Any, Literal, TypedDict
 from pathlib import Path
 
 from .data_container import *
@@ -15,8 +15,6 @@ from .small_memory import *
 from .flojoy_node_venv import *
 from .job_service import *
 from .node_init import *
-
-
 
 def hf_hub_download(
     repo_id: str,
@@ -166,7 +164,6 @@ def hf_hub_download(
     """
     ...
 
-
 def snapshot_download(
     repo_id: str,
     *,
@@ -288,3 +285,12 @@ def snapshot_download(
     </Tip>
     """
     ...
+
+def flojoy(
+    original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict]
+    | None = None,
+    *,
+    node_type: Optional[str] = None,
+    deps: Optional[dict[str, str]] = None,
+    inject_node_metadata: bool = False,
+) -> Callable[..., DataContainer | dict[str, Any]]: ...
