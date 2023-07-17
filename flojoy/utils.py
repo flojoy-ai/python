@@ -14,6 +14,7 @@ import requests
 import yaml
 from dotenv import dotenv_values  # type:ignore
 from huggingface_hub import hf_hub_download as _hf_hub_download
+from huggingface_hub import snapshot_download as _snapshot_download
 
 from .dao import Dao
 from .node_init import NodeInit, NodeInitService
@@ -23,7 +24,8 @@ __all__ = [
     "get_frontier_api_key",
     "set_frontier_api_key",
     "set_frontier_s3_key",
-    "hf_hub_download"
+    "hf_hub_download",
+    "snapshot_download"
 ]
 
 if sys.platform == "win32":
@@ -45,6 +47,16 @@ def hf_hub_download(*args, **kwargs):
                 f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
             )
     return _hf_hub_download(*args, **kwargs)
+
+def snapshot_download(*args, **kwargs):
+    if("cache_dir" not in kwargs):
+        kwargs["cache_dir"] = _get_hf_hub_cache_path() 
+    else:
+        if(kwargs["cache_dir"] != _get_hf_hub_cache_path()):
+            raise ValueError(
+                f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
+            )
+    return _snapshot_download(*args, **kwargs)
 
 
 env_vars = dotenv_values("../.env")
