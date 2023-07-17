@@ -3,6 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="flojoy",
     packages=find_packages(exclude=["tests"]),
+    package_data={"flojoy": ["__init__.pyi"]},
     version="0.1.5-dev6",
     license="MIT",
     description="Python client library for Flojoy.",

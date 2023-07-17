@@ -1,29 +1,5 @@
-from typing import Any, Callable, Optional, TypedDict
-
-from .data_container import *
-from .flojoy_instruction import *
-from .flojoy_node_venv import *
-from .flojoy_python import *
-from .job_result_builder import *
-from .job_result_utils import *
-from .job_service import *
-from .module_scraper import *
-from .node_init import *
-from .parameter_types import *
-from .plotly_utils import *
-from .small_memory import *
-from .utils import *
-
-def flojoy(
-    original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict]
-    | None = None,
-    *,
-    node_type: Optional[str] = None,
-    deps: Optional[dict[str, str]] = None,
-    inject_node_metadata: bool = False
-) -> Callable[..., DataContainer | dict[str, Any]]: ...
-
-
+from typing import Literal, Optional, Union
+from pathlib import Path
 
 
 def hf_hub_download(
@@ -38,10 +14,10 @@ def hf_hub_download(
     cache_dir: Union[str, Path, None] = None,
     local_dir: Union[str, Path, None] = None,
     local_dir_use_symlinks: Union[bool, Literal["auto"]] = "auto",
-    user_agent: Union[Dict, str, None] = None,
+    user_agent: Union[dict, str, None] = None,
     force_download: bool = False,
     force_filename: Optional[str] = None,
-    proxies: Optional[Dict] = None,
+    proxies: Optional[dict] = None,
     etag_timeout: float = 10,
     resume_download: bool = False,
     token: Union[bool, str, None] = None,
