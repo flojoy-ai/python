@@ -97,7 +97,6 @@ class DataContainer(Box):
     }
     type_keys_map: dict[DCType, list[str]] = {
         "dataframe": ["m"],
-        "vector": ["v"],
         "matrix": ["m"],
         "vector": ["v"],
         "grayscale": ["m"],
