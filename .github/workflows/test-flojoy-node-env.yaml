@@ -31,6 +31,7 @@ jobs:
         run: |
           pip install ruff pytest
           pip install -r requirements.txt
+          pip install -e .
 
       - name: Run python tests
         run: python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
@@ -50,6 +51,7 @@ jobs:
         run: |
           pip install ruff pytest
           pip install -r requirements.txt
+          pip install -e .
 
       - name: Run python tests
         run: python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
@@ -70,6 +72,7 @@ jobs:
         run: |
           pip install ruff pytest
           pip install -r requirements.txt
+          pip install -e .
         shell: powershell
 
       - name: Run python tests
