@@ -211,6 +211,13 @@ class FlojoyWrapper:
         self.data += "\n\t" + """'''""" + "\n\n"
 
         if self.module.__name__ == "numpy.linalg":
+            self.data = self.data.replace(
+                "OrderedPair | Matrix | Scalar",
+                "Matrix | Scalar")
+            self.data = self.data.replace(
+                "OrderedPair | Matrix",
+                "Matrix")
+
             self.data += f"\tresult = {self.module.__name__}.{self.name}(\n\t\t\t" + (
                 f"{self.first_argument}=default.m,\n\t\t\t"
                 if self.first_argument is not None
