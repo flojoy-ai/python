@@ -101,3 +101,16 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
     assert packages_dict["opencv-python-headless"] == "4.7.0.72"
 
 
+
+def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
+    """Test that run_in_venv imports properly jax for example"""
+
+    from flojoy import run_in_venv
+
+    @run_in_venv(pip_dependencies=[])
+    def empty_function_with_error():
+        return 1/0
+
+    # Run the function and excpect an error
+    with pytest.raises(ZeroDivisionError):
+        empty_function_with_error()
