@@ -56,7 +56,7 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
     from flojoy import flojoy, run_in_venv
 
     # Define a function that imports flytekit and returns its version
-    @run_in_venv(pip_dependencies=["flytekit==1.7.0"])
+    @run_in_venv(pip_dependencies=["flytekit==1.6.2"])
     def empty_function_with_flytekit():
         import sys
         import importlib.metadata
@@ -73,7 +73,7 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
     # Test for sys.path
     assert sys_path[-1].startswith(mock_venv_cache_dir)
     # Test for package version
-    assert packages_dict["flytekit"] == "1.7.0"
+    assert packages_dict["flytekit"] == "1.6.2"
 
 
 def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
