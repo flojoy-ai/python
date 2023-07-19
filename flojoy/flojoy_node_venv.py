@@ -27,6 +27,7 @@ import os
 import shutil
 import subprocess
 import sys
+import traceback
 import venv
 from functools import wraps
 import cloudpickle
@@ -99,7 +100,10 @@ class PickleableFunctionWithPipeIO:
         args = [cloudpickle.loads(arg) for arg in args]
         kwargs = {key: cloudpickle.loads(value) for key, value in kwargs.items()}
         with SwapSysPath(venv_executable=self._venv_executable):
-            result = fn(*args, **kwargs)
+            try:
+                result = fn(*args, **kwargs)
+            except Exception as e:
+                result = (e, traceback.format_exception(type(e), e, e.__traceback__))
         self._child_conn.send(result)
 
 def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str:
@@ -182,13 +186,14 @@ def run_in_venv(pip_dependencies: list[str] = [], verbose: bool = False):
                 serialized_result = parent_conn.recv_bytes()
                 # Wait for the process to finish
                 process.join()
-            # Check if the process exited with an error
-            if process.exitcode != 0:
-                raise ChildProcessError(f"Process exited with code {process.exitcode}")
-            # Check if the serialized_result is empty
-            if not serialized_result:
-                raise RuntimeError(f"No result was returned for {func.__name__}")
-            # Deserialize the result using cloudpickle
-            return cloudpickle.loads(serialized_result)
+            # Check if the process sent an exception with a traceback
+            result = cloudpickle.loads(serialized_result)
+            if isinstance(result, tuple) and isinstance(result[0], Exception):
+                # Fetch exception and formatted traceback (list[str])
+                exception, tcb = result
+                # Reraise an exception with the same class
+                logging.error(f"Error in child process \n{''.join(tcb)}")
+                raise exception
+            return result
         return wrapper
     return decorator
