@@ -215,27 +215,9 @@ def dump_str(result: Any, limit: int | None = None):
     )
 
 
-def get_frontier_api_key(name: str, s3Name: str = "") -> Union[dict, None]:
-    if name == "CLOUD":
-        return {"CLOUD": keyring.get_password("system", "CLOUD_API_KEY")}
-    elif name == "OPENAI":
-        return {"OPENAI": keyring.get_password("system", "OPENAI_API_KEY")}
-    elif name == "S3":
-        return {
-            "accessKey": keyring.get_password("system", f"{s3Name}accessKey"),
-            "secretKey": keyring.get_password("system", f"{s3Name}secretKey"),
-        }
-    else:
-        raise AssertionError("No such API Key exists")
+def get_frontier_api_key(key: str) -> Union[str, None]:
+    return keyring.get_password("system", key),
 
 
-def set_frontier_api_key(data: dict, name: str, s3Name: str = ""):
-    if name == "CLOUD":
-        keyring.set_password("system", "CLOUD_API_KEY", data["CLOUD_API_KEY"])
-    elif name == "OPENAI":
-        keyring.set_password("system", "OPENAI_API_KEY", data["OPENAI_API_KEY"])
-    elif name == "S3":
-        keyring.set_password("system", f"{s3Name}accessKey", data[f"{s3Name}accessKey"])
-        keyring.set_password("system", f"{s3Name}secretKey", data[f"{s3Name}secretKey"])
-    else:
-        raise AssertionError("Invalid API Key")
+def set_frontier_api_key(key: str, value: str):
+    keyring.set_password("system", key, value)
