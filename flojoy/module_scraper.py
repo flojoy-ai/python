@@ -1,5 +1,6 @@
 import inspect
 import re
+import docstring_parser as parse
 
 
 class FlojoyWrapper:
@@ -7,6 +8,7 @@ class FlojoyWrapper:
     FORBIDDEN_OPTIONAL_ARGS = ["x", "data", "kwargs", "comparator", "a", "A"]
     FORBIDDEN_TYPES = [
         "tuple",
+        "tuple of ndarrays",
         "array-like",
         "array_like",
         "function",
@@ -16,6 +18,9 @@ class FlojoyWrapper:
         "number or ndarray or sequence",
         "complex"
     ]
+    FORBIDDEN_RETURN = [
+        "tuple of ndarrays",
+    ]
 
     def __init__(self, func, parameters, module, argument_names):
         # we'll use parameters to get the actual default values of the
@@ -24,10 +29,6 @@ class FlojoyWrapper:
         self.org_docs = func.__doc__
         self.doc = func.__doc__
         self.count_returns()
-        # self.return_two = []
-        # if self.count_returns() != 1:
-        #     print(self.name, self.count_returns())
-        #     self.return_two.append(f'{self.name}: {self.count_returns()}')
         self.arguments = argument_names
         self.optional_argument_dict = parameters
         self.module = module
@@ -90,25 +91,44 @@ class FlojoyWrapper:
                     self.data = ""
                     return
 
+                if dtype in ["None or float", "float or array_like"]:
+                    dtype = "float"
+
                 if dtype == "str":
                     def_val = f"'{def_val}'"
 
                 if dtype != "None" and def_val != "":
                     self.data += f"{arg}: {dtype} = {def_val},\n\t"
-                elif dtype != "None" and def_val == "":
+                elif dtype == "int" and def_val == "":
+                    self.data += f"{arg}: {dtype} = 2,\n\t"
+                elif dtype == "float" and def_val == "":
+                    self.data += f"{arg}: {dtype} = 0.1,\n\t"
+                elif dtype not in ['int', 'float', 'None'] and def_val == "":
                     self.data += f"{arg}: {dtype},\n\t"
                 else:
                     self.data = ""
 
                 self.parameters[arg] = {"dtype": dtype, "optional": True}
 
+                doc = parse.parse_from_object(func)
+                for i in range(len(doc.many_returns)):
+                    return_type = doc.many_returns[i].type_name
+                    if return_type in self.FORBIDDEN_RETURN:
+                        self.data = ""
+                        return
+
+            # mvsdist and bayes_mvs both are incompatiable currently.
+            if 'mvs' in self.name:
+                self.data = ""
+                return
+
         if self.decomp_return:
             self.gen_return_options()
             self.data += f"select_return: Literal"
-            self.data += f"{[i for i in self.return_options]}"
+            self.data += f"{self.return_options}"
             self.data += f' = "{self.return_options[0]}",'
 
-        self.data += f") -> OrderedPair | Matrix | Scalar:\n\t"
+        self.data += ") -> OrderedPair | Matrix | Scalar:\n\t"
         self.process_docstring()
         self.write_test_script()
 
@@ -129,7 +149,7 @@ class FlojoyWrapper:
         if self.decomp_return:
             replace = "Parameters\n\t----------"
             replace += "\n\tselect_return : This function has returns multiple"
-            replace += f" Objects:\n\t\t{self.return_options}. "
+            replace += f" objects:\n\t\t{self.return_options}. "
             replace += "Select the desired one to return.\n\t\t"
             replace += "See the respective function docs for descriptors."
             self.doc = self.doc.replace("Parameters\n\t----------", replace)
@@ -223,31 +243,58 @@ class FlojoyWrapper:
                 if self.first_argument is not None
                 else ""
             )
-
             self.write_func_args()
             self.data += ")\n"
 
             if self.decomp_return:
-                self.data += "\n\tif isinstance(result, namedtuple):"
+                self.gen_return_options()
+                self.data += f"\n\treturn_list = {self.return_options}"
+                self.data += "\n\tif isinstance(result, tuple):"
+                self.data += "\n\t\tres_dict = {}"
+                self.data += "\n\t\tnum = min(len(result), len(return_list))"
+                self.data += "\n\t\tfor i in range(num):"
+                self.data += "\n\t\t\tres_dict[return_list[i]] = result[i]"
+                self.data += "\n\t\tresult = res_dict[select_return]"
+
+                self.data += "\n\telse:"
                 self.data += "\n\t\tresult = result._asdict()"
                 self.data += "\n\t\tresult = result[select_return]\n"
 
             self.data += "\n\tif isinstance(result, np.ndarray):\n\t\t"
             self.data += "result = Matrix(m=result)"
-            self.data += "\n\telif isinstance(result, np.float64):\n\t\t"
-            self.data += "result = Scalar(c=result)\n\t"
+            self.data += "\n\telif isinstance(result, np.float64 | float | np.int64 | int):\n\t\t"
+            self.data += "result = Scalar(c=float(result))\n\t"
 
         # elif self.module.__name__ == "numpy.matlib":  # TODO add matlib
 
         else:
-            self.data += f"\tresult = OrderedPair(x=default.x,"
-            self.data += f"\n\t\ty={self.module.__name__}.{self.name}(\n\t\t\t" + (
+            print(f'{self.module.__name__}.{self.name}')
+            self.data += f"\tresult = {self.module.__name__}.{self.name}(\n\t\t\t" + (
                 f"{self.first_argument}=default.y,\n\t\t\t"
                 if self.first_argument is not None
                 else ""
             )
             self.write_func_args()
-            self.data += "))\n"
+            self.data += ")\n"
+
+            if self.decomp_return:
+                self.gen_return_options()
+                self.data += f"\n\treturn_list = {self.return_options}"
+                self.data += "\n\tif isinstance(result, tuple):"
+                self.data += "\n\t\tres_dict = {}"
+                self.data += "\n\t\tnum = min(len(result), len(return_list))"
+                self.data += "\n\t\tfor i in range(num):"
+                self.data += "\n\t\t\tres_dict[return_list[i]] = result[i]"
+                self.data += "\n\t\tresult = res_dict[select_return]"
+
+                self.data += "\n\telse:"
+                self.data += "\n\t\tresult = result._asdict()"
+                self.data += "\n\t\tresult = result[select_return]\n"
+
+            self.data += "\n\tif isinstance(result, np.ndarray):\n\t\t"
+            self.data += "result = OrderedPair(x=default.x, y=result)"
+            self.data += "\n\telif isinstance(result, np.float64 | float | np.int64 | int):\n\t\t"
+            self.data += "result = Scalar(c=float(result))\n\t"
 
         # self.data += ")\n\t)\n"
         self.data += "\n\treturn result\n"
@@ -261,13 +308,23 @@ class FlojoyWrapper:
         self.test_script += f'\n\timport {nodename}\n\n\t'
 
         if self.module.__name__ == "numpy.linalg":
-            self.test_script += 'element_a = Matrix(m=np.ones((5, 5)))'
-        else:
-            self.test_script += 'element_a = OrderedPair(x=np.ones(5), y=np.ones(5))'
+            self.test_script += 'array1 = np.eye(5)\n\t'
+            self.test_script += 'array2 = np.eye(9)\n\t'
+            self.test_script += 'array2.shape = (3, 3, 3, 3)\n\n\t'
+            self.test_script += 'try:\n\t\t'
+            self.test_script += 'element_a = Matrix(m=array1)\n\t\t'
+            self.test_script += f'res = {nodename}.{nodename}(default=element_a)\n\t'
+            self.test_script += 'except np.linalg.LinAlgError:\n\t\t'
+            self.test_script += 'element_a = Matrix(m=array2)\n\t\t'
+            self.test_script += f'res = {nodename}.{nodename}(default=element_a)\n\n'
 
-        self.test_script += f'\n\tres = {nodename}.{nodename}(default=element_a)'
+        else:
+            self.test_script += 'element_a = OrderedPair(x='
+            self.test_script += 'np.ones(50), y=np.arange(1, 51))\n\t'
+            self.test_script += f'res = {nodename}.{nodename}(default=element_a)\n\t'
+
         self.test_script += '\n\n\t# check that the outputs are one of the correct types.'
-        self.test_script += 'assert isinstance(res, Scalar | OrderedPair | Matrix)\n'
+        self.test_script += '\n\tassert isinstance(res, Scalar | OrderedPair | Matrix)\n'
 
 
 def scrape_function(func):
@@ -308,7 +365,8 @@ if __name__ == "__main__":
             # Use inspect to function params, arg names, etc.
             for name, func in inspect.getmembers(submodule, inspect.isfunction):
                 _, all_arg_names, default_optional_params = scrape_function(func)
-                # for the random library we need to check if there are any input arguments at all!
+                # for the random library we need to check if there are-
+                # any input arguments at all!
                 func_is_valid = False
                 if not all_arg_names:
                     func_is_valid = True
@@ -336,23 +394,25 @@ if __name__ == "__main__":
                             this_nodes_directory.mkdir(exist_ok=True)
 
                             # Write node script.
+                            script_name = f"{fw.name.upper()}.py"
                             with open(
-                                this_nodes_directory / f"{fw.name.upper()}.py", "w"
+                                this_nodes_directory / script_name, "w"
                             ) as fh:
                                 fh.write(fw.data)
 
                             # Write testing script.
-                            # with open(
-                            #     this_nodes_directory / f"{fw.name.upper()}_test_.py", "w"
-                            # ) as fh:
-                            #     fh.write(fw.test_script)
+                            test_name = f"{fw.name.upper()}_test_.py"
+                            with open(
+                                this_nodes_directory / test_name, "w"
+                            ) as fh:
+                                fh.write(fw.test_script)
 
                             valids.append(fw.name)
 
                         except SyntaxError:
                             invalids.append(fw.name)
 
-                        # Testing section: create nodes with errors.
+                        # Debug section: create node scripts with errors.
 
                         # this_nodes_directory = Path(NODE_DIR / f"{fw.name.upper()}")
                         # this_nodes_directory.mkdir(exist_ok=True)
@@ -363,6 +423,7 @@ if __name__ == "__main__":
 
             print('invalids: ', invalids)
             print('valids: ', valids)
+            print(f'Created nodes for {len(valids)} out of {len(valids) + len(invalids)} functions.')
             with open(NODE_DIR / "__init__.py", "w") as fh:
                 functions = "__all__ = ["
                 for name in valids:
