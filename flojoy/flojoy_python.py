@@ -1,33 +1,18 @@
-import os
 import json
-import yaml
 import traceback
-from pathlib import Path
 from functools import wraps
+
+from flojoy.node_init import NodeInitService
 from .data_container import DataContainer
-from .utils import PlotlyJSONEncoder, dump_str
+from .utils import PlotlyJSONEncoder
 from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import send_to_socket
-from time import sleep
 from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
 
 __all__ = ["flojoy", "DefaultParams"]
-
-
-def get_flojoy_root_dir() -> str:
-    home = str(Path.home())
-    path = os.path.join(home, ".flojoy/flojoy.yaml")
-    stream = open(path, "r")
-    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
-    root_dir = ""
-    if isinstance(yaml_dict, str):
-        root_dir = yaml_dict.split(":")[1]
-    else:
-        root_dir = yaml_dict["PATH"]
-    return root_dir
 
 
 def fetch_inputs(previous_jobs: list[dict[str, str]]):
@@ -209,6 +194,10 @@ def flojoy(
                     )
 
                 print(node_id, " params: ", args.keys(), flush=True)
+
+                # check if node has an init container and if so, inject it
+                if NodeInitService().has_init_store(node_id):
+                    args["init_container"] = NodeInitService().get_init_store(node_id)
 
                 ##########################
                 # calling the node function
