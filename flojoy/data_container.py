@@ -99,6 +99,8 @@ class DataContainer(Box):
         "g": ["r", "b", "t", "a", "extra"],
         "b": ["r", "g", "t", "a", "extra"],
         "a": ["r", "g", "b", "t", "extra"],
+        "bytes": ["extra"],
+        "text_blob": ["extra"],
         "extra": [*(k for k in allowed_keys if k not in ["extra"])],
         "fig": ["t", "extra"],
     }
