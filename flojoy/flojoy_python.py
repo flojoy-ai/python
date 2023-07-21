@@ -12,7 +12,7 @@ from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
 
-__all__ = ["flojoy", "DefaultParams"]
+__all__ = ["flojoy", "DefaultParams", "display"]
 
 
 def fetch_inputs(previous_jobs: list[dict[str, str]]):
@@ -77,7 +77,7 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
 
 class DefaultParams:
     def __init__(
-        self, node_id: str, job_id: str, jobset_id: str, node_type: str
+            self, node_id: str, job_id: str, jobset_id: str, node_type: str
     ) -> None:
         self.node_id = node_id
         self.job_id = job_id
@@ -85,12 +85,16 @@ class DefaultParams:
         self.node_type = node_type
 
 
+def display(
+        original_function: Callable[..., DataContainer | dict[str, Any]] | None = None):
+    return original_function
+
 def flojoy(
-    original_function: Callable[..., DataContainer | dict[str, Any]] | None = None,
-    *,
-    node_type: Optional[str] = None,
-    deps: Optional[dict[str, str]] = None,
-    inject_node_metadata: bool = False,
+        original_function: Callable[..., DataContainer | dict[str, Any]] | None = None,
+        *,
+        node_type: Optional[str] = None,
+        deps: Optional[dict[str, str]] = None,
+        inject_node_metadata: bool = False,
 ):
     """
     Decorator to turn Python functions with numerical return
@@ -138,11 +142,11 @@ def flojoy(
     def decorator(func: Callable[..., DataContainer | dict[str, Any]]):
         @wraps(func)
         def wrapper(
-            node_id: str,
-            job_id: str,
-            jobset_id: str,
-            previous_jobs: list[dict[str, str]] = [],
-            ctrls: dict[str, Any] | None = None,
+                node_id: str,
+                job_id: str,
+                jobset_id: str,
+                previous_jobs: list[dict[str, str]] = [],
+                ctrls: dict[str, Any] | None = None,
         ):
             try:
                 FN = func.__name__
