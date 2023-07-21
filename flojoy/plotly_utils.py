@@ -31,6 +31,11 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
             fig = px.scatter_3d(x=data_copy.x, y=data_copy.y, z=data_copy.z)
         case "scalar":
             fig = px.histogram(x=data_copy.c)
+        case "vector":
+            df = pd.DataFrame(data_copy.v)
+            fig = go.Figure(
+                data=[go.Table(header=dict(values=["Vector"]), cells=dict(values=[df]))]
+            )
         case "dataframe":
             df = cast(pd.DataFrame, data_copy.m)
             fig = go.Figure(

@@ -1,9 +1,8 @@
-import json
-import os
 import numpy as np
 import pandas as pd
-from typing import Any, cast
+from typing import Any
 from threading import Lock
+from .data_container import DCNpArrayType
 
 MAX_LIST_SIZE = 1000
 
@@ -39,7 +38,7 @@ class Dao:
 
     def __init__(self):
         self.storage: dict[str, Any] = {}  # small memory
-        self.job_results = {}
+        self.job_results: dict[str, Any] = {}
 
     """
     METHODS FOR JOB RESULTS
@@ -48,7 +47,7 @@ class Dao:
     def get_job_result(self, job_id: str) -> Any | None:
         res = self.job_results.get(job_id, None)
         if res is None:
-            raise Exception(f"Job result with id {job_id} does not exist")
+            raise ValueError(f"Job result with id {job_id} does not exist")
         return res
 
     def post_job_result(self, job_id: str, result: Any):
@@ -74,21 +73,17 @@ class Dao:
         with self._dict_sm_lock:
             self.storage.clear()
 
-    def check_if_valid(self, result, expected_type):
+    def check_if_valid(self, result: Any | None, expected_type: Any):
         if result is not None and not isinstance(result, expected_type):
             raise ValueError(
                 f"Expected {expected_type} type, but got {type(result)} instead!"
             )
 
-    def set_np_array(self, memo_key: str, value: np.ndarray):
-        # encoded = self.serialize_np(value)
-        # self.storage[memo_key] = encoded
+    def set_np_array(self, memo_key: str, value: DCNpArrayType):
         with self._dict_sm_lock:
             self.storage[memo_key] = value
 
     def set_pandas_dataframe(self, key: str, dframe: pd.DataFrame):
-        # encode = dframe.to_json()
-        #  self.storage[key] = encode
         with self._dict_sm_lock:
             self.storage[key] = dframe
 
@@ -96,37 +91,26 @@ class Dao:
         with self._dict_sm_lock:
             self.storage[key] = value
 
-    def get_pd_dataframe(self, key: str) -> pd.DataFrame:
+    def get_pd_dataframe(self, key: str) -> pd.DataFrame | None:
         encoded = self.storage.get(key, None)
-        if encoded is None:
-            return pd.read_json("")
         self.check_if_valid(encoded, pd.DataFrame)
-        # decode = encoded.decode("utf-8") if encoded is not None else ""
-        # read_json = pd.read_json(decode)
-        return encoded.head()
+        return encoded
 
-    def get_np_array(self, memo_key: str, np_meta_data: dict[str, str]) -> np.ndarray:
+    def get_np_array(self, memo_key: str) -> DCNpArrayType | None:
         encoded = self.storage.get(memo_key, None)
-        if encoded is None:
-            return np.array([])
         self.check_if_valid(encoded, np.ndarray)
         return encoded
 
     def get_str(self, key: str) -> str | None:
         encoded = self.storage.get(key, None)
-        if encoded is None:
-            return None
         return encoded
 
     def get_obj(self, key: str) -> dict[str, Any] | None:
-        r_obj = self.storage.get(key, {})
-        # if r_obj:
-        #     return cast(dict[str, Any], json.loads(r_obj))
+        r_obj = self.storage.get(key, None)
         self.check_if_valid(r_obj, dict)
         return r_obj
 
     def set_obj(self, key: str, value: dict[str, Any]):
-        # dump = json.dumps(value)
         with self._dict_sm_lock:
             self.storage[key] = value
 
@@ -137,11 +121,13 @@ class Dao:
     def remove_item_from_set(self, key: str, item: Any):
         res = self.storage.get(key, None)
         self.check_if_valid(res, set)
+        if not res:
+            return
         with self._dict_sm_lock:
             res.remove(item)
 
     def add_to_set(self, key: str, value: Any):
-        res = self.storage.get(key, None)
+        res: set[Any] | None = self.storage.get(key, None)
         if res is None:
             res = set()
             res.add(value)
@@ -157,12 +143,3 @@ class Dao:
             return None
         self.check_if_valid(res, set)
         return list(res)
-
-    def serialize_np(self, np_array: np.ndarray):
-        return np_array.ravel().tostring()
-
-    def desirialize_np(self, encoded: bytes, np_meta_data: dict[str, str]):
-        d_type = np_meta_data.get("d_type", "")
-        dimensions = np_meta_data.get("dimensions", [])
-        shapes_in_int = [int(shape) for shape in dimensions]
-        return np.fromstring(encoded, dtype=d_type).reshape(*shapes_in_int)

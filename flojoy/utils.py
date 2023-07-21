@@ -215,6 +215,19 @@ def dump_str(result: Any, limit: int | None = None):
     )
 
 
+def get_flojoy_root_dir() -> str:
+    home = str(Path.home())
+    path = os.path.join(home, ".flojoy/flojoy.yaml")
+    stream = open(path, "r")
+    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
+    root_dir = ""
+    if isinstance(yaml_dict, str):
+        root_dir = yaml_dict.split(":")[1]
+    else:
+        root_dir = yaml_dict["PATH"]
+    return root_dir
+
+
 def get_frontier_api_key(key: str) -> Union[str, None]:
     return keyring.get_password("system", key),
 
