@@ -18,6 +18,8 @@ __all__ = [
     "set_frontier_s3_key",
 ]
 
+FLOJOY_DIR = ".flojoy"
+
 env_vars = dotenv_values("../.env")
 port = env_vars.get("VITE_BACKEND_PORT", "8000")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
@@ -234,3 +236,15 @@ def get_frontier_api_key(key: str) -> Union[str, None]:
 
 def set_frontier_api_key(key: str, value: str):
     keyring.set_password("system", key, value)
+    home = str(Path.home())
+    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
+
+    if not os.path.exists(file_path):
+        # Create a new file and write the ACCSS_KEY to it
+        print("hello")
+        with open(file_path, "w") as file:
+            file.write(key+",")
+        return
+    else:
+        with open(file_path, "a") as file:
+            file.write(key+",")
