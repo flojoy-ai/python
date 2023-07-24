@@ -23,8 +23,9 @@ class FlojoyWrapper:
     ]
 
     def __init__(self, func, parameters, module, argument_names):
-        # we'll use parameters to get the actual default values of the
-        # arguments for generating the manifest
+        """We'll use parameters to get the actual default values of the
+        arguments for generating the manifest.
+        """
         self.name = func.__name__
         self.org_docs = func.__doc__
         self.doc = func.__doc__
@@ -268,8 +269,9 @@ class FlojoyWrapper:
                 self.data += "\n\t\tresult = result[select_return]\n"
 
             self.data += "\n\tif isinstance(result, np.ndarray):\n\t\t"
-            self.data += "result = Matrix(m=result)"
-            self.data += "\n\telif isinstance(result, np.float64 | float | np.int64 | int):\n\t\t"
+            self.data += "result = Matrix(m=result)\n\t"
+            self.data += "elif isinstance(result, np.float64"
+            self.data += " | float | np.int64 | int):\n\t\t"
             self.data += "result = Scalar(c=float(result))\n\t"
 
         # elif self.module.__name__ == "numpy.matlib":  # TODO add matlib
@@ -346,6 +348,7 @@ class FlojoyWrapper:
         self.test_script += '\n\n\t# check that the outputs are one of the correct types.'
         self.test_script += '\n\tassert isinstance(res, Scalar | OrderedPair | Matrix)\n'
 
+        # Some nodes tests require custom inputs for testing.
         filename = f'{os.path.dirname(__file__)}/scraper/test_replace.txt'
         replace = np.loadtxt(filename, delimiter='\t', dtype=str, skiprows=1).T
         if nodename in replace[0]:
@@ -417,7 +420,7 @@ if __name__ == "__main__":
                         and "NoneType" not in fw.data
                     ):
                         try:
-                            valid = ast.parse(fw.data)
+                            valid = ast.parse(fw.data)  # Test node script.
                             this_nodes_directory = Path(NODE_DIR / f"{fw.name.upper()}")
                             this_nodes_directory.mkdir(exist_ok=True)
 
