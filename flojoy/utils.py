@@ -10,6 +10,7 @@ import requests
 from dotenv import dotenv_values  # type:ignore
 import difflib
 import keyring
+import uuid
 
 __all__ = [
     "send_to_socket",
