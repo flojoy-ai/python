@@ -1,6 +1,10 @@
+import os
 import json
 import traceback
+from pathlib import Path
 from functools import wraps
+
+from flojoy.node_init import NodeInitService
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder
 from typing import Callable, Any, Optional
@@ -9,6 +13,7 @@ from .utils import send_to_socket
 from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
+from .small_memory import SmallMemory
 
 __all__ = ["flojoy", "DefaultParams"]
 
@@ -31,6 +36,7 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
 
     try:
         for prev_job in previous_jobs:
+            num_of_time_attempted = 0
             prev_job_id = prev_job.get("job_id")
             input_name = prev_job.get("input_name", "")
             multiple = prev_job.get("multiple", False)
@@ -193,6 +199,10 @@ def flojoy(
 
                 print(node_id, " params: ", args.keys(), flush=True)
 
+                # check if node has an init container and if so, inject it
+                if NodeInitService().has_init_store(node_id):
+                    args["init_container"] = NodeInitService().get_init_store(node_id)
+
                 ##########################
                 # calling the node function
                 ##########################
@@ -238,7 +248,6 @@ def flojoy(
                             }
                         )
                     )
-
                 return dc_obj
             except Exception as e:
                 send_to_socket(

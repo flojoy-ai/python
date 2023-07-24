@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import Any
+from typing import Any, Callable
 from threading import Lock
 from .data_container import DCNpArrayType
 
@@ -21,13 +21,12 @@ This class is a Singleton that acts as a in-memory datastorage
 IMPORTANT: The commented code should not be removed, as it acts as a reference for the future
 in case we need to implement a Redis based datastorage
 """
-
-
 class Dao:
     _instance = None
     _init_lock = Lock()
     _dict_sm_lock = Lock()  # dict small memory lock
     _dict_job_lock = Lock()  # dict job lock
+    _init_lock = Lock()
 
     @classmethod
     def get_instance(cls):
@@ -37,8 +36,17 @@ class Dao:
             return Dao._instance
 
     def __init__(self):
-        self.storage: dict[str, Any] = {}  # small memory
-        self.job_results: dict[str, Any] = {}
+        
+        self.storage = {} # small memory
+        self.job_results = {} 
+        self.node_init_container = {} 
+        self.node_init_func = {} 
+
+        self.dict_sm_lock = Lock()
+        self.dict_job_lock = Lock() 
+        self.dict_node_init_container_lock = Lock() 
+        self.dict_node_init_func_lock = Lock()
+        
 
     """
     METHODS FOR JOB RESULTS
@@ -143,3 +151,50 @@ class Dao:
             return None
         self.check_if_valid(res, set)
         return list(res)
+
+    def serialize_np(self, np_array: np.ndarray):
+        return np_array.ravel().tostring()
+
+    def desirialize_np(self, encoded: bytes, np_meta_data: dict[str, str]):
+        d_type = np_meta_data.get("d_type", "")
+        dimensions = np_meta_data.get("dimensions", [])
+        shapes_in_int = [int(shape) for shape in dimensions]
+        return np.fromstring(encoded, dtype=d_type).reshape(*shapes_in_int)
+
+    """
+    METHODS FOR NODE INIT
+    """
+
+    # -- for node container --
+    def clear_node_init_containers(self):
+        with self.dict_node_init_container_lock:
+            self.node_init_container.clear()
+
+    def set_init_container(self, node_id: str, value):
+        with self.dict_node_init_container_lock:
+            self.node_init_container[node_id] = value
+
+    def get_init_container(self, node_id: str):
+        res = self.node_init_container.get(node_id, None)
+        from .node_init import NodeInitContainer # avoid circular import
+        self.check_if_valid(res, NodeInitContainer)
+        return res
+    
+    def has_init_container(self, node_id: str) -> bool:
+        return node_id in self.node_init_container.keys()
+    # ------------------------
+    
+    # -- for node init function --
+    def set_init_function(self, node_func, node_init_func):
+        with self.dict_node_init_func_lock:
+            self.node_init_func[node_func] = node_init_func
+
+    def get_init_function(self, node_func: Callable):
+        res = self.node_init_func.get(node_func, None)
+        from .node_init import NodeInit # avoid circular import
+        self.check_if_valid(res, NodeInit)
+        return res
+    
+    def has_init_function(self, node_func) -> bool:
+        return node_func in self.node_init_func.keys()
+    # ----------------------------
