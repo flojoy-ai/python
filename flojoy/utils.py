@@ -1,26 +1,13 @@
 import decimal
 import json as _json
-
 import numpy as np
 import pandas as pd
 from pathlib import Path
 import os
 import yaml
-from typing import Callable, Union, Any
+from typing import Union, Any
 import requests
 from dotenv import dotenv_values  # type:ignore
-import difflib
-from typing import Literal
-
-__all__ = [
-    "send_to_socket",
-    "get_frontier_api_key",
-    "set_frontier_api_key",
-    "set_frontier_s3_key",
-]
-
-from .node_init import NodeInit, NodeInitService
-
 from .dao import Dao
 
 __all__ = [
@@ -50,12 +37,7 @@ def send_to_socket(data: str):
     requests.post(f"{BACKEND_URL}/worker_response", json=data)
 
 
-def find_closest_match(given_str: str, available_str: list[str]):
-    closest_match = difflib.get_close_matches(given_str, available_str, n=1)
-    if closest_match:
-        return closest_match[0]
-    else:
-        return None
+
 
 
 class PlotlyJSONEncoder(_json.JSONEncoder):
@@ -333,6 +315,3 @@ def clear_flojoy_memory():
     Dao.get_instance().clear_job_results()
     Dao.get_instance().clear_small_memory()
     Dao.get_instance().clear_node_init_containers()
-
-def get_node_init_function(node_func: Callable) -> NodeInit:
-    return NodeInitService().get_node_init_function(node_func)

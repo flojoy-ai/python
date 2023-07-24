@@ -1,7 +1,5 @@
-import os
 import json
 import traceback
-from pathlib import Path
 from functools import wraps
 
 from flojoy.node_init import NodeInitService
@@ -13,7 +11,6 @@ from .utils import send_to_socket
 from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
-from .small_memory import SmallMemory
 
 __all__ = ["flojoy", "DefaultParams"]
 

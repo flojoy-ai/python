@@ -1,7 +1,5 @@
 from typing import Any
 from .dao import Dao
-from .small_memory import SmallMemory
-
 """
 Service that allows to manage jobs
 """

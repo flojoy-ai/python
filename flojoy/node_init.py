@@ -1,4 +1,7 @@
+from typing import Callable
 from .dao import Dao
+
+
 
 class NoInitFunctionError(Exception):
     pass
@@ -72,3 +75,9 @@ class NodeInitService:
         if res is None:
             raise NoInitFunctionError(f"Node {node_func.__name__} does not have an init function!")
         return res    
+    
+def get_node_init_function(node_func: Callable) -> NodeInit:
+    """
+    Returns the function corresponding to the init function of the specified node.
+    """
+    return NodeInitService().get_node_init_function(node_func)
