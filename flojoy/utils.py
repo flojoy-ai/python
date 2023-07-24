@@ -22,6 +22,11 @@ port = env_vars.get("VITE_BACKEND_PORT", "8000")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
 is_offline = False
 
+def clear_flojoy_memory():
+    Dao.get_instance().clear_job_results()
+    Dao.get_instance().clear_small_memory()
+    Dao.get_instance().clear_node_init_containers()
+
 def set_offline():
     global is_offline
     is_offline = True
@@ -310,8 +315,3 @@ def set_frontier_s3_key(s3_name: str, s3_access_key: str, s3_secret_key: str):
 
     with open(file_path, "w") as file:
         yaml.dump(load, file)
-
-def clear_flojoy_memory():
-    Dao.get_instance().clear_job_results()
-    Dao.get_instance().clear_small_memory()
-    Dao.get_instance().clear_node_init_containers()
