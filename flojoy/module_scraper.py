@@ -130,6 +130,7 @@ class FlojoyWrapper:
 
         self.data += ") -> OrderedPair | Matrix | Scalar:\n\t"
         self.process_docstring()
+        self.custom_params()
         self.write_test_script()
 
     def process_docstring(self):
@@ -233,10 +234,16 @@ class FlojoyWrapper:
         if self.module.__name__ == "numpy.linalg":
             self.data = self.data.replace(
                 "OrderedPair | Matrix | Scalar",
-                "Matrix | Scalar")
+                "Matrix | Scalar"
+            )
             self.data = self.data.replace(
                 "OrderedPair | Matrix",
-                "Matrix")
+                "Matrix"
+            )
+            self.data = self.data.replace(
+                "import OrderedPair, flojoy,",
+                "import flojoy,"
+            )
 
             self.data += f"\tresult = {self.module.__name__}.{self.name}(\n\t\t\t" + (
                 f"{self.first_argument}=default.m,\n\t\t\t"
@@ -268,7 +275,6 @@ class FlojoyWrapper:
         # elif self.module.__name__ == "numpy.matlib":  # TODO add matlib
 
         else:
-            print(f'{self.module.__name__}.{self.name}')
             self.data += f"\tresult = {self.module.__name__}.{self.name}(\n\t\t\t" + (
                 f"{self.first_argument}=default.y,\n\t\t\t"
                 if self.first_argument is not None
@@ -299,6 +305,20 @@ class FlojoyWrapper:
         # self.data += ")\n\t)\n"
         self.data += "\n\treturn result\n"
 
+    def custom_params(self):
+        """Some nodes require custom param defaults for testing.
+        This corrects those nodes with node_replace.txt.
+        """
+        nodename = self.name.upper()
+        filename = f'{os.path.dirname(__file__)}/scraper/node_replace.txt'
+        replace = np.loadtxt(filename, delimiter='\t', dtype=str, skiprows=1).T
+        if nodename in replace[0]:
+            # print(repr(self.data[272:311]))
+            index = list(replace[0]).index(nodename)
+            to_replace = replace[1][index].replace('/n/t', '\n\t')
+            replacement = replace[2][index].replace('/n/t', '\n\t')
+            self.data = self.data.replace(to_replace, replacement)
+
     def write_test_script(self):
         nodename = self.name.upper()
 
@@ -325,6 +345,14 @@ class FlojoyWrapper:
 
         self.test_script += '\n\n\t# check that the outputs are one of the correct types.'
         self.test_script += '\n\tassert isinstance(res, Scalar | OrderedPair | Matrix)\n'
+
+        filename = f'{os.path.dirname(__file__)}/scraper/test_replace.txt'
+        replace = np.loadtxt(filename, delimiter='\t', dtype=str, skiprows=1).T
+        if nodename in replace[0]:
+            index = list(replace[0]).index(nodename)
+            to_replace = replace[1][index]
+            replacement = replace[2][index]
+            self.test_script = self.test_script.replace(to_replace, replacement)
 
 
 def scrape_function(func):
