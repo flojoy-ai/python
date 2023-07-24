@@ -16,6 +16,7 @@ __all__ = [
     "get_frontier_api_key",
     "set_frontier_api_key",
     "set_frontier_s3_key",
+    "get_credentials",
 ]
 
 FLOJOY_DIR = ".flojoy"
@@ -231,7 +232,7 @@ def get_flojoy_root_dir() -> str:
 
 
 def get_frontier_api_key(key: str) -> Union[str, None]:
-    return keyring.get_password("system", key),
+    return (keyring.get_password("system", key),)
 
 
 def set_frontier_api_key(key: str, value: str):
@@ -243,8 +244,31 @@ def set_frontier_api_key(key: str, value: str):
         # Create a new file and write the ACCSS_KEY to it
         print("hello")
         with open(file_path, "w") as file:
-            file.write(key+",")
+            file.write(key + ",")
         return
     else:
         with open(file_path, "a") as file:
-            file.write(key+",")
+            file.write(key + ",")
+
+
+def get_credentials() -> Union[list[dict[str, str]], None]:
+    keys_list: list[str] = []
+    credentials_list: list[dict[str, str]] = []
+    cred_id: int = 0
+    home = str(Path.home())
+    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
+    with open(file_path) as f:
+        for line in f:
+            for key in line.split(","):
+                if key and key not in keys_list:
+                    keys_list.append(key)
+
+    for key in keys_list:
+        credentials_list.append(
+            {
+                "id": str(uuid.uuid4()),
+                "username": key,
+                "password": get_frontier_api_key(key),
+            }
+        )
+    return credentials_list
