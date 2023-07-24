@@ -33,7 +33,6 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
 
     try:
         for prev_job in previous_jobs:
-            num_of_time_attempted = 0
             prev_job_id = prev_job.get("job_id")
             input_name = prev_job.get("input_name", "")
             multiple = prev_job.get("multiple", False)
