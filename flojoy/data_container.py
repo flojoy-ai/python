@@ -461,6 +461,14 @@ class Bytes(DataContainer):
         super().__init__(type="bytes", bytes=bytes)
 
 
+class TextBlob(DataContainer):
+    text_blob: str
+    def __init__(
+        self,
+        text_blob: str
+    ):
+        super().__init__(type="text_blob", text_blob=text_blob)
+
 class ParametricImage(DataContainer):
     t: DCNpArrayType
     r: DCNpArrayType
