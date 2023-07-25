@@ -23,8 +23,9 @@ class FlojoyWrapper:
     ]
 
     def __init__(self, func, parameters, module, argument_names):
-        # we'll use parameters to get the actual default values of the
-        # arguments for generating the manifest
+        """We'll use parameters to get the actual default values of the
+        arguments for generating the manifest.
+        """
         self.name = func.__name__
         self.org_docs = func.__doc__
         self.doc = func.__doc__
@@ -130,6 +131,7 @@ class FlojoyWrapper:
 
         self.data += ") -> OrderedPair | Matrix | Scalar:\n\t"
         self.process_docstring()
+        self.custom_params()
         self.write_test_script()
 
     def process_docstring(self):
@@ -233,10 +235,16 @@ class FlojoyWrapper:
         if self.module.__name__ == "numpy.linalg":
             self.data = self.data.replace(
                 "OrderedPair | Matrix | Scalar",
-                "Matrix | Scalar")
+                "Matrix | Scalar"
+            )
             self.data = self.data.replace(
                 "OrderedPair | Matrix",
-                "Matrix")
+                "Matrix"
+            )
+            self.data = self.data.replace(
+                "import OrderedPair, flojoy,",
+                "import flojoy,"
+            )
 
             self.data += f"\tresult = {self.module.__name__}.{self.name}(\n\t\t\t" + (
                 f"{self.first_argument}=default.m,\n\t\t\t"
@@ -261,18 +269,14 @@ class FlojoyWrapper:
                 self.data += "\n\t\tresult = result[select_return]\n"
 
             self.data += "\n\tif isinstance(result, np.ndarray):\n\t\t"
-            self.data += "result = Matrix(m=result)"
-            self.data += "\n\telse:\n\t\t"
-            self.data += "assert isinstance(\n\t\t\t"
-            self.data += "result, np.number| float | int\n\t\t"
-            self.data += "), f'Expected np.number, float or int "
-            self.data += "for result, got {type(result)}'\n\t\t"
+            self.data += "result = Matrix(m=result)\n\t"
+            self.data += "elif isinstance(result, np.float64"
+            self.data += " | float | np.int64 | int):\n\t\t"
             self.data += "result = Scalar(c=float(result))\n\t"
 
         # elif self.module.__name__ == "numpy.matlib":  # TODO add matlib
 
         else:
-            print(f'{self.module.__name__}.{self.name}')
             self.data += f"\tresult = {self.module.__name__}.{self.name}(\n\t\t\t" + (
                 f"{self.first_argument}=default.y,\n\t\t\t"
                 if self.first_argument is not None
@@ -303,6 +307,20 @@ class FlojoyWrapper:
         # self.data += ")\n\t)\n"
         self.data += "\n\treturn result\n"
 
+    def custom_params(self):
+        """Some nodes require custom param defaults for testing.
+        This corrects those nodes with node_replace.txt.
+        """
+        nodename = self.name.upper()
+        filename = f'{os.path.dirname(__file__)}/scraper/node_replace.txt'
+        replace = np.loadtxt(filename, delimiter='\t', dtype=str, skiprows=1).T
+        if nodename in replace[0]:
+            # print(repr(self.data[272:311]))
+            index = list(replace[0]).index(nodename)
+            to_replace = replace[1][index].replace('/n/t', '\n\t')
+            replacement = replace[2][index].replace('/n/t', '\n\t')
+            self.data = self.data.replace(to_replace, replacement)
+
     def write_test_script(self):
         nodename = self.name.upper()
 
@@ -329,6 +347,15 @@ class FlojoyWrapper:
 
         self.test_script += '\n\n\t# check that the outputs are one of the correct types.'
         self.test_script += '\n\tassert isinstance(res, Scalar | OrderedPair | Matrix)\n'
+
+        # Some nodes tests require custom inputs for testing.
+        filename = f'{os.path.dirname(__file__)}/scraper/test_replace.txt'
+        replace = np.loadtxt(filename, delimiter='\t', dtype=str, skiprows=1).T
+        if nodename in replace[0]:
+            index = list(replace[0]).index(nodename)
+            to_replace = replace[1][index]
+            replacement = replace[2][index]
+            self.test_script = self.test_script.replace(to_replace, replacement)
 
 
 def scrape_function(func):
@@ -393,7 +420,7 @@ if __name__ == "__main__":
                         and "NoneType" not in fw.data
                     ):
                         try:
-                            valid = ast.parse(fw.data)
+                            valid = ast.parse(fw.data)  # Test node script.
                             this_nodes_directory = Path(NODE_DIR / f"{fw.name.upper()}")
                             this_nodes_directory.mkdir(exist_ok=True)
 
