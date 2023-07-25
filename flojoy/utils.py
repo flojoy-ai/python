@@ -1,5 +1,6 @@
 import decimal
 import json as _json
+import logging
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import Union, Any
 import requests
 from dotenv import dotenv_values  # type:ignore
 from .dao import Dao
-from .config import FlojoyConfig
+from .config import FlojoyConfig, logger
 
 __all__ = [
     "send_to_socket",
@@ -23,9 +24,33 @@ port = env_vars.get("VITE_BACKEND_PORT", "8000")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
 
 
-def flojoy_print(*args, **kwargs):
-    if FlojoyConfig.get_instance().print_on:
-        print(*args, **kwargs)
+def set_offline():
+    """
+    Sets the is_offline flag to True, which means that results will not be sent to the backend via HTTP.
+    Mainly used for precompilation
+    """
+    FlojoyConfig.get_instance().is_offline = True
+
+
+def set_online():
+    """
+    Sets the is_offline flag to False, which means that results will be sent to the backend via HTTP.
+    """
+    FlojoyConfig.get_instance().is_offline = False
+
+
+def set_debug_on():
+    """
+    Sets the print_on flag to True, which means that the print statements will be executed.
+    """
+    logger.setLevel(logging.DEBUG)
+
+
+def set_debug_off():
+    """
+    Sets the print_on flag to False, which means that the print statements will not be executed.
+    """
+    logger.setLevel(logging.INFO)
 
 
 def clear_flojoy_memory():
@@ -37,9 +62,7 @@ def clear_flojoy_memory():
 def send_to_socket(data: str):
     if FlojoyConfig.get_instance().is_offline:
         return
-    flojoy_print(
-        "posting data to socket:", f"{BACKEND_URL}/worker_response", flush=True
-    )
+    logger.debug("posting data to socket:", f"{BACKEND_URL}/worker_response")
     requests.post(f"{BACKEND_URL}/worker_response", json=data)
 
 
