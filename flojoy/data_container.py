@@ -1,10 +1,18 @@
+import difflib
 import typing
 import numpy as np
 import pandas as pd
 from box import Box, box_list
 import plotly.graph_objects as go  # type:ignore
 from typing import Union, Literal, get_args, Any, cast
-from .utils import find_closest_match
+
+
+def find_closest_match(given_str: str, available_str: list[str]):
+    closest_match = difflib.get_close_matches(given_str, available_str, n=1)
+    if closest_match:
+        return closest_match[0]
+    else:
+        return None
 
 
 DCType = Literal[

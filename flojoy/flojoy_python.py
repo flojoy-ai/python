@@ -1,6 +1,8 @@
 import json
 import traceback
 from functools import wraps
+
+from flojoy.node_init import NodeInitService
 from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder
 from typing import Callable, Any, Optional
@@ -193,6 +195,10 @@ def flojoy(
 
                 print(node_id, " params: ", args.keys(), flush=True)
 
+                # check if node has an init container and if so, inject it
+                if NodeInitService().has_init_store(node_id):
+                    args["init_container"] = NodeInitService().get_init_store(node_id)
+
                 ##########################
                 # calling the node function
                 ##########################
@@ -238,7 +244,6 @@ def flojoy(
                             }
                         )
                     )
-
                 return dc_obj
             except Exception as e:
                 send_to_socket(
