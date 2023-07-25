@@ -1,3 +1,8 @@
+import logging
+
+LOGGER_NAME = "flojoy"
+
+
 class FlojoyConfig:
     _instance = None
 
@@ -9,33 +14,6 @@ class FlojoyConfig:
 
     def __init__(self):
         self.is_offline = False
-        self.print_on = True
 
 
-def set_offline():
-    """
-    Sets the is_offline flag to True, which means that results will not be sent to the backend via HTTP.
-    Mainly used for precompilation
-    """
-    FlojoyConfig.get_instance().is_offline = True
-
-
-def set_online():
-    """
-    Sets the is_offline flag to False, which means that results will be sent to the backend via HTTP.
-    """
-    FlojoyConfig.get_instance().is_offline = False
-
-
-def set_print_on():
-    """
-    Sets the print_on flag to True, which means that the print statements will be executed.
-    """
-    FlojoyConfig.get_instance().print_on = True
-
-
-def set_print_off():
-    """
-    Sets the print_on flag to False, which means that the print statements will not be executed.
-    """
-    FlojoyConfig.get_instance().print_on = False
+logger = logging.getLogger(LOGGER_NAME)

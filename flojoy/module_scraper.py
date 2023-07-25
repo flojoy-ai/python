@@ -1,6 +1,5 @@
 import inspect
 
-
 class FlojoyWrapper:
     CUSTOM_DOC_ADDITION = "-." * 36 + "\n\t"
     CUSTOM_DOC_ADDITION += (
@@ -96,7 +95,7 @@ class FlojoyWrapper:
 
     def write_wrapper(self, mtype):
         if "callable" in self.doc:
-            # flojoy_print(
+            # logger.debug(
             # 	"#CANNOT PROCESS ",
             # 	self.name,
             # 	"since",
@@ -145,7 +144,7 @@ class FlojoyWrapper:
                             break
                 # now check for not allowed types after identifying them all correctly:
                 if dtype in self.FORBIDDEN_TYPES:
-                    # flojoy_print(
+                    # logger.debug(
                     #     "#CANNOT PROCESS ",
                     #     self.name,
                     #     "since",
@@ -182,7 +181,6 @@ def scrape_function(func):
         for k, val in signature.parameters.items()
         if val.default != inspect.Parameter.empty
     }
-    flojoy_print(func, param_names, default_optional_params)
     return func, param_names, default_optional_params
 
 
