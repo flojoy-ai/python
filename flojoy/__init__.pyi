@@ -12,6 +12,7 @@ from .small_memory import *
 from .job_service import *
 from .node_init import *
 from .data_container import *
+from .config import *
 
 def flojoy(
     original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict]
