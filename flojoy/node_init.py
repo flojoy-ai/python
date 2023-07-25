@@ -35,7 +35,6 @@ class NodeInit:
 # Wrapper for node_init functions, maps the node to the function that will initialize it.
 def node_initialization(for_node):
     def decorator(func):
-        print("Initializing for node: ", for_node.__name__)
         func_init = NodeInit(func)
         NodeInitService().map_node_to_init_function(for_node, func_init)
         return func_init

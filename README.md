@@ -15,7 +15,7 @@ from flojoy import flojoy, DataContainer
 def BUTTER(v, params):
     ''' Apply a butterworth filter to an input vector '''
 
-    print('Butterworth inputs:', v)
+    flojoy_print('Butterworth inputs:', v)
 
     x = v[0].x
     sig = v[0].y

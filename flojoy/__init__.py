@@ -11,3 +11,4 @@ from .parameter_types import *
 from .small_memory import *
 from .job_service import *
 from .node_init import *
+from .config import *
