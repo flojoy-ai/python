@@ -5,6 +5,7 @@ from .data_container import DataContainer
 import pandas as pd
 from typing import cast, Any
 
+
 def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
     data_copy = data.copy()
     dc_type = data_copy.type

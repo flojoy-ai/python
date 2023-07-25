@@ -2,20 +2,21 @@ from typing import Callable
 from .dao import Dao
 
 
-
 class NoInitFunctionError(Exception):
     pass
+
 
 # contains value returned by a node's init function
 class NodeInitContainer:
     def __init__(self, value=None):
         self.value = value
-    
+
     def set(self, value):
         self.value = value
 
     def get(self):
         return self.value
+
 
 class NodeInit:
     def __init__(self, func):
@@ -23,12 +24,13 @@ class NodeInit:
 
     def __call__(self, node_id: str):
         return self.run(node_id)
-    
+
     def run(self, node_id: str):
         daemon_container = NodeInitService().create_init_store(node_id)
         res = self.func()
         if res is not None:
             daemon_container.set(res)
+
 
 # Wrapper for node_init functions, maps the node to the function that will initialize it.
 def node_initialization(for_node):
@@ -37,7 +39,9 @@ def node_initialization(for_node):
         func_init = NodeInit(func)
         NodeInitService().map_node_to_init_function(for_node, func_init)
         return func_init
+
     return decorator
+
 
 class NodeInitService:
     """
@@ -48,21 +52,23 @@ class NodeInitService:
     def create_init_store(self, node_id):
         if self.has_init_store(node_id):
             raise ValueError(f"Storage for {node_id} init object already exists!")
-        
+
         Dao.get_instance().set_init_container(node_id, NodeInitContainer())
         return self.get_init_store(node_id)
 
-    # this method will get the storage used for the node to hold whatever it initialized.    
+    # this method will get the storage used for the node to hold whatever it initialized.
     def get_init_store(self, node_id) -> NodeInitContainer:
         store = Dao.get_instance().get_init_container(node_id)
         if store is None:
-            raise ValueError(f"Storage for {node_id} init object has not been initialized!")
-        return store 
+            raise ValueError(
+                f"Storage for {node_id} init object has not been initialized!"
+            )
+        return store
 
     # this method will check if a node has an init store already created.
     def has_init_store(self, node_id) -> bool:
         return Dao.get_instance().has_init_container(node_id)
-    
+
     # this method will map a node to a function that will initialize it.
     def map_node_to_init_function(self, node_func, node_init_func):
         if NodeInitService().has_init_store(node_func.__name__):
@@ -71,11 +77,14 @@ class NodeInitService:
 
     # this method will get the function that will initialize a node.
     def get_node_init_function(self, node_func) -> NodeInit:
-        res = Dao.get_instance().get_init_function(node_func) 
+        res = Dao.get_instance().get_init_function(node_func)
         if res is None:
-            raise NoInitFunctionError(f"Node {node_func.__name__} does not have an init function!")
-        return res    
-    
+            raise NoInitFunctionError(
+                f"Node {node_func.__name__} does not have an init function!"
+            )
+        return res
+
+
 def get_node_init_function(node_func: Callable) -> NodeInit:
     """
     Returns the function corresponding to the init function of the specified node.

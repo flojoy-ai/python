@@ -27,9 +27,11 @@ This class is a Singleton that acts as a in-memory datastorage
 IMPORTANT: The commented code should not be removed, as it acts as a reference for the future
 in case we need to implement a Redis based datastorage
 """
+
+
 class Dao:
     _instance = None
-    
+
     @classmethod
     def get_instance(cls):
         with _init_lock:
@@ -38,14 +40,10 @@ class Dao:
             return Dao._instance
 
     def __init__(self):
-        self.storage = {} # small memory
-        self.job_results = {} 
-        self.node_init_container = {} 
-        self.node_init_func = {} 
-
-        
-
-        
+        self.storage = {}  # small memory
+        self.job_results = {}
+        self.node_init_container = {}
+        self.node_init_func = {}
 
     """
     METHODS FOR JOB RESULTS
@@ -177,15 +175,17 @@ class Dao:
     def get_init_container(self, node_id: str):
         with _dict_node_init_container_lock:
             res = self.node_init_container.get(node_id, None)
-        from .node_init import NodeInitContainer # avoid circular import
+        from .node_init import NodeInitContainer  # avoid circular import
+
         self.check_if_valid(res, NodeInitContainer)
         return res
-    
+
     def has_init_container(self, node_id: str) -> bool:
         with _dict_node_init_container_lock:
             return node_id in self.node_init_container.keys()
+
     # ------------------------
-    
+
     # -- for node init function --
     def set_init_function(self, node_func, node_init_func):
         with _dict_node_init_func_lock:
@@ -194,11 +194,13 @@ class Dao:
     def get_init_function(self, node_func: Callable):
         with _dict_node_init_func_lock:
             res = self.node_init_func.get(node_func, None)
-        from .node_init import NodeInit # avoid circular import
+        from .node_init import NodeInit  # avoid circular import
+
         self.check_if_valid(res, NodeInit)
         return res
-    
+
     def has_init_function(self, node_func) -> bool:
         with _dict_node_init_func_lock:
             return node_func in self.node_init_func.keys()
+
     # ----------------------------

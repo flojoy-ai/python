@@ -22,27 +22,28 @@ port = env_vars.get("VITE_BACKEND_PORT", "8000")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
 is_offline = False
 
+
 def clear_flojoy_memory():
     Dao.get_instance().clear_job_results()
     Dao.get_instance().clear_small_memory()
     Dao.get_instance().clear_node_init_containers()
 
+
 def set_offline():
     global is_offline
     is_offline = True
 
+
 def set_online():
     global is_offline
     is_offline = False
+
 
 def send_to_socket(data: str):
     if is_offline:
         return
     print("posting data to socket:", f"{BACKEND_URL}/worker_response", flush=True)
     requests.post(f"{BACKEND_URL}/worker_response", json=data)
-
-
-
 
 
 class PlotlyJSONEncoder(_json.JSONEncoder):

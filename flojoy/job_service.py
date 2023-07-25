@@ -1,5 +1,6 @@
 from typing import Any
 from .dao import Dao
+
 """
 Service that allows to manage jobs
 """
