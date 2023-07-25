@@ -1,5 +1,6 @@
 import inspect
 
+
 class FlojoyWrapper:
     CUSTOM_DOC_ADDITION = "-." * 36 + "\n\t"
     CUSTOM_DOC_ADDITION += (
