@@ -269,9 +269,12 @@ class FlojoyWrapper:
                 self.data += "\n\t\tresult = result[select_return]\n"
 
             self.data += "\n\tif isinstance(result, np.ndarray):\n\t\t"
-            self.data += "result = Matrix(m=result)\n\t"
-            self.data += "elif isinstance(result, np.float64"
-            self.data += " | float | np.int64 | int):\n\t\t"
+            self.data += "result = Matrix(m=result)"
+            self.data += "\n\telse:\n\t\t"
+            self.data += "assert isinstance(\n\t\t\t"
+            self.data += "result, np.number| float | int\n\t\t"
+            self.data += "), f'Expected np.number, float or int "
+            self.data += "for result, got {type(result)}'\n\t\t"
             self.data += "result = Scalar(c=float(result))\n\t"
 
         # elif self.module.__name__ == "numpy.matlib":  # TODO add matlib
@@ -301,7 +304,11 @@ class FlojoyWrapper:
 
             self.data += "\n\tif isinstance(result, np.ndarray):\n\t\t"
             self.data += "result = OrderedPair(x=default.x, y=result)"
-            self.data += "\n\telif isinstance(result, np.float64 | float | np.int64 | int):\n\t\t"
+            self.data += "\n\telse:\n\t\t"
+            self.data += "assert isinstance(\n\t\t\t"
+            self.data += "result, np.number| float | int\n\t\t"
+            self.data += "), f'Expected np.number, float or int "
+            self.data += "for result, got {type(result)}'\n\t\t"
             self.data += "result = Scalar(c=float(result))\n\t"
 
         # self.data += ")\n\t)\n"
