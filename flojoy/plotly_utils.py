@@ -26,7 +26,10 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
         case "ordered_pair":
             if data_copy.x is not None and len(data_copy.x) != len(data_copy.y):
                 data_copy.x = np.arange(0, len(data_copy.y), 1)
-            fig = px.line(x=data_copy.x, y=data_copy.y)
+            try:
+                fig = px.line(x=data_copy.x, y=data_copy.y)
+            except Exception as e:
+                fig = px.line(x=data_copy.x, y=data_copy.y)
         case "ordered_triple":
             fig = px.scatter_3d(x=data_copy.x, y=data_copy.y, z=data_copy.z)
         case "scalar":

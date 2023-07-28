@@ -1,7 +1,6 @@
-from .dao import Dao
+# import os, sys
 from typing import Any
-
-__all__ = ["SmallMemory"]
+from .dao import Dao
 
 
 class SmallMemory:

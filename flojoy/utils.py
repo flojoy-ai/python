@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Union
 
+import logging
 import numpy as np
 import pandas as pd
 import requests
@@ -13,8 +14,9 @@ import yaml
 from dotenv import dotenv_values  # type:ignore
 from huggingface_hub import hf_hub_download as _hf_hub_download
 from huggingface_hub import snapshot_download as _snapshot_download
-
 from .dao import Dao
+from .config import FlojoyConfig, logger
+
 from .node_init import NodeInit, NodeInitService
 import keyring
 import uuid
@@ -71,17 +73,46 @@ port = env_vars.get("VITE_BACKEND_PORT", "8000")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
 
 
+def set_offline():
+    """
+    Sets the is_offline flag to True, which means that results will not be sent to the backend via HTTP.
+    Mainly used for precompilation
+    """
+    FlojoyConfig.get_instance().is_offline = True
+
+
+def set_online():
+    """
+    Sets the is_offline flag to False, which means that results will be sent to the backend via HTTP.
+    """
+    FlojoyConfig.get_instance().is_offline = False
+
+
+def set_debug_on():
+    """
+    Sets the print_on flag to True, which means that the print statements will be executed.
+    """
+    logger.setLevel(logging.DEBUG)
+
+
+def set_debug_off():
+    """
+    Sets the print_on flag to False, which means that the print statements will not be executed.
+    """
+    logger.setLevel(logging.INFO)
+
+
+def clear_flojoy_memory():
+    Dao.get_instance().clear_job_results()
+    Dao.get_instance().clear_small_memory()
+    Dao.get_instance().clear_node_init_containers()
+
+
 def send_to_socket(data: str):
-    print("posting data to socket:", f"{BACKEND_URL}/worker_response", flush=True)
+    if FlojoyConfig.get_instance().is_offline:
+        return
+    logger.debug("posting data to socket:", f"{BACKEND_URL}/worker_response")
     requests.post(f"{BACKEND_URL}/worker_response", json=data)
-
-
-def find_closest_match(given_str: str, available_str: list[str]):
-    closest_match = difflib.get_close_matches(given_str, available_str, n=1)
-    if closest_match:
-        return closest_match[0]
-    else:
-        return None
 
 
 class PlotlyJSONEncoder(_json.JSONEncoder):
