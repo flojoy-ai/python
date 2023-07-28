@@ -23,6 +23,10 @@ DCType = Literal[
     "ordered_pair",
     "ordered_triple",
     "plotly",
+    "bytes",
+    "text_blob",
+    "parametric_grayscale",
+    "parametric_matrix",
     "scalar",
     "surface",
     "vector",
@@ -47,6 +51,8 @@ DCKwargsValue = Union[
     DCNpArrayType,
     pd.DataFrame,
     go.Figure,
+    bytes,
+    str,
     None,
 ]
 ExtraType = dict[str, Any] | None
@@ -100,13 +106,15 @@ class DataContainer(Box):
         "g": ["r", "b", "t", "a", "extra"],
         "b": ["r", "g", "t", "a", "extra"],
         "a": ["r", "g", "b", "t", "extra"],
+        "bytes": ["extra"],
+        "text_blob": ["extra"],
         "extra": [*(k for k in allowed_keys if k not in ["extra"])],
         "fig": ["t", "extra"],
     }
     type_keys_map: dict[DCType, list[str]] = {
         "dataframe": ["m"],
-        "vector": ["v"],
         "matrix": ["m"],
+        "vector": ["v"],
         "grayscale": ["m"],
         "image": ["r", "g", "b", "a"],
         "ordered_pair": ["x", "y"],
@@ -114,6 +122,8 @@ class DataContainer(Box):
         "surface": ["x", "y", "z"],
         "scalar": ["c"],
         "plotly": ["fig"],
+        "bytes": ["bytes"],
+        "text_blob": ["text_blob"]
     }
 
     type: DCType
@@ -126,6 +136,7 @@ class DataContainer(Box):
     def _ndarrayify(
         self, value: DCKwargsValue
     ) -> Union[DCNpArrayType, pd.DataFrame, dict[str, DCNpArrayType], go.Figure, None]:
+
         if isinstance(value, int) or isinstance(value, float):
             return np.array([value])
         elif isinstance(value, dict):
@@ -145,6 +156,10 @@ class DataContainer(Box):
         elif isinstance(value, list):
             return np.array(value)
         elif isinstance(value, go.Figure):
+            return value
+        elif isinstance(value, bytes):
+            return value
+        elif isinstance(value, str):
             return value
         elif value is None:
             return value
@@ -443,6 +458,23 @@ class Image(DataContainer):
     ):
         super().__init__(type="image", r=r, g=g, b=b, a=a, extra=extra)
 
+class Bytes(DataContainer):
+    bytes: bytes
+
+    def __init__(
+        self,
+        bytes: bytes,
+    ):
+        super().__init__(type="bytes", bytes=bytes)
+
+
+class TextBlob(DataContainer):
+    text_blob: str
+    def __init__(
+        self,
+        text_blob: str
+    ):
+        super().__init__(type="text_blob", text_blob=text_blob)
 
 class ParametricImage(DataContainer):
     t: DCNpArrayType

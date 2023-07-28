@@ -60,8 +60,14 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any] | None:
                         name=i,
                     )
                 )
+        case "surface":
+            fig = go.Figure(
+                data=[go.Surface(x=data_copy.x, y=data_copy.y, z=data_copy.z)]
+            )
         case "plotly":
             fig = cast(go.Figure, data.fig)
+        case "bytes":
+            return None
         case "text_blob":
             return None
         case _:

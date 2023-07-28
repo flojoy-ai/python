@@ -1,23 +1,68 @@
 import decimal
 import json as _json
-import logging
+import sys
+import os
+from pathlib import Path
+from typing import Any, Callable, Union
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import os
+import logging
 import yaml
-from typing import Union, Any
 import requests
 from dotenv import dotenv_values  # type:ignore
+import base64
+from huggingface_hub import hf_hub_download as _hf_hub_download
+from huggingface_hub import snapshot_download as _snapshot_download
 from .dao import Dao
-from .config import FlojoyConfig, logger
 
 __all__ = [
     "send_to_socket",
     "get_frontier_api_key",
     "set_frontier_api_key",
     "set_frontier_s3_key",
+    "hf_hub_download",
+    "snapshot_download",
+    "get_node_init_function",
+    "clear_flojoy_memory",
 ]
+
+FLOJOY_DIR = ".flojoy"
+
+from .dao import Dao
+from .config import FlojoyConfig, logger
+
+if sys.platform == "win32":
+    FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], FLOJOY_DIR)
+else:
+    FLOJOY_CACHE_DIR = os.path.join(os.environ["HOME"], FLOJOY_DIR)
+
+
+# Make as a function to mock at test-time
+def _get_hf_hub_cache_path() -> str:
+    return os.path.join(FLOJOY_CACHE_DIR, "cache", "hf_hub")
+
+
+def hf_hub_download(*args, **kwargs):
+    if "cache_dir" not in kwargs:
+        kwargs["cache_dir"] = _get_hf_hub_cache_path()
+    else:
+        if kwargs["cache_dir"] != _get_hf_hub_cache_path():
+            raise ValueError(
+                f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
+            )
+    return _hf_hub_download(*args, **kwargs)
+
+
+def snapshot_download(*args, **kwargs):
+    if "cache_dir" not in kwargs:
+        kwargs["cache_dir"] = _get_hf_hub_cache_path()
+    else:
+        if kwargs["cache_dir"] != _get_hf_hub_cache_path():
+            raise ValueError(
+                f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
+            )
+    return _snapshot_download(*args, **kwargs)
+
 
 env_vars = dotenv_values("../.env")
 port = env_vars.get("VITE_BACKEND_PORT", "8000")
@@ -153,6 +198,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             self.encode_as_date,
             self.encode_as_list,  # because some values have `tolist` do last.
             self.encode_as_decimal,
+            self.encode_as_base64
         )
         for encoding_method in encoding_methods:
             try:
@@ -160,6 +206,14 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             except NotEncodable:
                 pass
         return _json.JSONEncoder.default(self, obj)
+    
+    @staticmethod
+    def encode_as_base64(value: bytes):
+        """Attempt to convert to base64."""
+        try:
+            return base64.b64encode(value).decode()
+        except AttributeError:
+            raise NotEncodable
 
     @staticmethod
     def encode_as_plotly(obj: dict[str, Any]):
@@ -282,7 +336,7 @@ def get_frontier_api_key() -> Union[str, None]:
 def set_frontier_api_key(api_key: str):
     try:
         home = str(Path.home())
-        file_path = os.path.join(home, ".flojoy/credentials")
+        file_path = os.path.join(home, FLOJOY_DIR, "credentials")
 
         if not os.path.exists(file_path):
             # Create a new file and write the API_KEY to it
@@ -313,7 +367,7 @@ def set_frontier_api_key(api_key: str):
 
 def set_frontier_s3_key(s3_name: str, s3_access_key: str, s3_secret_key: str):
     home = str(Path.home())
-    file_path = os.path.join(home, os.path.join(".flojoy", "credentials.yaml"))
+    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.yaml"))
 
     data = {
         f"{s3_name}": s3_name,
