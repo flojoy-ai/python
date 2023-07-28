@@ -20,6 +20,7 @@ from .config import FlojoyConfig, logger
 from .node_init import NodeInit, NodeInitService
 import keyring
 import uuid
+
 __all__ = [
     "send_to_socket",
     "get_frontier_api_key",
@@ -306,6 +307,7 @@ def get_flojoy_root_dir() -> str:
         root_dir = yaml_dict["PATH"]
     return root_dir
 
+
 def get_frontier_api_key(key: str) -> Union[str, None]:
     return keyring.get_password("flojoy", key)
 
@@ -314,7 +316,7 @@ def set_frontier_api_key(key: str, value: str):
     keyring.set_password("flojoy", key, value)
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
-    
+
     if not os.path.exists(file_path):
         with open(file_path, "w") as file:
             file.write(key + ",")
@@ -322,6 +324,7 @@ def set_frontier_api_key(key: str, value: str):
     else:
         with open(file_path, "a") as file:
             file.write(key + ",")
+
 
 def get_credentials() -> Union[list[dict[str, str]], None]:
     keys_list: list[str] = []
@@ -333,11 +336,17 @@ def get_credentials() -> Union[list[dict[str, str]], None]:
             for key in line.split(","):
                 if key and key not in keys_list:
                     keys_list.append(key)
-        
+
     for key in keys_list:
-        credentials_list.append({"id": str(uuid.uuid4()), "username" : key, "password" : get_frontier_api_key(key)})
+        credentials_list.append(
+            {
+                "id": str(uuid.uuid4()),
+                "username": key,
+                "password": get_frontier_api_key(key),
+            }
+        )
     return credentials_list
-    
+
 
 def clear_flojoy_memory():
     Dao.get_instance().clear_job_results()
