@@ -1,26 +1,70 @@
 import decimal
+import difflib
 import json as _json
+import os
+import sys
+from pathlib import Path
+from typing import Any, Callable, Union
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import os
-import yaml
-from typing import Union, Any
 import requests
+import yaml
 from dotenv import dotenv_values  # type:ignore
-import difflib
+from huggingface_hub import hf_hub_download as _hf_hub_download
+from huggingface_hub import snapshot_download as _snapshot_download
+
+from .dao import Dao
+from .node_init import NodeInit, NodeInitService
 import keyring
 import uuid
-
 __all__ = [
     "send_to_socket",
     "get_frontier_api_key",
     "set_frontier_api_key",
     "set_frontier_s3_key",
+    "hf_hub_download",
+    "snapshot_download",
+    "get_node_init_function",
     "get_credentials",
+    "clear_flojoy_memory",
 ]
 
 FLOJOY_DIR = ".flojoy"
+
+
+if sys.platform == "win32":
+    FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], FLOJOY_DIR)
+else:
+    FLOJOY_CACHE_DIR = os.path.join(os.environ["HOME"], FLOJOY_DIR)
+
+
+# Make as a function to mock at test-time
+def _get_hf_hub_cache_path() -> str:
+    return os.path.join(FLOJOY_CACHE_DIR, "cache", "hf_hub")
+
+
+def hf_hub_download(*args, **kwargs):
+    if "cache_dir" not in kwargs:
+        kwargs["cache_dir"] = _get_hf_hub_cache_path()
+    else:
+        if kwargs["cache_dir"] != _get_hf_hub_cache_path():
+            raise ValueError(
+                f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
+            )
+    return _hf_hub_download(*args, **kwargs)
+
+
+def snapshot_download(*args, **kwargs):
+    if "cache_dir" not in kwargs:
+        kwargs["cache_dir"] = _get_hf_hub_cache_path()
+    else:
+        if kwargs["cache_dir"] != _get_hf_hub_cache_path():
+            raise ValueError(
+                f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
+            )
+    return _snapshot_download(*args, **kwargs)
+
 
 env_vars = dotenv_values("../.env")
 port = env_vars.get("VITE_BACKEND_PORT", "8000")
@@ -231,19 +275,16 @@ def get_flojoy_root_dir() -> str:
         root_dir = yaml_dict["PATH"]
     return root_dir
 
-
 def get_frontier_api_key(key: str) -> Union[str, None]:
-    return (keyring.get_password("system", key),)
+    return keyring.get_password("flojoy", key)
 
 
 def set_frontier_api_key(key: str, value: str):
-    keyring.set_password("system", key, value)
+    keyring.set_password("flojoy", key, value)
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
-
+    
     if not os.path.exists(file_path):
-        # Create a new file and write the ACCSS_KEY to it
-        print("hello")
         with open(file_path, "w") as file:
             file.write(key + ",")
         return
@@ -251,11 +292,9 @@ def set_frontier_api_key(key: str, value: str):
         with open(file_path, "a") as file:
             file.write(key + ",")
 
-
 def get_credentials() -> Union[list[dict[str, str]], None]:
     keys_list: list[str] = []
     credentials_list: list[dict[str, str]] = []
-    cred_id: int = 0
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
     with open(file_path) as f:
@@ -263,13 +302,17 @@ def get_credentials() -> Union[list[dict[str, str]], None]:
             for key in line.split(","):
                 if key and key not in keys_list:
                     keys_list.append(key)
-
+        
     for key in keys_list:
-        credentials_list.append(
-            {
-                "id": str(uuid.uuid4()),
-                "username": key,
-                "password": get_frontier_api_key(key),
-            }
-        )
+        credentials_list.append({"id": str(uuid.uuid4()), "username" : key, "password" : get_frontier_api_key(key)})
     return credentials_list
+    
+
+def clear_flojoy_memory():
+    Dao.get_instance().clear_job_results()
+    Dao.get_instance().clear_small_memory()
+    Dao.get_instance().clear_node_init_containers()
+
+
+def get_node_init_function(node_func: Callable) -> NodeInit:
+    return NodeInitService().get_node_init_function(node_func)
