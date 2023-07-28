@@ -25,8 +25,6 @@ DCType = Literal[
     "plotly",
     "bytes",
     "text_blob",
-    "parametric_grayscale",
-    "parametric_matrix",
     "scalar",
     "surface",
     "vector",
@@ -91,6 +89,7 @@ class DataContainer(Box):
         "g",
         "b",
         "a",
+        "text_blob",
         "fig",
         "extra",
     ]
@@ -122,9 +121,17 @@ class DataContainer(Box):
         "surface": ["x", "y", "z"],
         "scalar": ["c"],
         "plotly": ["fig"],
-        "bytes": ["bytes"],
-        "text_blob": ["text_blob"]
+        "bytes": ["b"],
+        "text_blob": ["text_blob"],
     }
+
+    SKIP_ARRAYIEFY_TYPES = [
+        str,
+        bytes,
+        go.Figure,
+        pd.DataFrame,
+        np.ndarray,
+    ]  # value types not to be arrayified
 
     type: DCType
 
@@ -136,7 +143,6 @@ class DataContainer(Box):
     def _ndarrayify(
         self, value: DCKwargsValue
     ) -> Union[DCNpArrayType, pd.DataFrame, dict[str, DCNpArrayType], go.Figure, None]:
-
         if isinstance(value, int) or isinstance(value, float):
             return np.array([value])
         elif isinstance(value, dict):
@@ -149,18 +155,8 @@ class DataContainer(Box):
             for k, v in value.__dict__.items():
                 arrayified_value[k] = cast(DCNpArrayType, self._ndarrayify(v))
             return arrayified_value
-        elif isinstance(value, pd.DataFrame):
-            return value
-        elif isinstance(value, np.ndarray):
-            return value
         elif isinstance(value, list):
             return np.array(value)
-        elif isinstance(value, go.Figure):
-            return value
-        elif isinstance(value, bytes):
-            return value
-        elif isinstance(value, str):
-            return value
         elif value is None:
             return value
         else:
@@ -183,7 +179,10 @@ class DataContainer(Box):
         return super().__getitem__(key, _ignore_default)  # type:ignore
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
-        if key != "type" and key != "extra":
+        if (
+            key not in ["type", "extra"]
+            and type(value) not in self.SKIP_ARRAYIEFY_TYPES
+        ):
             formatted_value = self._ndarrayify(value)
             super().__setitem__(key, formatted_value)  # type:ignore
         else:
@@ -458,23 +457,23 @@ class Image(DataContainer):
     ):
         super().__init__(type="image", r=r, g=g, b=b, a=a, extra=extra)
 
+
 class Bytes(DataContainer):
-    bytes: bytes
+    b: bytes
 
     def __init__(
         self,
-        bytes: bytes,
+        b: bytes,
     ):
-        super().__init__(type="bytes", bytes=bytes)
+        super().__init__(type="bytes", b=b)
 
 
 class TextBlob(DataContainer):
     text_blob: str
-    def __init__(
-        self,
-        text_blob: str
-    ):
+
+    def __init__(self, text_blob: str):
         super().__init__(type="text_blob", text_blob=text_blob)
+
 
 class ParametricImage(DataContainer):
     t: DCNpArrayType

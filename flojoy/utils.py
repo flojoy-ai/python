@@ -22,7 +22,6 @@ __all__ = [
     "set_frontier_s3_key",
     "hf_hub_download",
     "snapshot_download",
-    "get_node_init_function",
     "clear_flojoy_memory",
 ]
 
@@ -198,7 +197,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             self.encode_as_date,
             self.encode_as_list,  # because some values have `tolist` do last.
             self.encode_as_decimal,
-            self.encode_as_base64
+            self.encode_as_base64,
         )
         for encoding_method in encoding_methods:
             try:
@@ -206,7 +205,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             except NotEncodable:
                 pass
         return _json.JSONEncoder.default(self, obj)
-    
+
     @staticmethod
     def encode_as_base64(value: bytes):
         """Attempt to convert to base64."""

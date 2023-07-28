@@ -32,7 +32,7 @@ setup(
         "plotly==5.8.2",
         "huggingface-hub==0.16.4",
         "Pillow",
-        "cloudpickle"
+        "cloudpickle",
     ],
     classifiers=[
         "Development Status :: 3 - Alpha",
