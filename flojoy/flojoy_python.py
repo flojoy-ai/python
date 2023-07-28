@@ -196,7 +196,7 @@ def flojoy(
 
                 # check if node has an init container and if so, inject it
                 if NodeInitService().has_init_store(node_id):
-                    args["init_container"] = NodeInitService().get_init_store(node_id)
+                    args["flojoy_init_input"] = NodeInitService().get_init_store(node_id).get()
 
                 ##########################
                 # calling the node function

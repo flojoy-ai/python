@@ -1,4 +1,7 @@
-from typing import Callable
+from inspect import signature
+from typing import Any, Callable
+
+from flojoy.parameter_types import format_param_value
 from .dao import Dao
 
 
@@ -25,9 +28,19 @@ class NodeInit:
     def __call__(self, node_id: str):
         return self.run(node_id)
 
-    def run(self, node_id: str):
+    def run(self, node_id: str, ctrls: dict[str, Any] | None = None):
         daemon_container = NodeInitService().create_init_store(node_id)
-        res = self.func()
+        args = {}
+        # -- get ctrls to inject into init function --
+        parameters = signature(self.func).parameters
+        if ctrls is not None:
+            for _, input in ctrls.items():
+                param = input["param"]
+                value = input["value"]
+                if param in parameters:
+                    args[param] = format_param_value(value, input["type"])
+        # --------------------------------------------
+        res = self.func(**args)
         if res is not None:
             daemon_container.set(res)
 
