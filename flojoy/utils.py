@@ -25,7 +25,6 @@ __all__ = [
     "send_to_socket",
     "get_frontier_api_key",
     "set_frontier_api_key",
-    "set_frontier_s3_key",
     "hf_hub_download",
     "snapshot_download",
     "get_node_init_function",
