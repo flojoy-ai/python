@@ -23,6 +23,7 @@ import hashlib
 import importlib.metadata
 import logging
 import multiprocessing
+import multiprocessing.connection
 import os
 import shutil
 import subprocess
@@ -94,21 +95,29 @@ def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
 class PickleableFunctionWithPipeIO:
     """A wrapper for a function that can be pickled and executed in a child process."""
 
-    def __init__(self, func, child_conn, venv_executable):
-        self._func_serialized = cloudpickle.dumps(func)
+    def __init__(
+        self,
+        func_serialized: bytes,
+        child_conn: multiprocessing.connection.Connection,
+        venv_executable: str,
+    ):
+        self._func_serialized = func_serialized
         self._child_conn = child_conn
         self._venv_executable = venv_executable
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args_serialized, **kwargs_serialized):
         fn = cloudpickle.loads(self._func_serialized)
-        args = [cloudpickle.loads(arg) for arg in args]
-        kwargs = {key: cloudpickle.loads(value) for key, value in kwargs.items()}
+        args = [cloudpickle.loads(arg) for arg in args_serialized]
+        kwargs = {
+            key: cloudpickle.loads(value) for key, value in kwargs_serialized.items()
+        }
         with SwapSysPath(venv_executable=self._venv_executable):
             try:
                 result = fn(*args, **kwargs)
             except Exception as e:
                 result = (e, traceback.format_exception(type(e), e, e.__traceback__))
-        self._child_conn.send(result)
+        serialized_result = cloudpickle.dumps(result)
+        self._child_conn.send_bytes(serialized_result)
 
 
 def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str:
@@ -123,7 +132,7 @@ def _get_venv_cache_dir():
     return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
 
 
-def run_in_venv(pip_dependencies: list[str] = [], verbose: bool = False):
+def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False):
     """A decorator that allows a function to be executed in a virtual environment.
 
     Args:
@@ -143,6 +152,8 @@ def run_in_venv(pip_dependencies: list[str] = [], verbose: bool = False):
         ...
         return Matrix(...)
     """
+    if pip_dependencies is None:
+        pip_dependencies = []
     # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
     packages_dict = {
         package.name: package.version for package in importlib.metadata.distributions()
@@ -188,16 +199,21 @@ def run_in_venv(pip_dependencies: list[str] = [], verbose: bool = False):
         def wrapper(*args, **kwargs):
             # Serialize function arguments using cloudpickle
             parent_conn, child_conn = multiprocessing.Pipe()
-            args = [cloudpickle.dumps(arg) for arg in args]
-            kwargs = {key: cloudpickle.dumps(value) for key, value in kwargs.items()}
+            args_serialized = [cloudpickle.dumps(arg) for arg in args]
+            kwargs_serialized = {
+                key: cloudpickle.dumps(value) for key, value in kwargs.items()
+            }
+            func_serialized = cloudpickle.dumps(func)
             pickleable_func_with_pipe = PickleableFunctionWithPipeIO(
-                func, child_conn, venv_executable
+                func_serialized, child_conn, venv_executable
             )
             # Start the context manager that will change the executable used by multiprocessing
             with MultiprocessingExecutableContextManager(venv_executable):
                 # Create a new process that will run the Python code
                 process = multiprocessing.Process(
-                    target=pickleable_func_with_pipe, args=args, kwargs=kwargs
+                    target=pickleable_func_with_pipe,
+                    args=args_serialized,
+                    kwargs=kwargs_serialized,
                 )
                 # Start the process
                 process.start()
