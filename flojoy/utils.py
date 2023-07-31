@@ -25,6 +25,7 @@ __all__ = [
     "send_to_socket",
     "get_env_var_key",
     "set_env_var_key",
+    "modify_env_var_key",
     "hf_hub_download",
     "snapshot_download",
     "get_node_init_function",
@@ -324,6 +325,8 @@ def set_env_var_key(key: str, value: str):
         with open(file_path, "a") as file:
             file.write(key + ",")
 
+def modify_env_var_key(key: str, new_password: str):
+    keyring.set_password("flojoy", key, new_password)
 
 def get_credentials() -> Union[dict[str, str], None]:
     keys_list: list[str] = []
@@ -338,7 +341,6 @@ def get_credentials() -> Union[dict[str, str], None]:
     for key in keys_list:
         credentials_dict[key] = get_env_var_key(key)
     return credentials_dict
-
 
 def clear_flojoy_memory():
     Dao.get_instance().clear_job_results()
