@@ -23,8 +23,8 @@ import uuid
 
 __all__ = [
     "send_to_socket",
-    "get_frontier_api_key",
-    "set_frontier_api_key",
+    "get_env_var_key",
+    "set_env_var_key",
     "hf_hub_download",
     "snapshot_download",
     "get_node_init_function",
@@ -307,11 +307,11 @@ def get_flojoy_root_dir() -> str:
     return root_dir
 
 
-def get_frontier_api_key(key: str) -> Union[str, None]:
+def get_env_var_key(key: str) -> Union[str, None]:
     return keyring.get_password("flojoy", key)
 
 
-def set_frontier_api_key(key: str, value: str):
+def set_env_var_key(key: str, value: str):
     keyring.set_password("flojoy", key, value)
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
@@ -341,7 +341,7 @@ def get_credentials() -> Union[list[dict[str, str]], None]:
             {
                 "id": str(uuid.uuid4()),
                 "username": key,
-                "password": get_frontier_api_key(key),
+                "password": get_env_var_key(key),
             }
         )
     return credentials_list
