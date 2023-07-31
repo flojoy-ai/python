@@ -325,9 +325,9 @@ def set_env_var_key(key: str, value: str):
             file.write(key + ",")
 
 
-def get_credentials() -> Union[list[dict[str, str]], None]:
+def get_credentials() -> Union[dict[str, str], None]:
     keys_list: list[str] = []
-    credentials_list: list[dict[str, str]] = []
+    credentials_dict: dict[str, str] = {}
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
     with open(file_path) as f:
@@ -335,16 +335,9 @@ def get_credentials() -> Union[list[dict[str, str]], None]:
             for key in line.split(","):
                 if key and key not in keys_list:
                     keys_list.append(key)
-
     for key in keys_list:
-        credentials_list.append(
-            {
-                "id": str(uuid.uuid4()),
-                "username": key,
-                "password": get_env_var_key(key),
-            }
-        )
-    return credentials_list
+        credentials_dict[key] = get_env_var_key(key)
+    return credentials_dict
 
 
 def clear_flojoy_memory():
