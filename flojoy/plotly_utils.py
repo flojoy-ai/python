@@ -6,7 +6,7 @@ import pandas as pd
 from typing import cast, Any
 
 
-def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
+def data_container_to_plotly(data: DataContainer) -> dict[str, Any] | None:
     data_copy = data.copy()
     dc_type = data_copy.type
     fig = go.Figure()
@@ -60,8 +60,14 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any]:
                         name=i,
                     )
                 )
+        case "surface":
+            fig = go.Figure(
+                data=[go.Surface(x=data_copy.x, y=data_copy.y, z=data_copy.z)]
+            )
         case "plotly":
             fig = cast(go.Figure, data.fig)
+        case "bytes" | "text_blob":
+            return None
         case _:
             raise ValueError(
                 f"unsupported DataContainer type passed to plotly converter function, type: '{dc_type}"

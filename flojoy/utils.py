@@ -8,6 +8,14 @@ from typing import Any, Callable, Optional
 import logging
 import numpy as np
 import pandas as pd
+import sys
+import os
+from pathlib import Path
+from typing import Any, Callable
+import numpy as np
+import pandas as pd
+import logging
+import yaml
 import requests
 import yaml
 from dotenv import dotenv_values  # type:ignore
@@ -18,21 +26,28 @@ from .config import FlojoyConfig, logger
 
 from .node_init import NodeInit, NodeInitService
 import keyring
+import base64
+from huggingface_hub import hf_hub_download as _hf_hub_download
+from huggingface_hub import snapshot_download as _snapshot_download
+from .dao import Dao
+
 
 __all__ = [
     "send_to_socket",
     "get_env_var",
     "set_env_var",
-    "delete_env_var",
     "hf_hub_download",
     "snapshot_download",
-    "get_node_init_function",
-    "get_credentials",
+    "send_to_socket",
+    "hf_hub_download",
+    "snapshot_download",
     "clear_flojoy_memory",
 ]
 
 FLOJOY_DIR = ".flojoy"
 
+from .dao import Dao
+from .config import FlojoyConfig, logger
 
 if sys.platform == "win32":
     FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], FLOJOY_DIR)
@@ -201,6 +216,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             self.encode_as_date,
             self.encode_as_list,  # because some values have `tolist` do last.
             self.encode_as_decimal,
+            self.encode_as_base64,
         )
         for encoding_method in encoding_methods:
             try:
@@ -208,6 +224,14 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             except NotEncodable:
                 pass
         return _json.JSONEncoder.default(self, obj)
+
+    @staticmethod
+    def encode_as_base64(value: bytes):
+        """Attempt to convert to base64."""
+        try:
+            return base64.b64encode(value).decode()
+        except AttributeError:
+            raise NotEncodable
 
     @staticmethod
     def encode_as_plotly(obj: dict[str, Any]):
