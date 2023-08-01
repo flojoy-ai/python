@@ -59,3 +59,4 @@ urllib3==1.26.15
 wrapt==1.15.0
 zope.interface==6.0
 keyring==24.2.0
+huggingface_hub==0.16.4
