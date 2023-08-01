@@ -34,17 +34,15 @@ class Dao:
             return Dao._instance
 
     def __init__(self):
-        
-        self.storage = {} # small memory
-        self.job_results = {} 
-        self.node_init_container = {} 
-        self.node_init_func = {} 
+        self.storage = {}  # small memory
+        self.job_results = {}
+        self.node_init_container = {}
+        self.node_init_func = {}
 
         self.dict_sm_lock = Lock()
-        self.dict_job_lock = Lock() 
-        self.dict_node_init_container_lock = Lock() 
+        self.dict_job_lock = Lock()
+        self.dict_node_init_container_lock = Lock()
         self.dict_node_init_func_lock = Lock()
-        
 
     """
     METHODS FOR JOB RESULTS
@@ -187,14 +185,16 @@ class Dao:
 
     def get_init_container(self, node_id: str):
         res = self.node_init_container.get(node_id, None)
-        from .node_init import NodeInitContainer # avoid circular import
+        from .node_init import NodeInitContainer  # avoid circular import
+
         self.check_if_valid(res, NodeInitContainer)
         return res
-    
+
     def has_init_container(self, node_id: str) -> bool:
         return node_id in self.node_init_container.keys()
+
     # ------------------------
-    
+
     # -- for node init function --
     def set_init_function(self, node_func, node_init_func):
         with self.dict_node_init_func_lock:
@@ -202,10 +202,12 @@ class Dao:
 
     def get_init_function(self, node_func: Callable):
         res = self.node_init_func.get(node_func, None)
-        from .node_init import NodeInit # avoid circular import
+        from .node_init import NodeInit  # avoid circular import
+
         self.check_if_valid(res, NodeInit)
         return res
-    
+
     def has_init_function(self, node_func) -> bool:
         return node_func in self.node_init_func.keys()
+
     # ----------------------------

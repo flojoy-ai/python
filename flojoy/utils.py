@@ -69,14 +69,18 @@ port = env_vars.get("VITE_BACKEND_PORT", "8000")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
 
 is_offline = False
+
+
 # temporary fix for offline mode for precompilation
 def set_offline():
     global is_offline
     is_offline = True
 
+
 def set_online():
     global is_offline
     is_offline = False
+
 
 def send_to_socket(data: str):
     if is_offline:
