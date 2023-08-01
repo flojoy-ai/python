@@ -1,17 +1,15 @@
 import decimal
-import difflib
 import json as _json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any, Callable, Optional
 
 import logging
 import numpy as np
 import pandas as pd
 import requests
 import yaml
-import uuid
 from dotenv import dotenv_values  # type:ignore
 from huggingface_hub import hf_hub_download as _hf_hub_download
 from huggingface_hub import snapshot_download as _snapshot_download
@@ -20,14 +18,12 @@ from .config import FlojoyConfig, logger
 
 from .node_init import NodeInit, NodeInitService
 import keyring
-import uuid
 
 __all__ = [
     "send_to_socket",
-    "get_env_var_key",
-    "set_env_var_key",
-    "edit_env_var_key",
-    "delete_env_var_key",
+    "get_env_var",
+    "set_env_var",
+    "delete_env_var",
     "hf_hub_download",
     "snapshot_download",
     "get_node_init_function",
@@ -303,74 +299,73 @@ def get_flojoy_root_dir() -> str:
     stream = open(path, "r")
     yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
     root_dir = ""
+
     if isinstance(yaml_dict, str):
         root_dir = yaml_dict.split(":")[1]
     else:
         root_dir = yaml_dict["PATH"]
+
     return root_dir
 
 
-def get_env_var_key(key: str) -> Union[str, None]:
+def get_env_var(key: str) -> Optional[str]:
     return keyring.get_password("flojoy", key)
 
 
-def set_env_var_key(key: str, value: str):
+def set_env_var(key: str, value: str):
     keyring.set_password("flojoy", key, value)
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
 
     if not os.path.exists(file_path):
-        with open(file_path, "w") as file:
-            file.write(key + ",")
+        with open(file_path, "w") as f:
+            f.write(key)
         return
-    else:
-        with open(file_path, "a") as file:
-            file.write(key + ",")
+
+    with open(file_path, "r") as f:
+        keys = f.read().strip().split(",")
+        if key not in keys:
+            keys.append(key)
+
+    with open(file_path, "a") as f:
+        f.write(",".join(keys))
 
 
-def edit_env_var_key(key: str, new_password: str):
-    keyring.set_password("flojoy", key, new_password)
-
-
-def delete_env_var_key(key: str):
+def delete_env_var(key: str):
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
+
     if not os.path.exists(file_path):
         return
+
     with open(file_path, "r") as f:
-        env_var_keys = f.read()
-    modified = env_var_keys.replace(key + ",", "")
+        keys = f.read().strip().split(",")
+
+    if key not in keys:
+        return
+
+    keys.remove(key)
+
     with open(file_path, "w") as f:
-        print(modified)
-        f.write(modified)
+        f.write(",".join(keys))
+
     keyring.delete_password("flojoy", key)
 
 
-def get_credentials() -> Union[list[dict[str, str]], None]:
-    keys_list: list[str] = []
-    credentials_list: list[dict[str, str]] = []
+def get_credentials() -> list[dict[str, str]]:
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
+
     with open(file_path, "r") as f:
-        for line in f:
-            for key in line.split(","):
-                if key and key not in keys_list:
-                    keys_list.append(key)
-                else:
-                    continue
-    for key in keys_list:
-        value = get_env_var_key(key)
-        if value:
-            credentials_list.append(
-                {"id": str(uuid.uuid4()), "key": key, "value": value}
-            )
+        keys = f.read().strip().split(",")
+
+    credentials_list: list[dict[str, str]] = []
+    for key in keys:
+        val = get_env_var(key)
+        if val:
+            credentials_list.append({"key": key, "value": val})
+
     return credentials_list
-
-
-def clear_flojoy_memory():
-    Dao.get_instance().clear_job_results()
-    Dao.get_instance().clear_small_memory()
-    Dao.get_instance().clear_node_init_containers()
 
 
 def get_node_init_function(node_func: Callable) -> NodeInit:
