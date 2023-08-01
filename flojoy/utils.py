@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import requests
 import yaml
+import uuid
 from dotenv import dotenv_values  # type:ignore
 from huggingface_hub import hf_hub_download as _hf_hub_download
 from huggingface_hub import snapshot_download as _snapshot_download
@@ -25,7 +26,8 @@ __all__ = [
     "send_to_socket",
     "get_env_var_key",
     "set_env_var_key",
-    "modify_env_var_key",
+    "edit_env_var_key",
+    "delete_env_var_key",
     "hf_hub_download",
     "snapshot_download",
     "get_node_init_function",
@@ -325,22 +327,45 @@ def set_env_var_key(key: str, value: str):
         with open(file_path, "a") as file:
             file.write(key + ",")
 
-def modify_env_var_key(key: str, new_password: str):
+
+def edit_env_var_key(key: str, new_password: str):
     keyring.set_password("flojoy", key, new_password)
 
-def get_credentials() -> Union[dict[str, str], None]:
-    keys_list: list[str] = []
-    credentials_dict: dict[str, str] = {}
+
+def delete_env_var_key(key: str):
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
-    with open(file_path) as f:
+    if not os.path.exists(file_path):
+        return
+    with open(file_path, "r") as f:
+        env_var_keys = f.read()
+    modified = env_var_keys.replace(key + ",", "")
+    with open(file_path, "w") as f:
+        print(modified)
+        f.write(modified)
+    keyring.delete_password("flojoy", key)
+
+
+def get_credentials() -> Union[list[dict[str, str]], None]:
+    keys_list: list[str] = []
+    credentials_list: list[dict[str, str]] = []
+    home = str(Path.home())
+    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
+    with open(file_path, "r") as f:
         for line in f:
             for key in line.split(","):
                 if key and key not in keys_list:
                     keys_list.append(key)
+                else:
+                    continue
     for key in keys_list:
-        credentials_dict[key] = get_env_var_key(key)
-    return credentials_dict
+        value = get_env_var_key(key)
+        if value:
+            credentials_list.append(
+                {"id": str(uuid.uuid4()), "key": key, "value": value}
+            )
+    return credentials_list
+
 
 def clear_flojoy_memory():
     Dao.get_instance().clear_job_results()
