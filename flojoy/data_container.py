@@ -1,10 +1,18 @@
+import difflib
 import typing
 import numpy as np
 import pandas as pd
 from box import Box, box_list
 import plotly.graph_objects as go  # type:ignore
 from typing import Union, Literal, get_args, Any, cast
-from .utils import find_closest_match
+
+
+def find_closest_match(given_str: str, available_str: list[str]):
+    closest_match = difflib.get_close_matches(given_str, available_str, n=1)
+    if closest_match:
+        return closest_match[0]
+    else:
+        return None
 
 
 DCType = Literal[
@@ -15,6 +23,8 @@ DCType = Literal[
     "ordered_pair",
     "ordered_triple",
     "plotly",
+    "bytes",
+    "text_blob",
     "scalar",
     "surface",
     "vector",
@@ -39,6 +49,8 @@ DCKwargsValue = Union[
     DCNpArrayType,
     pd.DataFrame,
     go.Figure,
+    bytes,
+    str,
     None,
 ]
 ExtraType = dict[str, Any] | None
@@ -77,6 +89,7 @@ class DataContainer(Box):
         "g",
         "b",
         "a",
+        "text_blob",
         "fig",
         "extra",
     ]
@@ -92,6 +105,8 @@ class DataContainer(Box):
         "g": ["r", "b", "t", "a", "extra"],
         "b": ["r", "g", "t", "a", "extra"],
         "a": ["r", "g", "b", "t", "extra"],
+        "bytes": ["extra"],
+        "text_blob": ["extra"],
         "extra": [*(k for k in allowed_keys if k not in ["extra"])],
         "fig": ["t", "extra"],
     }
@@ -106,7 +121,17 @@ class DataContainer(Box):
         "surface": ["x", "y", "z"],
         "scalar": ["c"],
         "plotly": ["fig"],
+        "bytes": ["b"],
+        "text_blob": ["text_blob"],
     }
+
+    SKIP_ARRAYIEFY_TYPES = [
+        str,
+        bytes,
+        go.Figure,
+        pd.DataFrame,
+        np.ndarray,
+    ]  # value types not to be arrayified
 
     type: DCType
 
@@ -130,14 +155,8 @@ class DataContainer(Box):
             for k, v in value.__dict__.items():
                 arrayified_value[k] = cast(DCNpArrayType, self._ndarrayify(v))
             return arrayified_value
-        elif isinstance(value, pd.DataFrame):
-            return value
-        elif isinstance(value, np.ndarray):
-            return value
         elif isinstance(value, list):
             return np.array(value)
-        elif isinstance(value, go.Figure):
-            return value
         elif value is None:
             return value
         else:
@@ -160,7 +179,10 @@ class DataContainer(Box):
         return super().__getitem__(key, _ignore_default)  # type:ignore
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
-        if key != "type" and key != "extra":
+        if (
+            key not in ["type", "extra"]
+            and type(value) not in self.SKIP_ARRAYIEFY_TYPES
+        ):
             formatted_value = self._ndarrayify(value)
             super().__setitem__(key, formatted_value)  # type:ignore
         else:
@@ -434,6 +456,23 @@ class Image(DataContainer):
         extra: ExtraType = None,
     ):
         super().__init__(type="image", r=r, g=g, b=b, a=a, extra=extra)
+
+
+class Bytes(DataContainer):
+    b: bytes
+
+    def __init__(
+        self,
+        b: bytes,
+    ):
+        super().__init__(type="bytes", b=b)
+
+
+class TextBlob(DataContainer):
+    text_blob: str
+
+    def __init__(self, text_blob: str):
+        super().__init__(type="text_blob", text_blob=text_blob)
 
 
 class ParametricImage(DataContainer):

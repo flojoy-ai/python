@@ -40,25 +40,28 @@ __all__ = ["run_in_venv"]
 
 class MultiprocessingExecutableContextManager:
     """Temporarily change the executable used by multiprocessing."""
+
     def __init__(self, executable_path):
         self.original_executable_path = sys.executable
         self.executable_path = executable_path
-        # We need to save the original start method 
+        # We need to save the original start method
         # because it is set to "fork" by default on Linux while we ALWAYS want spawn
         self.original_start_method = multiprocessing.get_start_method()
 
     def __enter__(self):
-        if(self.original_start_method != "spawn"):
+        if self.original_start_method != "spawn":
             multiprocessing.set_start_method("spawn", force=True)
         multiprocessing.set_executable(self.executable_path)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if(self.original_start_method != "spawn"):
+        if self.original_start_method != "spawn":
             multiprocessing.set_start_method(self.original_start_method, force=True)
         multiprocessing.set_executable(self.original_executable_path)
 
+
 class SwapSysPath:
     """Temporarily swap the sys.path of the child process with the sys.path of the parent process."""
+
     def __init__(self, venv_executable):
         self.new_path = _get_venv_syspath(venv_executable)
         self.old_path = None
@@ -72,16 +75,15 @@ class SwapSysPath:
 
 
 def _install_pip_dependencies(
-        venv_executable: os.PathLike,
-        pip_dependencies: tuple[str],
-        verbose: bool = False
-    ):
+    venv_executable: os.PathLike, pip_dependencies: tuple[str], verbose: bool = False
+):
     """Install pip dependencies into the virtual environment."""
     command = [venv_executable, "-m", "pip", "install"]
-    if(not verbose):
-        command += ["-q", "-q"]  
+    if not verbose:
+        command += ["-q", "-q"]
     command += list(pip_dependencies)
     subprocess.check_call(command)
+
 
 def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
     """Get the sys.path of the virtual environment."""
@@ -89,9 +91,16 @@ def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
     cmd_output = subprocess.run(command, check=True, capture_output=True, text=True)
     return eval(cmd_output.stdout)
 
+
 class PickleableFunctionWithPipeIO:
     """A wrapper for a function that can be pickled and executed in a child process."""
-    def __init__(self, func_serialized: bytes, child_conn: multiprocessing.connection.Connection, venv_executable: str):
+
+    def __init__(
+        self,
+        func_serialized: bytes,
+        child_conn: multiprocessing.connection.Connection,
+        venv_executable: str,
+    ):
         self._func_serialized = func_serialized
         self._child_conn = child_conn
         self._venv_executable = venv_executable
@@ -99,7 +108,9 @@ class PickleableFunctionWithPipeIO:
     def __call__(self, *args_serialized, **kwargs_serialized):
         fn = cloudpickle.loads(self._func_serialized)
         args = [cloudpickle.loads(arg) for arg in args_serialized]
-        kwargs = {key: cloudpickle.loads(value) for key, value in kwargs_serialized.items()}
+        kwargs = {
+            key: cloudpickle.loads(value) for key, value in kwargs_serialized.items()
+        }
         with SwapSysPath(venv_executable=self._venv_executable):
             try:
                 result = fn(*args, **kwargs)
@@ -108,6 +119,7 @@ class PickleableFunctionWithPipeIO:
         serialized_result = cloudpickle.dumps(result)
         self._child_conn.send_bytes(serialized_result)
 
+
 def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str:
     """Get the path to the python executable of the virtual environment."""
     if sys.platform == "win32":
@@ -115,12 +127,14 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
     else:
         return os.path.join(venv_path, "bin", "python")
 
+
 def _get_venv_cache_dir():
     return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
 
+
 def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False):
     """A decorator that allows a function to be executed in a virtual environment.
-    
+
     Args:
         pip_dependencies (list[str]): A list of pip dependencies to install into the virtual environment. Defaults to [].
         verbose (bool): Whether to print the pip install output. Defaults to False.
@@ -128,7 +142,7 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     Example usage:
     ```python
     from flojoy import flojoy, run_in_venv
-    
+
     @flojoy
     @run_in_venv(pip_dependencies=["torch==2.0.1", "torchvision==0.15.2"])
     def TORCH_NODE(default: Matrix) -> Matrix:
@@ -141,10 +155,14 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     if pip_dependencies is None:
         pip_dependencies = []
     # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
-    packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
-    pip_dependencies = sorted([
-        f"flojoy=={packages_dict['flojoy']}",
-        f"cloudpickle=={packages_dict['cloudpickle']}"] \
+    packages_dict = {
+        package.name: package.version for package in importlib.metadata.distributions()
+    }
+    pip_dependencies = sorted(
+        [
+            f"flojoy=={packages_dict['flojoy']}",
+            f"cloudpickle=={packages_dict['cloudpickle']}",
+        ]
         + pip_dependencies
     )
     # Get the root directory for the virtual environments
@@ -152,7 +170,9 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     os.makedirs(venv_cache_dir, exist_ok=True)
     # Generate a path-safe hash of the pip dependencies
     # this prevents the duplication of virtual environments
-    pip_dependencies_hash = hashlib.sha256("".join(pip_dependencies).encode()).hexdigest()
+    pip_dependencies_hash = hashlib.sha256(
+        "".join(pip_dependencies).encode()
+    ).hexdigest()
     venv_path = os.path.join(venv_cache_dir, f"{pip_dependencies_hash}")
     venv_executable = _get_venv_executable_path(venv_path)
     # Create the node_env virtual environment if it does not exist
@@ -164,11 +184,13 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 _install_pip_dependencies(
                     venv_executable=venv_executable,
                     pip_dependencies=tuple(pip_dependencies),
-                    verbose=verbose
+                    verbose=verbose,
                 )
             except subprocess.CalledProcessError as e:
                 shutil.rmtree(venv_path)
-                logging.error(f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}")
+                logging.error(
+                    f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}"
+                )
                 raise e
 
     # Define the decorator
@@ -178,13 +200,21 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             # Serialize function arguments using cloudpickle
             parent_conn, child_conn = multiprocessing.Pipe()
             args_serialized = [cloudpickle.dumps(arg) for arg in args]
-            kwargs_serialized = {key: cloudpickle.dumps(value) for key, value in kwargs.items()}
+            kwargs_serialized = {
+                key: cloudpickle.dumps(value) for key, value in kwargs.items()
+            }
             func_serialized = cloudpickle.dumps(func)
-            pickleable_func_with_pipe = PickleableFunctionWithPipeIO(func_serialized, child_conn, venv_executable)
+            pickleable_func_with_pipe = PickleableFunctionWithPipeIO(
+                func_serialized, child_conn, venv_executable
+            )
             # Start the context manager that will change the executable used by multiprocessing
             with MultiprocessingExecutableContextManager(venv_executable):
                 # Create a new process that will run the Python code
-                process = multiprocessing.Process(target=pickleable_func_with_pipe, args=args_serialized, kwargs=kwargs_serialized)
+                process = multiprocessing.Process(
+                    target=pickleable_func_with_pipe,
+                    args=args_serialized,
+                    kwargs=kwargs_serialized,
+                )
                 # Start the process
                 process.start()
                 # Fetch result from the child process
@@ -200,5 +230,7 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 logging.error(f"Error in child process \n{''.join(tcb)}")
                 raise exception
             return result
+
         return wrapper
+
     return decorator

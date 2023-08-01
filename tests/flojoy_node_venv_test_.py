@@ -16,7 +16,9 @@ def mock_venv_cache_dir():
     shutil.rmtree(_test_tempdir, ignore_errors=True)
     os.makedirs(_test_tempdir)
     # Patch the tempfile.tempdir
-    with patch("flojoy.flojoy_node_venv._get_venv_cache_dir", return_value=_test_tempdir):
+    with patch(
+        "flojoy.flojoy_node_venv._get_venv_cache_dir", return_value=_test_tempdir
+    ):
         yield _test_tempdir
     # Clean up
     shutil.rmtree(_test_tempdir)
@@ -36,7 +38,10 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
         import jax
 
         # Get the list of installed packages
-        packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
+        packages_dict = {
+            package.name: package.version
+            for package in importlib.metadata.distributions()
+        }
         return packages_dict, sys.path, sys.executable
 
     # Run the function
@@ -48,8 +53,8 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
     # Test for package version
     assert packages_dict["jax"] == "0.4.13"
 
+
 def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
-    
     from flojoy import flojoy, run_in_venv
 
     # Define a function that imports flytekit and returns its version
@@ -60,7 +65,10 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
         import flytekit
 
         # Get the list of installed packages
-        packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
+        packages_dict = {
+            package.name: package.version
+            for package in importlib.metadata.distributions()
+        }
         return packages_dict, sys.path, sys.executable
 
     # Run the function
@@ -85,9 +93,12 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
         import cv2
 
         # Get the list of installed packages
-        packages_dict = {package.name: package.version for package in importlib.metadata.distributions()}
+        packages_dict = {
+            package.name: package.version
+            for package in importlib.metadata.distributions()
+        }
         return packages_dict, sys.path, sys.executable
-    
+
     # Run the function
     packages_dict, sys_path, sys_executable = empty_function_with_opencv()
     # Test for executable
@@ -98,7 +109,6 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
     assert packages_dict["opencv-python-headless"] == "4.7.0.72"
 
 
-
 def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
     """Test that run_in_venv imports properly jax for example"""
 
@@ -106,7 +116,7 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
 
     @run_in_venv(pip_dependencies=[])
     def empty_function_with_error():
-        return 1/0
+        return 1 / 0
 
     # Run the function and expect an error
     with pytest.raises(ZeroDivisionError):
