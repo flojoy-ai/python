@@ -198,8 +198,6 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 logging.error(
                     f"[ _install_pip_dependencies ] Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
                 )
-                logging.error(
-                )
                 # Log every line of e.stderr
                 for line in e.stderr.decode().splitlines():
                     logging.error(f"[ _install_pip_dependencies ] {line}")
