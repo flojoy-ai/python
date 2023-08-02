@@ -82,12 +82,13 @@ def _install_pip_dependencies(
     if not verbose:
         command += ["-q", "-q"]
     command += list(pip_dependencies)
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-    if(verbose):
+    result = subprocess.run(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
+    )
+    if verbose:
         # Log every line if verbose, prefix with [pip]
         for line in result.stdout.decode().splitlines():
             logging.info(f"[ _install_pip_dependencies ] {line}")
-
 
 
 def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
@@ -116,14 +117,19 @@ class PickleableFunctionWithPipeIO:
                 fn = cloudpickle.loads(self._func_serialized)
                 args = [cloudpickle.loads(arg) for arg in args_serialized]
                 kwargs = {
-                    key: cloudpickle.loads(value) for key, value in kwargs_serialized.items()
+                    key: cloudpickle.loads(value)
+                    for key, value in kwargs_serialized.items()
                 }
                 serialized_result = cloudpickle.dumps(fn(*args, **kwargs))
             except Exception as e:
                 # Not all exceptions are expected to be picklable
                 # so we clone their traceback and send our own custom type of exception
-                exc = RuntimeError("Child process failed with an exception of type {e.}.").with_traceback(e.__traceback__)
-                serialized_result = cloudpickle.dumps((exc, traceback.format_exception(type(e), e, e.__traceback__)))
+                exc = ChildProcessError(
+                    f"Child process failed with an exception of type {type(e)}."
+                ).with_traceback(e.__traceback__)
+                serialized_result = cloudpickle.dumps(
+                    (exc, traceback.format_exception(type(e), e, e.__traceback__))
+                )
         self._child_conn.send_bytes(serialized_result)
 
 
