@@ -243,7 +243,9 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 # Fetch exception and formatted traceback (list[str])
                 exception, tcb = result
                 # Reraise an exception with the same class
-                logging.error(f"[ run_in_venv ] Error in child process with the following traceback:\n{''.join(tcb)}")
+                logging.error(
+                    f"[ run_in_venv ] Error in child process with the following traceback:\n{''.join(tcb)}"
+                )
                 raise exception
             return result
 
