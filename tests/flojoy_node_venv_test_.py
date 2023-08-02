@@ -126,7 +126,8 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
         empty_function_with_error()
 
 
-def test_run_in_venv_runs_within_thread(mock_venv_cache_dir):
+@pytest.mark.parametrize("daemon", [True, False])
+def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, daemon):
 
     from threading import Thread
     from queue import Queue
@@ -148,7 +149,7 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir):
     
     # Run the function in a thread
     queue = Queue()
-    thread = Thread(target=function_to_run_within_thread, args=(queue,))
+    thread = Thread(target=function_to_run_within_thread, args=(queue,), daemon=daemon)
     thread.start()
     thread.join()
     # Check that the thread has finished
