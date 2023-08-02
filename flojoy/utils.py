@@ -340,7 +340,7 @@ def set_env_var(key: str, value: str):
         if key not in keys:
             keys.append(key)
 
-    with open(file_path, "a") as f:
+    with open(file_path, "w") as f:
         f.write(",".join(keys))
 
 
