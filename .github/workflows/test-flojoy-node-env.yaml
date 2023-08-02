@@ -5,12 +5,12 @@ on:
     branches:
       - "main"
     paths:
-      - "flojoy/flojoy_node_env.py"
+      - "flojoy/flojoy_node_venv.py"
       - "tests/flojoy_node_venv_test_.py"
   
   pull_request:
     paths:
-      - "flojoy/flojoy_node_env.py"
+      - "flojoy/flojoy_node_venv.py"
       - "tests/flojoy_node_venv_test_.py"
     
   workflow_dispatch:
