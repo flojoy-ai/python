@@ -36,6 +36,8 @@ __all__ = [
     "send_to_socket",
     "get_env_var",
     "set_env_var",
+    "delete_env_var",
+    "get_credentials",
     "hf_hub_download",
     "snapshot_download",
     "send_to_socket",
