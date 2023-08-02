@@ -19,8 +19,11 @@ def TORCH_NODE(default: Matrix) -> Matrix:
     return Matrix(...)
 
 """
+from typing import Callable
+
 import hashlib
 import importlib.metadata
+import inspect
 import logging
 import multiprocessing
 import multiprocessing.connection
@@ -62,13 +65,14 @@ class MultiprocessingExecutableContextManager:
 class SwapSysPath:
     """Temporarily swap the sys.path of the child process with the sys.path of the parent process."""
 
-    def __init__(self, venv_executable):
+    def __init__(self, venv_executable, extra_sys_path):
         self.new_path = _get_venv_syspath(venv_executable)
+        self.extra_sys_path = [] if extra_sys_path is None else extra_sys_path
         self.old_path = None
 
     def __enter__(self):
         self.old_path = sys.path
-        sys.path = self.new_path
+        sys.path = self.new_path + self.extra_sys_path
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         sys.path = self.old_path
@@ -103,16 +107,19 @@ class PickleableFunctionWithPipeIO:
 
     def __init__(
         self,
-        func_serialized: bytes,
+        func: Callable,
         child_conn: multiprocessing.connection.Connection,
         venv_executable: str,
     ):
-        self._func_serialized = func_serialized
+        self._func_serialized = cloudpickle.dumps(func)
+        func_module_path = os.path.dirname(os.path.realpath(inspect.getabsfile(func)))
+        # Check that the function is in a directory indeed
+        self._extra_sys_path = [func_module_path] if os.path.isdir(func_module_path) else None
         self._child_conn = child_conn
         self._venv_executable = venv_executable
 
     def __call__(self, *args_serialized, **kwargs_serialized):
-        with SwapSysPath(venv_executable=self._venv_executable):
+        with SwapSysPath(venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path):
             try:
                 fn = cloudpickle.loads(self._func_serialized)
                 args = [cloudpickle.loads(arg) for arg in args_serialized]
@@ -219,10 +226,7 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             kwargs_serialized = {
                 key: cloudpickle.dumps(value) for key, value in kwargs.items()
             }
-            func_serialized = cloudpickle.dumps(func)
-            pickleable_func_with_pipe = PickleableFunctionWithPipeIO(
-                func_serialized, child_conn, venv_executable
-            )
+            pickleable_func_with_pipe = PickleableFunctionWithPipeIO(func, child_conn, venv_executable)
             # Start the context manager that will change the executable used by multiprocessing
             with MultiprocessingExecutableContextManager(venv_executable):
                 # Create a new process that will run the Python code
