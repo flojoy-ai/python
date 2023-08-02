@@ -106,17 +106,16 @@ class PickleableFunctionWithPipeIO:
         self._venv_executable = venv_executable
 
     def __call__(self, *args_serialized, **kwargs_serialized):
-        fn = cloudpickle.loads(self._func_serialized)
-        args = [cloudpickle.loads(arg) for arg in args_serialized]
-        kwargs = {
-            key: cloudpickle.loads(value) for key, value in kwargs_serialized.items()
-        }
         with SwapSysPath(venv_executable=self._venv_executable):
             try:
-                result = fn(*args, **kwargs)
+                fn = cloudpickle.loads(self._func_serialized)
+                args = [cloudpickle.loads(arg) for arg in args_serialized]
+                kwargs = {
+                    key: cloudpickle.loads(value) for key, value in kwargs_serialized.items()
+                }
+                serialized_result = cloudpickle.dumps(fn(*args, **kwargs))
             except Exception as e:
-                result = (e, traceback.format_exception(type(e), e, e.__traceback__))
-        serialized_result = cloudpickle.dumps(result)
+                serialized_result = cloudpickle.dumps((e, traceback.format_exception(type(e), e, e.__traceback__)))
         self._child_conn.send_bytes(serialized_result)
 
 
