@@ -48,7 +48,8 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
     # Test for executable
     assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_venv_cache_dir)
+    assert sys_path[-1].startswith(os.path.dirname(__file__))
+    assert sys_path[-2].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["jax"] == "0.4.13"
 
@@ -74,7 +75,8 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
     # Test for executable
     assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_venv_cache_dir)
+    assert sys_path[-1].startswith(os.path.dirname(__file__))
+    assert sys_path[-2].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["flytekit"] == "1.8.2"
 
@@ -101,7 +103,8 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
     # Test for executable
     assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_venv_cache_dir)
+    assert sys_path[-1].startswith(os.path.dirname(__file__))
+    assert sys_path[-2].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["opencv-python-headless"] == "4.7.0.72"
 
