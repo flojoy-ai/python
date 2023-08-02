@@ -116,5 +116,5 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
         return 1 / 0
 
     # Run the function and expect an error
-    with pytest.raises(ZeroDivisionError):
+    with pytest.raises(RuntimeError):
         empty_function_with_error()
