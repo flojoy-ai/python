@@ -121,3 +121,37 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
     # Run the function and expect an error
     with pytest.raises(ChildProcessError):
         empty_function_with_error()
+
+
+def test_run_in_venv_runs_within_thread(mock_venv_cache_dir):
+
+    from threading import Thread
+    from queue import Queue
+
+    def function_to_run_within_thread(queue):
+
+        from flojoy import run_in_venv
+
+        @run_in_venv(
+            pip_dependencies=["numpy==1.23.0"]
+        )
+        def func_with_venv():
+            import numpy as np
+
+            return 42
+        
+        # Run the function
+        queue.put(func_with_venv())
+    
+    # Run the function in a thread
+    queue = Queue()
+    thread = Thread(target=function_to_run_within_thread, args=(queue,))
+    thread.start()
+    thread.join()
+    # Check that the thread has finished
+    assert not thread.is_alive()
+    # Check that there is something in the queue
+    assert not queue.empty()
+    # Check that the function has returned
+    assert queue.get(timeout=60) == 42
+    
