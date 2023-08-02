@@ -16,8 +16,11 @@ on:
   workflow_dispatch:
 
 jobs:
-  ubuntu:
-    runs-on: ubuntu-latest
+  pytest:
+    strategy:
+      matrix:
+        os: [ubuntu, macos, windows]
+    runs-on: ${{ matrix.os }}-latest
     steps:
       - uses: actions/checkout@v3
         with:
@@ -34,50 +37,5 @@ jobs:
           pip install -e .
 
       - name: Run python tests
-        run: python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
-    
-  macos:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-          cache: "pip"
-      - name: Install pip dependencies
         run: |
-          pip install ruff pytest
-          pip install -r requirements.txt
-          pip install -e .
-
-      - name: Run python tests
-        run: python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
-  
-  windows:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-          cache: "pip"
-
-      - name: Install pip dependencies
-        run: |
-          pip install ruff pytest
-          pip install -r requirements.txt
-          pip install -e .
-        shell: powershell
-
-      - name: Run python tests
-        run: python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
-        shell: powershell
-  
-
-
+          python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
