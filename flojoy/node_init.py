@@ -25,9 +25,9 @@ class NodeInit:
     def __call__(self, node_id: str):
         return self.run(node_id)
 
-    def run(self, node_id: str):
+    def run(self, node_id: str, **kwargs):
         daemon_container = NodeInitService().create_init_store(node_id)
-        res = self.func()
+        res = self.func(**kwargs)
         if res is not None:
             daemon_container.set(res)
 
