@@ -39,9 +39,9 @@ FLOJOY_DIR = ".flojoy"
 
 
 if sys.platform == "win32":
-    FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], FLOJOY_DIR)
+    FLOJOY_CACHE_DIR = os.path.realpath(os.path.join(os.environ["APPDATA"], FLOJOY_DIR))
 else:
-    FLOJOY_CACHE_DIR = os.path.join(os.environ["HOME"], FLOJOY_DIR)
+    FLOJOY_CACHE_DIR = os.path.realpath(os.path.join(os.environ["HOME"], FLOJOY_DIR))
 
 
 # Make as a function to mock at test-time

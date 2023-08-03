@@ -11,7 +11,7 @@ pytestmark = pytest.mark.slow
 # Define a fixture to patch tempfile.tempdir
 @pytest.fixture
 def mock_venv_cache_dir():
-    _test_tempdir = os.path.join(tempfile.gettempdir(), "test_flojoy_node_venv")
+    _test_tempdir = os.path.realpath(os.path.join(tempfile.gettempdir(), "test_flojoy_node_venv"))
     # Wipe the directory to be patched if it exists
     shutil.rmtree(_test_tempdir, ignore_errors=True)
     os.makedirs(_test_tempdir)
