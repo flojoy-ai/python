@@ -1,4 +1,4 @@
-from .data_container import DataContainer
+from .data_container import DataContainer, OrderedPair
 import numpy as np
 from typing import Union
 from .flojoy_instruction import FLOJOY_INSTRUCTION
@@ -67,4 +67,4 @@ class JobResultBuilder:
     def get_default_data(self) -> DataContainer:
         x = np.arange(0, 1000, 1)  # type:ignore
         y = np.ones_like(x)
-        return DataContainer(x=x, y=y)
+        return OrderedPair(x=x, y=y)

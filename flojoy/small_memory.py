@@ -1,4 +1,3 @@
-# import os, sys
 from typing import Any
 from .dao import Dao
 
@@ -61,7 +60,7 @@ class SmallMemory:
             case "dict":
                 return self.dao.get_obj(memory_key)
             case "np_array":
-                return self.dao.get_np_array(memory_key, meta_data)
+                return self.dao.get_np_array(memory_key)
             case "pd_dframe":
                 return self.dao.get_pd_dataframe(memory_key)
             case _:
