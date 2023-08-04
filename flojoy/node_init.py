@@ -29,9 +29,11 @@ class NodeInit:
 
     def run(self, node_id: str, ctrls: dict[str, Any]):
         daemon_container = NodeInitService().create_init_store(node_id)
-        
-        args = {name: format_param_value(ctrl["value"], ctrl["type"]) 
-                for name, ctrl in ctrls.items()}
+
+        args = {
+            name: format_param_value(ctrl["value"], ctrl["type"])
+            for name, ctrl in ctrls.items()
+        }
         res = self.func(**args)
         if res is not None:
             daemon_container.set(res)
