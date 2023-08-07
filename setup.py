@@ -4,7 +4,7 @@ setup(
     name="flojoy",
     packages=find_packages(exclude=["tests"]),
     package_data={"flojoy": ["__init__.pyi"]},
-    version="0.1.5-dev13",
+    version="0.1.5-dev15",
     license="MIT",
     description="Python client library for Flojoy.",
     author="flojoy",
@@ -33,7 +33,7 @@ setup(
         "plotly==5.8.2",
         "huggingface-hub==0.16.4",
         "Pillow",
-        "cloudpickle"
+        "cloudpickle",
     ],
     classifiers=[
         "Development Status :: 3 - Alpha",

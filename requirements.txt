@@ -58,5 +58,6 @@ uptime==3.0.1
 urllib3==1.26.15
 wrapt==1.15.0
 zope.interface==6.0
+keyring==24.2.0
 cloudpickle==2.2.1
 huggingface-hub==0.16.4
