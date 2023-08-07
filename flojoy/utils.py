@@ -8,16 +8,8 @@ from typing import Any, Callable, Optional
 import logging
 import numpy as np
 import pandas as pd
-import sys
-import os
-from pathlib import Path
-from typing import Any, Callable
-import numpy as np
-import pandas as pd
-import logging
 import yaml
 import requests
-import yaml
 from dotenv import dotenv_values  # type:ignore
 from huggingface_hub import hf_hub_download as _hf_hub_download
 from huggingface_hub import snapshot_download as _snapshot_download
@@ -27,15 +19,14 @@ from .config import FlojoyConfig, logger
 from .node_init import NodeInit, NodeInitService
 import keyring
 import base64
-from huggingface_hub import hf_hub_download as _hf_hub_download
-from huggingface_hub import snapshot_download as _snapshot_download
-from .dao import Dao
 
 
 __all__ = [
     "send_to_socket",
     "get_env_var",
     "set_env_var",
+    "delete_env_var",
+    "get_credentials",
     "hf_hub_download",
     "snapshot_download",
     "send_to_socket",
@@ -46,8 +37,6 @@ __all__ = [
 
 FLOJOY_DIR = ".flojoy"
 
-from .dao import Dao
-from .config import FlojoyConfig, logger
 
 if sys.platform == "win32":
     FLOJOY_CACHE_DIR = os.path.realpath(os.path.join(os.environ["APPDATA"], FLOJOY_DIR))
@@ -351,7 +340,7 @@ def set_env_var(key: str, value: str):
         if key not in keys:
             keys.append(key)
 
-    with open(file_path, "a") as f:
+    with open(file_path, "w") as f:
         f.write(",".join(keys))
 
 
