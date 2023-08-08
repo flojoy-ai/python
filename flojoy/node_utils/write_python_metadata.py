@@ -40,7 +40,7 @@ def write_metadata(out_path: str):
                 "path": "flojoy."
                 + single_file[single_file.find("nodes") :]
                 .replace("/", ".")
-                .replace("\\", "."),
+                .replace("\\", ".")[:-3],
             }
 
     s = json.dumps(obj=function_dict, indent=2)
