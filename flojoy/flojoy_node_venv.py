@@ -33,7 +33,7 @@ import venv
 from functools import wraps
 import cloudpickle
 
-from .utils.utils import FLOJOY_CACHE_DIR
+from .utilsimport FLOJOY_CACHE_DIR
 
 __all__ = ["run_in_venv"]
 
