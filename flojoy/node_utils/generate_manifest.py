@@ -125,7 +125,8 @@ def sort_order(element):
     except ValueError:
         return len(ORDERING)
 
-def generate_manifest(out_path:str):
+
+def generate_manifest(out_path: str):
     nodes_map = browse_directories(NODES_PATH.__str__())
     nodes_map["children"].sort(key=sort_order)  # type: ignore
     print(
@@ -135,5 +136,5 @@ def generate_manifest(out_path:str):
         f"⚠️ {__failed_nodes.__len__()} nodes require upgrading to align with the new API!"
     )
     with open(out_path, "w") as f:
-      f.write(json.dumps(nodes_map, indent=3))
-      f.close()
+        f.write(json.dumps(nodes_map, indent=3))
+        f.close()

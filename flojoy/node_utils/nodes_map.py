@@ -30,5 +30,7 @@ def create_map():
             # map file name to file path
             if file.endswith(".py"):
                 mapping[file[:-3]] = "flojoy." + (
-                    os.path.join(root[root.find("nodes"):], file[:-3]).replace("/", ".").replace("\\", ".")
+                    os.path.join(root[root.find("nodes") :], file[:-3])
+                    .replace("/", ".")
+                    .replace("\\", ".")
                 )
