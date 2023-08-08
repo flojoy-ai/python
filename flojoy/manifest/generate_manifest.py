@@ -2,8 +2,9 @@ import os
 import json
 from typing import Any, Optional, Union
 from .generate_node_manifest import create_manifest
+import pathlib
 
-FULL_PATH = os.path.join(os.pardir, "nodes")
+NODES_PATH = pathlib.Path(__file__).parent.parent.joinpath("nodes")
 
 NAME_MAP = {
     "AI_ML": "AI & ML",
@@ -123,7 +124,7 @@ def sort_order(element):
         return len(ORDERING)
 
 def generate_manifest(out_path:str):
-    nodes_map = browse_directories(FULL_PATH)
+    nodes_map = browse_directories(NODES_PATH.__str__())
     nodes_map["children"].sort(key=sort_order)  # type: ignore
     print(
         f"✅ Successfully generated manifest from {__generated_nodes.__len__()} nodes !"
@@ -132,5 +133,5 @@ def generate_manifest(out_path:str):
         f"⚠️ {__failed_nodes.__len__()} nodes require upgrading to align with the new API!"
     )
     with open(out_path, "w") as f:
-      f.write(json.dumps(map, indent=3))
+      f.write(json.dumps(nodes_map, indent=3))
       f.close()
