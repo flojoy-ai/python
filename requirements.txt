@@ -61,3 +61,4 @@ zope.interface==6.0
 keyring==24.2.0
 cloudpickle==2.2.1
 huggingface-hub==0.16.4
+docstring_parser==0.15
