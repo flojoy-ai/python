@@ -1,0 +1,3 @@
+[submodule "nodes"]
+	path = flojoy/nodes
+	url = https://github.com/flojoy-ai/nodes.git
