@@ -9,7 +9,6 @@ badbadnotgood = ["VCTR.py", "__init__.py", ".DS_Store"]
 ignore_folders = [
     "assets",
     "utils",
-    
 ]
 
 
@@ -38,7 +37,10 @@ def write_metadata(out_path: str):
         with open(single_file) as f:
             function_dict[os.path.basename(single_file)] = {
                 "metadata": f.read(),
-                "path": single_file,
+                "path": "flojoy."
+                + single_file[single_file.find("nodes") :]
+                .replace("/", ".")
+                .replace("\\", "."),
             }
 
     s = json.dumps(obj=function_dict, indent=2)
