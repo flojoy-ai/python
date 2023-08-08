@@ -4,6 +4,8 @@ from typing import Any, Optional, Union
 from .generate_node_manifest import create_manifest
 import pathlib
 
+__all__ = ["create_manifest"]
+
 NODES_PATH = pathlib.Path(__file__).parent.parent.joinpath("nodes")
 
 NAME_MAP = {

@@ -1,4 +1,3 @@
-import fnmatch
 import json
 import os
 
@@ -6,19 +5,18 @@ import pathlib
 
 NODES_PATH = pathlib.Path(__file__).parent.parent.joinpath("nodes")
 
-# The pattern to match for Python files
-pattern = "*.py"
-
 badbadnotgood = ["VCTR.py", "__init__.py", ".DS_Store"]
 ignore_folders = [
-    "venv",
+    "assets",
+    "utils",
+    
 ]
 
 
 def get_node_files():
     # List to store the file paths
     file_paths: list[str] = []
-    for root, dirs, files in os.walk(NODES_PATH):
+    for root, _, files in os.walk(NODES_PATH):
         for file in files:
             # Check if the file matches the pattern
             if any(
@@ -26,7 +24,7 @@ def get_node_files():
                 for folder_name in ignore_folders
             ):
                 continue
-            if fnmatch.fnmatch(file, pattern):
+            if file.endswith(".py") and "_test" not in file:
                 # If it matches, add the full path to the list
                 if file not in badbadnotgood:
                     file_paths.append(os.path.join(root, file))
