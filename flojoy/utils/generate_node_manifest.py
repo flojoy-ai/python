@@ -18,8 +18,10 @@ from typing import (
     is_typeddict,
     Literal,
 )
-
-from flojoy import DataContainer, DefaultParams, NodeReference, Array, NodeInitContainer
+from ..data_container import DataContainer
+from ..flojoy_python import DefaultParams
+from ..node_init import NodeInitContainer
+from ..parameter_types import NodeReference, Array
 
 ALLOWED_PARAM_TYPES = [
     int,
