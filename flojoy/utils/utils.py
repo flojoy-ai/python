@@ -13,10 +13,10 @@ import requests
 from dotenv import dotenv_values  # type:ignore
 from huggingface_hub import hf_hub_download as _hf_hub_download
 from huggingface_hub import snapshot_download as _snapshot_download
-from .dao import Dao
-from .config import FlojoyConfig, logger
+from ..dao import Dao
+from ..config import FlojoyConfig, logger
 
-from .node_init import NodeInit, NodeInitService
+from ..node_init import NodeInit, NodeInitService
 import keyring
 import base64
 
