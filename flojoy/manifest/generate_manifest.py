@@ -122,17 +122,15 @@ def sort_order(element):
     except ValueError:
         return len(ORDERING)
 
-
-if __name__ == "__main__":
-    map = browse_directories(FULL_PATH)
-    map["children"].sort(key=sort_order)  # type: ignore
-
+def generate_manifest(out_path:str):
+    nodes_map = browse_directories(FULL_PATH)
+    nodes_map["children"].sort(key=sort_order)  # type: ignore
     print(
         f"✅ Successfully generated manifest from {__generated_nodes.__len__()} nodes !"
     )
     print(
         f"⚠️ {__failed_nodes.__len__()} nodes require upgrading to align with the new API!"
     )
-    with open("src/data/manifests-latest.json", "w") as f:
-        f.write(json.dumps(map, indent=3))
-        f.close()
+    with open(out_path, "w") as f:
+      f.write(json.dumps(map, indent=3))
+      f.close()
