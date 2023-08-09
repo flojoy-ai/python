@@ -2,8 +2,6 @@ import numpy
 import pandas
 import unittest
 
-from unittest.mock import patch
-
 
 from flojoy.data_container import DataContainer
 from flojoy.reconciler import Reconciler, IrreconcilableContainersException
@@ -12,9 +10,9 @@ from flojoy.reconciler import Reconciler, IrreconcilableContainersException
 class ReconcilerTestCase(unittest.TestCase):
     def test_matrix_different_sizes(self):
         # create the two matrix datacontainers
-        dc_a = DataContainer(type="matrix", m=numpy.ones([2, 3]))
+        dc_a = DataContainer(type="Matrix", m=numpy.ones([2, 3]))
 
-        dc_b = DataContainer(type="matrix", m=numpy.ones([3, 2]))
+        dc_b = DataContainer(type="Matrix", m=numpy.ones([3, 2]))
 
         r = Reconciler()
         # function under test
@@ -41,8 +39,8 @@ class ReconcilerTestCase(unittest.TestCase):
         df_b = pandas.DataFrame(data={"col2": [-1, -2], "col3": [-4, -5]})
 
         # create the two matrix datacontainers
-        dc_a = DataContainer(type="dataframe", m=df_a)
-        dc_b = DataContainer(type="dataframe", m=df_b)
+        dc_a = DataContainer(type="Dataframe", m=df_a)
+        dc_b = DataContainer(type="Dataframe", m=df_b)
 
         r = Reconciler()
         # function under test
@@ -57,8 +55,8 @@ class ReconcilerTestCase(unittest.TestCase):
         df_b_new = pandas.DataFrame(data={"col1": [1, 1, 1], "col2": [1, 1, 1]})
 
         # create the two matrix datacontainers
-        dc_a = DataContainer(type="dataframe", m=df_a)
-        dc_b = DataContainer(type="scalar", c=1)
+        dc_a = DataContainer(type="Dataframe", m=df_a)
+        dc_b = DataContainer(type="Scalar", c=1)
 
         r = Reconciler()
         # function under test
@@ -68,10 +66,10 @@ class ReconcilerTestCase(unittest.TestCase):
         self.assertTrue(rec_b.m.equals(df_b_new))
 
     def test_complain_if_irreconcilable(self):
-        dc_a = DataContainer(type="grayscale")
+        dc_a = DataContainer(type="Grayscale")
 
         dc_b = DataContainer(
-            type="ordered_pair", x=numpy.linspace(-10, 10, 100), y=[7] * 100
+            type="OrderedPair", x=numpy.linspace(-10, 10, 100), y=[7] * 100
         )
 
         r = Reconciler()

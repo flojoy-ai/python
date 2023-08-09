@@ -7,7 +7,6 @@ For this reason, we've created the `Reconciler` class to handle the process of t
 """
 from typing import Tuple
 import numpy
-import pandas
 
 from .data_container import DataContainer
 
@@ -24,17 +23,17 @@ class Reconciler:
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
         types_to_reconcile = set([lhs.type, rhs.type])
-        if types_to_reconcile == set(["matrix"]):
+        if types_to_reconcile == set(["Matrix"]):
             return self.reconcile__matrix(lhs, rhs)
-        elif types_to_reconcile == set(["dataframe"]):
+        elif types_to_reconcile == set(["Dataframe"]):
             return self.reconcile__dataframe(lhs, rhs)
-        elif types_to_reconcile == set(["ordered_pair"]):
+        elif types_to_reconcile == set(["OrderedPair"]):
             return self.reconcile__ordered_pair(lhs, rhs)
-        elif types_to_reconcile == set(["matrix", "scalar"]):
+        elif types_to_reconcile == set(["Matrix", "Scalar"]):
             return self.reconcile__matrix_scalar(lhs, rhs)
-        elif types_to_reconcile == set(["matrix", "dataframe"]):
+        elif types_to_reconcile == set(["Matrix", "Dataframe"]):
             return self.reconcile__dataframe_matrix(lhs, rhs)
-        elif types_to_reconcile == set(["scalar", "dataframe"]):
+        elif types_to_reconcile == set(["Scalar", "Dataframe"]):
             return self.reconcile__dataframe_scalar(lhs, rhs)
         else:
             raise IrreconcilableContainersException(
@@ -63,8 +62,8 @@ class Reconciler:
         )
 
         return (
-            DataContainer(type="matrix", m=new_lhs),
-            DataContainer(type="matrix", m=new_rhs),
+            DataContainer(type="Matrix", m=new_lhs),
+            DataContainer(type="Matrix", m=new_rhs),
         )
 
     def reconcile__dataframe(
@@ -81,11 +80,11 @@ class Reconciler:
         if lhs.type == "dataframe":
             new_m = lhs.m.copy()
             new_m.iloc[:] = rhs.c
-            return lhs, DataContainer(type="dataframe", m=new_m)
+            return lhs, DataContainer(type="Dataframe", m=new_m)
 
         new_m = rhs.m.copy()
         new_m.iloc[:] = lhs.c
-        return DataContainer(type="dataframe", m=new_m), rhs
+        return DataContainer(type="Dataframe", m=new_m), rhs
 
     def reconcile__ordered_pair(
         self, lhs: DataContainer, rhs: DataContainer
