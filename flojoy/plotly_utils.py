@@ -36,7 +36,7 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any] | None:
             fig = go.Figure(
                 data=[go.Table(header=dict(values=["Vector"]), cells=dict(values=[df]))]
             )
-        case "Dataframe":
+        case "DataFrame":
             df = cast(pd.DataFrame, data_copy.m)
             fig = go.Figure(
                 data=[

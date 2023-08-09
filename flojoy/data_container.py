@@ -16,7 +16,7 @@ def find_closest_match(given_str: str, available_str: list[str]):
 
 
 DCType = Literal[
-    "Dataframe",
+    "DataFrame",
     "Grayscale",
     "Image",
     "Matrix",
@@ -28,7 +28,7 @@ DCType = Literal[
     "Scalar",
     "Surface",
     "Vector",
-    "ParametricDataframe",
+    "ParametricDataFrame",
     "ParametricGrayscale",
     "ParametricImage",
     "ParametricMatrix",
@@ -113,7 +113,7 @@ class DataContainer(Box):
         "fig": ["t", "extra"],
     }
     type_keys_map: dict[DCType, list[str]] = {
-        "Dataframe": ["m"],
+        "DataFrame": ["m"],
         "Matrix": ["m"],
         "Vector": ["v"],
         "Grayscale": ["m"],
@@ -413,7 +413,7 @@ class DataFrame(DataContainer):
     m: pd.DataFrame
 
     def __init__(self, df: pd.DataFrame, extra: ExtraType = None):  # type:ignore
-        super().__init__(type="Dataframe", m=df, extra=extra)
+        super().__init__(type="DataFrame", m=df, extra=extra)
 
 
 class ParametricDataFrame(DataContainer):
@@ -423,7 +423,7 @@ class ParametricDataFrame(DataContainer):
     def __init__(  # type:ignore
         self, df: pd.DataFrame, t: DCNpArrayType, extra: ExtraType = None
     ):
-        super().__init__(type="ParametricDataframe", m=df, t=t, extra=extra)
+        super().__init__(type="ParametricDataFrame", m=df, t=t, extra=extra)
 
 
 class Plotly(DataContainer):

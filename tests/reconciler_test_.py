@@ -31,7 +31,7 @@ class ReconcilerTestCase(unittest.TestCase):
             )
         )
 
-    def test_dataframe_different_sizes(self):
+    def test_DataFrame_different_sizes(self):
         # reconciler should take no action, as pandas operations are quite permissive already
         df_a = pandas.DataFrame(
             data={"col1": [1, 2, 3], "col2": [4, 5, 6], "col3": [7, 8, 9]}
@@ -39,8 +39,8 @@ class ReconcilerTestCase(unittest.TestCase):
         df_b = pandas.DataFrame(data={"col2": [-1, -2], "col3": [-4, -5]})
 
         # create the two matrix datacontainers
-        dc_a = DataContainer(type="Dataframe", m=df_a)
-        dc_b = DataContainer(type="Dataframe", m=df_b)
+        dc_a = DataContainer(type="DataFrame", m=df_a)
+        dc_b = DataContainer(type="DataFrame", m=df_b)
 
         r = Reconciler()
         # function under test
@@ -49,13 +49,13 @@ class ReconcilerTestCase(unittest.TestCase):
         self.assertTrue(rec_a.m.equals(df_a))
         self.assertTrue(rec_b.m.equals(df_b))
 
-    def test_dataframe_scalar(self):
-        # reconciler should expand the scalar to be the size of the dataframe
+    def test_DataFrame_scalar(self):
+        # reconciler should expand the scalar to be the size of the DataFrame
         df_a = pandas.DataFrame(data={"col1": [1, 2, 3], "col2": [4, 5, 6]})
         df_b_new = pandas.DataFrame(data={"col1": [1, 1, 1], "col2": [1, 1, 1]})
 
         # create the two matrix datacontainers
-        dc_a = DataContainer(type="Dataframe", m=df_a)
+        dc_a = DataContainer(type="DataFrame", m=df_a)
         dc_b = DataContainer(type="Scalar", c=1)
 
         r = Reconciler()
