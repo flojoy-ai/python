@@ -91,7 +91,7 @@ class Dao:
         with _dict_sm_lock:
             self.storage[memo_key] = value
 
-    def set_pandas_DataFrame(self, key: str, dframe: pd.DataFrame):
+    def set_pandas_dataframe(self, key: str, dframe: pd.DataFrame):
         with _dict_sm_lock:
             self.storage[key] = dframe
 
@@ -99,7 +99,7 @@ class Dao:
         with _dict_sm_lock:
             self.storage[key] = value
 
-    def get_pd_DataFrame(self, key: str) -> pd.DataFrame | None:
+    def get_pd_dataframe(self, key: str) -> pd.DataFrame | None:
         with _dict_sm_lock:
             encoded = self.storage.get(key, None)
         self.check_if_valid(encoded, pd.DataFrame)

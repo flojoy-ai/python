@@ -31,7 +31,7 @@ class ReconcilerTestCase(unittest.TestCase):
             )
         )
 
-    def test_DataFrame_different_sizes(self):
+    def test_dataframe_different_sizes(self):
         # reconciler should take no action, as pandas operations are quite permissive already
         df_a = pandas.DataFrame(
             data={"col1": [1, 2, 3], "col2": [4, 5, 6], "col3": [7, 8, 9]}
@@ -49,7 +49,7 @@ class ReconcilerTestCase(unittest.TestCase):
         self.assertTrue(rec_a.m.equals(df_a))
         self.assertTrue(rec_b.m.equals(df_b))
 
-    def test_DataFrame_scalar(self):
+    def test_dataframe_scalar(self):
         # reconciler should expand the scalar to be the size of the DataFrame
         df_a = pandas.DataFrame(data={"col1": [1, 2, 3], "col2": [4, 5, 6]})
         df_b_new = pandas.DataFrame(data={"col1": [1, 1, 1], "col2": [1, 1, 1]})
