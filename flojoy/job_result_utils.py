@@ -63,9 +63,9 @@ def get_job_result(job_id: str) -> dict[str, Any] | DataContainer | None:
 
 def get_text_blob_from_dc(dc: DataContainer) -> str | None:
     match dc.type:
-        case "text_blob":
+        case "TextBlob":
             return dc.text_blob
-        case "bytes":
+        case "Bytes":
             return dc.b.decode("utf-8")
         case _:
             return None

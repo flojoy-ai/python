@@ -9,7 +9,7 @@ from typing import cast, Any
 def data_container_to_plotly(data: DataContainer) -> dict[str, Any] | None:
     data_copy = data.copy()
     dc_type = data_copy.type
-    fig = go.Figure()
+    fig = go.Figure(layout=dict(template="plotly"))
     if "x" in data_copy and isinstance(data_copy.x, dict):  # type: ignore
         data_keys = list(cast(list[str], data_copy.x.keys()))
         data_copy.x = data_copy.x[data_keys[0]]  # type: ignore
