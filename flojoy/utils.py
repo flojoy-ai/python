@@ -176,7 +176,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
         Accept an object (of unknown type) and try to encode with priority:
         1. builtin:     user-defined objects
         2. sage:        sage math cloud
-        3. pandas:      DataFrames/series
+        3. pandas:      dataframes/series
         4. numpy:       ndarrays
         5. datetime:    time/datetime objects
         Each method throws a NotEncoded exception if it fails.
