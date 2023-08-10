@@ -21,6 +21,17 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 class FlojoyCloud:
+    """
+    A class that allows pulling and pushing DataContainers from the
+    Flojoy cloud client (cloud.flojoy.ai).
+
+    Returns data in a pythonic format (e.g. Pillow for images,
+    DataFrames for arrays/matrices).
+
+    Will support the majority of the Flojoy cloud API:
+    https://rest.flojoy.ai/api-reference
+    """
+
     def __init__(self, apikey="default", content="application/json"):
         if apikey == "default":
             apikey = utils.get_credentials()[0]["value"]
@@ -32,6 +43,10 @@ class FlojoyCloud:
         self.headers = {"api_key": apikey, "Content-Type": content}
 
     def create_payload(self, data, dc_type):
+        """
+        A method that formats data into a payload that can be handled by
+        the Flojoy cloud client.
+        """
         match dc_type:
             case "ordered_pair":
                 if isinstance(data, dict) and "x" in data:
@@ -92,17 +107,27 @@ class FlojoyCloud:
         return payload
 
     def store_dc(self, data, dc_type):
+        """
+        A method that stores a formatted data payload onto the Flojoy cloud.
+        """
         url = "https://cloud.flojoy.ai/api/v1/dcs/"
         payload = self.create_payload(data, dc_type)
         response = requests.request("POST", url, headers=self.headers, data=payload)
         return json.loads(response.text)
 
     def fetch_dc(self, dc_id):
+        """
+        A method that retrieves DataContainers from the Flojoy cloud.
+        """
         url = f"https://cloud.flojoy.ai/api/v1/dcs/{dc_id}"
         response = requests.request("GET", url, headers=self.headers)
         return json.loads(response.text)
 
     def to_python(self, dc):
+        """
+        A method that converts data from DataContainers into pythonic
+        data types like Pillow for images.
+        """
         dc_type = dc["dataContainer"]["type"]
         match dc_type:
             case "ordered_pair":
