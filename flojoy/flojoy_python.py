@@ -86,7 +86,8 @@ class DefaultParams:
 
 
 def flojoy(
-    original_function: Callable[..., DataContainer | dict[str, Any]] | None = None,
+    original_function: Callable[..., Optional[DataContainer | dict[str, Any]]]
+    | None = None,
     *,
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
@@ -135,7 +136,7 @@ def flojoy(
     ```
     """
 
-    def decorator(func: Callable[..., DataContainer | dict[str, Any]]):
+    def decorator(func: Callable[..., Optional[DataContainer | dict[str, Any]]]):
         @wraps(func)
         def wrapper(
             node_id: str,
@@ -209,7 +210,7 @@ def flojoy(
                 # some special nodes like LOOP return dict instead of `DataContainer`
                 if isinstance(dc_obj, DataContainer):
                     dc_obj.validate()  # Validate returned DataContainer object
-                else:
+                elif dc_obj is not None:
                     for value in dc_obj.values():
                         if isinstance(value, DataContainer):
                             value.validate()
