@@ -36,7 +36,9 @@ class JobResultBuilder:
         return self
 
     def flow_to_directions(self, directions: list[str]):
-        if directions.__len__() > 0: self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions}) return self
+        if directions.__len__() > 0:
+            self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions})
+        return self
 
     def flow_by_flag(
         self, flag: bool, true_direction: list[str], false_direction: list[str]
