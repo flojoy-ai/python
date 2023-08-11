@@ -215,6 +215,7 @@ def flojoy(
                             value.validate()
                 # Response object to send to FE
                 result = get_frontend_res_obj_from_result(dc_obj)
+
                 JobService().post_job_result(
                     job_id, dc_obj
                 )  # post result to the job service before sending result to socket

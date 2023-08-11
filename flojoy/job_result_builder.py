@@ -8,7 +8,7 @@ class JobResultBuilder:
     instructions: dict[str, Union[str, list[str]]] | None = None
 
     def __init__(self) -> None:
-        self.data = self.get_default_data()
+        self.data = None
 
     def _add_instructions(self, instruction: dict[str, Union[str, list[str]]]):
         self.instructions = self.instructions if self.instructions is not None else {}
@@ -20,7 +20,7 @@ class JobResultBuilder:
     def from_inputs(self, inputs: list[DataContainer]):
         # if no inputs were provided, construct fake output
         if len(inputs) == 0:
-            self.data = self.get_default_data()
+            self.data = None
         else:
             self.data = inputs[0]
 
@@ -36,9 +36,7 @@ class JobResultBuilder:
         return self
 
     def flow_to_directions(self, directions: list[str]):
-        if directions.__len__() > 0:
-            self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions})
-        return self
+        if directions.__len__() > 0: self._add_instructions({FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS: directions}) return self
 
     def flow_by_flag(
         self, flag: bool, true_direction: list[str], false_direction: list[str]

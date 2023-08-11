@@ -74,13 +74,14 @@ def get_text_blob_from_dc(dc: DataContainer) -> str | None:
 def get_frontend_res_obj_from_result(
     result: dict[str, Any] | DataContainer
 ) -> dict[str, Any]:
-    if not result:
-        return {"plotly_fig": result}
     if isinstance(result, DataContainer):
         plotly_fig = data_container_to_plotly(data=result)
         return {"plotly_fig": plotly_fig, "text_blob": get_text_blob_from_dc(result)}
     if result.get(FLOJOY_INSTRUCTION.RESULT_FIELD):
         data = result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]]
+        if not data:
+            return result
+
         plotly_fig = None
         if isinstance(data, DataContainer):
             plotly_fig = data_container_to_plotly(data=data)
