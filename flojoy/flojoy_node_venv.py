@@ -82,6 +82,7 @@ def _install_pip_dependencies(
     venv_executable: os.PathLike, pip_dependencies: tuple[str], verbose: bool = False
 ):
     """Install pip dependencies into the virtual environment."""
+    # TODO(roulbac): Stream logs from pip install
     command = [venv_executable, "-m", "pip", "install"]
     if not verbose:
         command += ["-q", "-q"]
