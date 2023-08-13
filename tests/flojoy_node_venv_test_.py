@@ -29,7 +29,7 @@ def mock_venv_cache_dir():
 def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
     """Test that run_in_venv imports properly jax for example"""
 
-    from flojoy import flojoy, run_in_venv
+    from flojoy import run_in_venv
 
     @run_in_venv(pip_dependencies=["jax[cpu]==0.4.13"])
     def empty_function_with_jax():
@@ -37,7 +37,6 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
         # Fetch the list of installed packages
         import sys
         import importlib.metadata
-        import jax
 
         # Get the list of installed packages
         packages_dict = {
@@ -58,14 +57,13 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
 
 
 def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
-    from flojoy import flojoy, run_in_venv
+    from flojoy import run_in_venv
 
     # Define a function that imports flytekit and returns its version
     @run_in_venv(pip_dependencies=["flytekit==1.8.2"])
     def empty_function_with_flytekit():
         import sys
         import importlib.metadata
-        import flytekit
 
         # Get the list of installed packages
         packages_dict = {
@@ -94,7 +92,6 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
     def empty_function_with_opencv():
         import sys
         import importlib.metadata
-        import cv2
 
         # Get the list of installed packages
         packages_dict = {

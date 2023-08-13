@@ -369,6 +369,9 @@ def get_credentials() -> list[dict[str, str]]:
     home = str(Path.home())
     file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
 
+    if not os.path.exists(file_path):
+        return []
+
     with open(file_path, "r") as f:
         keys = f.read().strip().split(",")
 
