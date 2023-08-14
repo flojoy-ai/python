@@ -195,7 +195,7 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     os.makedirs(venv_cache_dir, exist_ok=True)
     # Generate a path-safe hash of the pip dependencies
     # this prevents the duplication of virtual environments
-    pip_dependencies_hash = hashlib.md5("".join(pip_dependencies).encode()).hexdigest()[
+    pip_dependencies_hash = hashlib.md5("".join(sorted(pip_dependencies)).encode()).hexdigest()[
         :8
     ]
     venv_path = os.path.join(venv_cache_dir, f"{pip_dependencies_hash}")
