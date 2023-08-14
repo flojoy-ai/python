@@ -72,7 +72,7 @@ def snapshot_download(*args, **kwargs):
 
 
 env_vars = dotenv_values("../.env")
-port = env_vars.get("VITE_BACKEND_PORT", "8000")
+port = env_vars.get("VITE_BACKEND_PORT", "5392")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
 
 
