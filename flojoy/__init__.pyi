@@ -13,6 +13,7 @@ from .small_memory import *
 from .flojoy_node_venv import *
 from .job_service import *
 from .node_init import *
+from .node_preflight import *
 from .data_container import *
 from .config import *
 
