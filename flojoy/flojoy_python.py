@@ -249,7 +249,7 @@ def flojoy(
                     json.dumps(
                         {
                             "SYSTEM_STATUS": f"Failed to run: {func.__name__}",
-                            "FAILED_NODES": {node_id: str(e)}, 
+                            "FAILED_NODES": {node_id: str(e)},
                             "jobsetId": jobset_id,
                         }
                     )
