@@ -8,7 +8,7 @@ class JobResultBuilder:
     instructions: dict[str, Union[str, list[str]]] | None = None
 
     def __init__(self) -> None:
-        self.data = self.get_default_data()
+        self.data = None
 
     def _add_instructions(self, instruction: dict[str, Union[str, list[str]]]):
         self.instructions = self.instructions if self.instructions is not None else {}
@@ -20,7 +20,7 @@ class JobResultBuilder:
     def from_inputs(self, inputs: list[DataContainer]):
         # if no inputs were provided, construct fake output
         if len(inputs) == 0:
-            self.data = self.get_default_data()
+            self.data = None
         else:
             self.data = inputs[0]
 
