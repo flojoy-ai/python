@@ -1,30 +1,37 @@
 import decimal
-import difflib
 import json as _json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Union
+from typing import Any, Callable, Optional
 
+import logging
 import numpy as np
 import pandas as pd
-import requests
 import yaml
+import requests
 from dotenv import dotenv_values  # type:ignore
 from huggingface_hub import hf_hub_download as _hf_hub_download
 from huggingface_hub import snapshot_download as _snapshot_download
-
 from .dao import Dao
+from .config import FlojoyConfig, logger
+
 from .node_init import NodeInit, NodeInitService
+import keyring
+import base64
+
 
 __all__ = [
     "send_to_socket",
-    "get_frontier_api_key",
-    "set_frontier_api_key",
-    "set_frontier_s3_key",
+    "get_env_var",
+    "set_env_var",
+    "delete_env_var",
+    "get_credentials",
     "hf_hub_download",
     "snapshot_download",
-    "get_node_init_function",
+    "send_to_socket",
+    "hf_hub_download",
+    "snapshot_download",
     "clear_flojoy_memory",
 ]
 
@@ -32,9 +39,9 @@ FLOJOY_DIR = ".flojoy"
 
 
 if sys.platform == "win32":
-    FLOJOY_CACHE_DIR = os.path.join(os.environ["APPDATA"], FLOJOY_DIR)
+    FLOJOY_CACHE_DIR = os.path.realpath(os.path.join(os.environ["APPDATA"], FLOJOY_DIR))
 else:
-    FLOJOY_CACHE_DIR = os.path.join(os.environ["HOME"], FLOJOY_DIR)
+    FLOJOY_CACHE_DIR = os.path.realpath(os.path.join(os.environ["HOME"], FLOJOY_DIR))
 
 
 # Make as a function to mock at test-time
@@ -65,36 +72,49 @@ def snapshot_download(*args, **kwargs):
 
 
 env_vars = dotenv_values("../.env")
-port = env_vars.get("VITE_BACKEND_PORT", "8000")
+port = env_vars.get("VITE_BACKEND_PORT", "5392")
 BACKEND_URL = os.environ.get("BACKEND_URL", f"http://127.0.0.1:{port}")
 
-is_offline = False
-
-
-# temporary fix for offline mode for precompilation
 def set_offline():
-    global is_offline
-    is_offline = True
+    """
+    Sets the is_offline flag to True, which means that results will not be sent to the backend via HTTP.
+    Mainly used for precompilation
+    """
+    FlojoyConfig.get_instance().is_offline = True
 
 
 def set_online():
-    global is_offline
-    is_offline = False
+    """
+    Sets the is_offline flag to False, which means that results will be sent to the backend via HTTP.
+    """
+    FlojoyConfig.get_instance().is_offline = False
+
+
+def set_debug_on():
+    """
+    Sets the print_on flag to True, which means that the print statements will be executed.
+    """
+    logger.setLevel(logging.DEBUG)
+
+
+def set_debug_off():
+    """
+    Sets the print_on flag to False, which means that the print statements will not be executed.
+    """
+    logger.setLevel(logging.INFO)
+
+
+def clear_flojoy_memory():
+    Dao.get_instance().clear_job_results()
+    Dao.get_instance().clear_small_memory()
+    Dao.get_instance().clear_node_init_containers()
 
 
 def send_to_socket(data: str):
-    if is_offline:
+    if FlojoyConfig.get_instance().is_offline:
         return
-    print("posting data to socket:", f"{BACKEND_URL}/worker_response", flush=True)
+    logger.debug("posting data to socket:", f"{BACKEND_URL}/worker_response")
     requests.post(f"{BACKEND_URL}/worker_response", json=data)
-
-
-def find_closest_match(given_str: str, available_str: list[str]):
-    closest_match = difflib.get_close_matches(given_str, available_str, n=1)
-    if closest_match:
-        return closest_match[0]
-    else:
-        return None
 
 
 class PlotlyJSONEncoder(_json.JSONEncoder):
@@ -184,6 +204,7 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             self.encode_as_date,
             self.encode_as_list,  # because some values have `tolist` do last.
             self.encode_as_decimal,
+            self.encode_as_base64,
         )
         for encoding_method in encoding_methods:
             try:
@@ -191,6 +212,14 @@ class PlotlyJSONEncoder(_json.JSONEncoder):
             except NotEncodable:
                 pass
         return _json.JSONEncoder.default(self, obj)
+
+    @staticmethod
+    def encode_as_base64(value: bytes):
+        """Attempt to convert to base64."""
+        try:
+            return base64.b64encode(value).decode()
+        except AttributeError:
+            raise NotEncodable
 
     @staticmethod
     def encode_as_plotly(obj: dict[str, Any]):
@@ -282,97 +311,76 @@ def get_flojoy_root_dir() -> str:
     stream = open(path, "r")
     yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
     root_dir = ""
+
     if isinstance(yaml_dict, str):
         root_dir = yaml_dict.split(":")[1]
     else:
         root_dir = yaml_dict["PATH"]
+
     return root_dir
 
 
-def get_frontier_api_key() -> Union[str, None]:
+def get_env_var(key: str) -> Optional[str]:
+    return keyring.get_password("flojoy", key)
+
+
+def set_env_var(key: str, value: str):
+    keyring.set_password("flojoy", key, value)
     home = str(Path.home())
-    api_key = None
-    path = os.path.join(home, ".flojoy/credentials")
-    if not os.path.exists(path):
-        return api_key
+    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
 
-    stream = open(path, "r", encoding="utf-8")
-    yaml_dict = yaml.load(stream, Loader=yaml.FullLoader)
-    if yaml_dict is None:
-        return api_key
-    if isinstance(yaml_dict, str) == True:
-        split_by_line = yaml_dict.split("\n")
-        for line in split_by_line:
-            if "FRONTIER_API_KEY" in line:
-                api_key = line.split(":")[1]
-    else:
-        api_key = yaml_dict.get("FRONTIER_API_KEY", None)
-    return api_key
-
-
-def set_frontier_api_key(api_key: str):
-    try:
-        home = str(Path.home())
-        file_path = os.path.join(home, FLOJOY_DIR, "credentials")
-
-        if not os.path.exists(file_path):
-            # Create a new file and write the API_KEY to it
-            with open(file_path, "w") as file:
-                file.write(f"FRONTIER_API_KEY:{api_key}\n")
-        else:
-            # Read the contents of the file
-            with open(file_path, "r") as file:
-                lines = file.readlines()
-
-            # Update the API key if it exists, otherwise append a new line
-            updated = False
-            for i, line in enumerate(lines):
-                if line.startswith("FRONTIER_API_KEY:"):
-                    lines[i] = f"FRONTIER_API_KEY:{api_key}\n"
-                    updated = True
-                    break
-
-            if not updated:
-                lines.append(f"FRONTIER_API_KEY:{api_key}\n")
-            # Write the updated contents to the file
-            with open(file_path, "w") as file:
-                file.writelines(lines)
-
-    except Exception as e:
-        raise e
-
-
-def set_frontier_s3_key(s3_name: str, s3_access_key: str, s3_secret_key: str):
-    home = str(Path.home())
-    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.yaml"))
-
-    data = {
-        f"{s3_name}": s3_name,
-        f"{s3_name}accessKey": s3_access_key,
-        f"{s3_name}secretKey": s3_secret_key,
-    }
     if not os.path.exists(file_path):
-        # Create a new file and write the ACCSS_KEY to it
-        with open(file_path, "w") as file:
-            yaml.dump(data, file)
+        with open(file_path, "w") as f:
+            f.write(key)
         return
 
-    # Read the contents of the file
-    with open(file_path, "r") as file:
-        load = yaml.safe_load(file)
+    with open(file_path, "r") as f:
+        keys = f.read().strip().split(",")
+        if key not in keys:
+            keys.append(key)
 
-    load[f"{s3_name}"] = s3_name
-    load[f"{s3_name}accessKey"] = s3_access_key
-    load[f"{s3_name}secretKey"] = s3_secret_key
-
-    with open(file_path, "w") as file:
-        yaml.dump(load, file)
+    with open(file_path, "w") as f:
+        f.write(",".join(keys))
 
 
-def clear_flojoy_memory():
-    Dao.get_instance().clear_job_results()
-    Dao.get_instance().clear_small_memory()
-    Dao.get_instance().clear_node_init_containers()
+def delete_env_var(key: str):
+    home = str(Path.home())
+    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
+
+    if not os.path.exists(file_path):
+        return
+
+    with open(file_path, "r") as f:
+        keys = f.read().strip().split(",")
+
+    if key not in keys:
+        return
+
+    keys.remove(key)
+
+    with open(file_path, "w") as f:
+        f.write(",".join(keys))
+
+    keyring.delete_password("flojoy", key)
+
+
+def get_credentials() -> list[dict[str, str]]:
+    home = str(Path.home())
+    file_path = os.path.join(home, os.path.join(FLOJOY_DIR, "credentials.txt"))
+
+    if not os.path.exists(file_path):
+        return []
+
+    with open(file_path, "r") as f:
+        keys = f.read().strip().split(",")
+
+    credentials_list: list[dict[str, str]] = []
+    for key in keys:
+        val = get_env_var(key)
+        if val:
+            credentials_list.append({"key": key, "value": val})
+
+    return credentials_list
 
 
 def get_node_init_function(node_func: Callable) -> NodeInit:

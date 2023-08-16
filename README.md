@@ -15,7 +15,7 @@ from flojoy import flojoy, DataContainer
 def BUTTER(v, params):
     ''' Apply a butterworth filter to an input vector '''
 
-    print('Butterworth inputs:', v)
+    logger.debug('Butterworth inputs:', v)
 
     x = v[0].x
     sig = v[0].y
@@ -39,7 +39,7 @@ See https://github.com/flojoy-io/flojoy-python/issues/4
 
 Flojoy nodes should try to accomodate any reasonable combination of inputs that a first-time Flojoy Studio user might try.
 
-For example, the ADD node should make a best effort to do something reasonable when a matrix is added to a dataframe, or a 2 matrices of a different size are added.
+For example, the ADD node should make a best effort to do something reasonable when a matrix is added to a DataFrame, or a 2 matrices of a different size are added.
 
 For this reason, we've created the `Reconciler` class to handle the process of turning different data types into compatible, easily added objects. 
 

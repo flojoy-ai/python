@@ -8,6 +8,7 @@ from .utils import PlotlyJSONEncoder
 from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
 from .utils import send_to_socket
+from .config import logger
 from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
@@ -38,14 +39,13 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
             multiple = prev_job.get("multiple", False)
             edge = prev_job.get("edge", "")
 
-            print(
+            logger.debug(
                 "fetching input from prev job id:",
                 prev_job_id,
                 " for input:",
                 input_name,
                 "edge: ",
                 edge,
-                flush=True,
             )
 
             job_result = JobService().get_job_result(prev_job_id)
@@ -60,7 +60,7 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
                 else get_dc_from_result(job_result)
             )
             if result is not None:
-                print(f"got job result from {prev_job_id}", flush=True)
+                logger.debug(f"got job result from {prev_job_id}")
                 if multiple:
                     if input_name not in dict_inputs:
                         dict_inputs[input_name] = [result]
@@ -70,7 +70,7 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
                     dict_inputs[input_name] = result
 
     except Exception:
-        print(traceback.format_exc(), flush=True)
+        logger.debug(traceback.format_exc())
 
     return dict_inputs
 
@@ -117,7 +117,7 @@ def flojoy(
     @flojoy
     def SINE(dc_inputs:list[DataContainer], params:dict[str, Any]):
 
-        print('params passed to SINE', params)
+        logger.debug('params passed to SINE', params)
 
         dc_input = dc_inputs[0]
 
@@ -131,7 +131,7 @@ def flojoy(
     ## equivalent to: decorated_sine = flojoy(SINE)
     ```
     pj_ids = [123, 456]
-    print(SINE(previous_job_ids = pj_ids, mock = True))
+    logger.debug(SINE(previous_job_ids = pj_ids, mock = True))
     ```
     """
 
@@ -156,7 +156,7 @@ def flojoy(
                         }
                     )
                 )
-                print("previous jobs:", previous_jobs)
+                logger.debug("previous jobs:", previous_jobs)
                 # Get command parameters set by the user through the control panel
                 func_params: dict[str, Any] = {}
                 if ctrls is not None:
@@ -166,17 +166,16 @@ def flojoy(
                         func_params[param] = format_param_value(value, input["type"])
                 func_params["type"] = "default"
 
-                print(
+                logger.debug(
                     "executing node_id:",
                     node_id,
                     "previous_jobs:",
                     previous_jobs,
-                    flush=True,
                 )
                 dict_inputs = fetch_inputs(previous_jobs)
 
                 # constructing the inputs
-                print(f"constructing inputs for {func.__name__}", flush=True)
+                logger.debug(f"constructing inputs for {func.__name__}")
                 args: dict[str, Any] = {}
                 sig = signature(func)
 
@@ -193,7 +192,7 @@ def flojoy(
                         node_type="default",
                     )
 
-                print(node_id, " params: ", args.keys(), flush=True)
+                logger.debug(node_id, " params: ", args.keys())
 
                 # check if node has an init container and if so, inject it
                 if NodeInitService().has_init_store(node_id):
@@ -244,21 +243,19 @@ def flojoy(
                             }
                         )
                     )
-
                 return dc_obj
             except Exception as e:
                 send_to_socket(
                     json.dumps(
                         {
                             "SYSTEM_STATUS": f"Failed to run: {func.__name__}",
-                            "FAILED_NODES": node_id,
-                            "FAILURE_REASON": e.args[0],
+                            "FAILED_NODES": {node_id: str(e)},
                             "jobsetId": jobset_id,
                         }
                     )
                 )
-                print("error occured while running the node", flush=True)
-                print(traceback.format_exc(), flush=True)
+                logger.debug("error occured while running the node")
+                logger.debug(traceback.format_exc())
                 raise e
 
         return wrapper
