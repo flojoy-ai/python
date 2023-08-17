@@ -33,6 +33,10 @@ __all__ = [
     "hf_hub_download",
     "snapshot_download",
     "clear_flojoy_memory",
+    "set_debug_on",
+    "set_debug_off",
+    "set_offline",
+    "set_online",
 ]
 
 FLOJOY_DIR = ".flojoy"
