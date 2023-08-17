@@ -38,6 +38,7 @@ from functools import wraps
 import cloudpickle
 
 from .utils import FLOJOY_CACHE_DIR
+from .logging import LogPipe
 
 __all__ = ["run_in_venv"]
 
@@ -59,19 +60,15 @@ def _install_pip_dependencies(
     venv_executable: os.PathLike, pip_dependencies: tuple[str], verbose: bool = False
 ):
     """Install pip dependencies into the virtual environment."""
-    # TODO(roulbac): Stream logs from pip install
     command = [venv_executable, "-m", "pip", "install"]
     if not verbose:
         command += ["-q", "-q"]
     command += list(pip_dependencies)
-    result = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
-    )
-    if verbose:
-        # Log every line if verbose, prefix with [pip]
-        for line in result.stdout.decode().splitlines():
-            logging.info(f"[ _install_pip_dependencies ] {line}")
-
+    with LogPipe(logging.DEBUG) as pipe_stdout, LogPipe(logging.ERROR) as pipe_stderr:
+        proc = subprocess.Popen(command, stdout=pipe_stdout, stderr=pipe_stderr)
+        proc.wait()
+    if(proc.returncode != 0):
+        raise subprocess.CalledProcessError(proc.returncode, command, output=pipe_stdout.read(), stderr=pipe_stderr.read())
 
 def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
     """Get the sys.path of the virtual environment."""

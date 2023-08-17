@@ -3,9 +3,18 @@ import os
 import shutil
 from unittest.mock import patch
 import tempfile
+import logging
 
 
 pytestmark = pytest.mark.slow
+
+@pytest.fixture(scope="module")
+def logging_debug():
+    logging.basicConfig(
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        level=logging.DEBUG,
+        force=True
+    )
 
 
 # Define a fixture to patch tempfile.tempdir
@@ -26,12 +35,12 @@ def mock_venv_cache_dir():
     shutil.rmtree(_test_tempdir)
 
 
-def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
+def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
     """Test that run_in_venv imports properly jax for example"""
 
     from flojoy import run_in_venv
 
-    @run_in_venv(pip_dependencies=["jax[cpu]==0.4.13"])
+    @run_in_venv(pip_dependencies=["jax[cpu]==0.4.13"], verbose=True)
     def empty_function_with_jax():
         # Import jax to check if it is installed
         # Fetch the list of installed packages
@@ -56,11 +65,11 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
     assert packages_dict["jax"] == "0.4.13"
 
 
-def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
+def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, logging_debug):
     from flojoy import run_in_venv
 
     # Define a function that imports flytekit and returns its version
-    @run_in_venv(pip_dependencies=["flytekit==1.8.2"])
+    @run_in_venv(pip_dependencies=["flytekit==1.8.2"], verbose=True)
     def empty_function_with_flytekit():
         import sys
         import importlib.metadata
@@ -83,12 +92,12 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
     assert packages_dict["flytekit"] == "1.8.2"
 
 
-def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
+def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir, logging_debug):
     # Define a function that imports opencv-python-headless and returns its version
 
-    from flojoy import flojoy, run_in_venv
+    from flojoy import run_in_venv
 
-    @run_in_venv(pip_dependencies=["opencv-python-headless==4.7.0.72"])
+    @run_in_venv(pip_dependencies=["opencv-python-headless==4.7.0.72"], verbose=True)
     def empty_function_with_opencv():
         import sys
         import importlib.metadata
@@ -111,7 +120,7 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
     assert packages_dict["opencv-python-headless"] == "4.7.0.72"
 
 
-def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
+def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir, logging_debug):
     """Test that run_in_venv imports properly jax for example"""
 
     from flojoy import run_in_venv
@@ -126,14 +135,14 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
 
 
 @pytest.mark.parametrize("daemon", [True, False])
-def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, daemon):
+def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, logging_debug, daemon):
     from threading import Thread
     from queue import Queue
 
     def function_to_run_within_thread(queue):
         from flojoy import run_in_venv
 
-        @run_in_venv(pip_dependencies=["numpy==1.23.0"])
+        @run_in_venv(pip_dependencies=["numpy==1.23.0"], verbose=True)
         def func_with_venv():
             import numpy as np
 
