@@ -13,6 +13,7 @@ from .small_memory import *
 from .flojoy_node_venv import *
 from .job_service import *
 from .node_init import *
+from .node_preflight import *
 from .data_container import *
 from .config import *
 
@@ -287,10 +288,10 @@ def snapshot_download(
     ...
 
 def flojoy(
-    original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict]
+    original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict | None]
     | None = None,
     *,
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
     inject_node_metadata: bool = False,
-) -> Callable[..., DataContainer | dict[str, Any]]: ...
+) -> Callable[..., DataContainer | dict[str, Any] | None]: ...
