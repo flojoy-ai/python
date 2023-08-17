@@ -28,6 +28,7 @@ DCType = Literal[
     "Scalar",
     "Surface",
     "Vector",
+    "Any",
     "ParametricDataFrame",
     "ParametricGrayscale",
     "ParametricImage",
@@ -168,7 +169,7 @@ class DataContainer(Box):
             )
 
     def __init__(  # type:ignore
-        self, type: DCType = "OrderedPair", **kwargs: DCKwargsValue
+        self, type: DCType = "Any", **kwargs: DCKwargsValue
     ):
         self.type = type
         for k, v in kwargs.items():
@@ -235,6 +236,9 @@ class DataContainer(Box):
 
     def validate(self):
         dc_type = self.type
+        if dc_type == "Any":
+            return
+
         if dc_type not in self.allowed_types:
             closest_type = find_closest_match(dc_type, self.allowed_types)
             helper_text = (
