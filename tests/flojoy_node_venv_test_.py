@@ -8,12 +8,13 @@ import logging
 
 pytestmark = pytest.mark.slow
 
+
 @pytest.fixture(scope="module")
 def logging_debug():
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         level=logging.DEBUG,
-        force=True
+        force=True,
     )
 
 

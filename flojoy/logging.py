@@ -3,11 +3,12 @@ import io
 import threading
 import os
 
+
 class LogPipe:
-    """ A context manager that creates a pipe which can be written to by the subprocessing
+    """A context manager that creates a pipe which can be written to by the subprocessing
     module and read from by the logging module. This is intended to capture and redirect logs
     from a subprocess to the logging module.
-    
+
     Example usage:
     ```
     with logpipe.LogPipe(logging.INFO) as logpipe_stdout, logpipe.LogPipe(logging.ERROR) as logpipe_stderr:
@@ -23,15 +24,16 @@ class LogPipe:
         captured_stderr = logpipe_stderr.buffer.getvalue()
     ```
     """
+
     def __init__(self, level: int):
         """Setup the object with a logger and a log level.
-        
+
         Args:
             level: The log level to use for the captured logs.
         """
         self.level = level
         self.fdRead, self.fdWrite = os.pipe()
-        self.pipeReader = os.fdopen(self.fdRead, mode='rb')
+        self.pipeReader = os.fdopen(self.fdRead, mode="rb")
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.buffer = io.BytesIO()
         self.closed = False
