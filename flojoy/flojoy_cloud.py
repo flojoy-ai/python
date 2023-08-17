@@ -376,7 +376,7 @@ class FlojoyCloud:
         """
         url = "https://cloud.flojoy.ai/api/v1/measurements"
         payload = json.dumps({"name": name, "privacy": privacy})
-        response = requests.request("GET", url, headers=self.headers, data=payload)
+        response = requests.request("POST", url, headers=self.headers, data=payload)
         response = json.loads(response.text)
 
         return response
