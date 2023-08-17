@@ -43,7 +43,7 @@ __all__ = ["run_in_venv"]
 
 
 @contextmanager
-def swap_sys_path(venv_executable: os.PathLike, extra_sys_path: list[str] = None):
+def swap_sys_path(venv_executable: os.PathLike, extra_sys_path: list[str] | None = None):
     """Temporarily swap the sys.path of the child process with the sys.path of the parent process."""
     old_path = sys.path
     try:
