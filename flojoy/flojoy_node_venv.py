@@ -42,7 +42,6 @@ from .utils import FLOJOY_CACHE_DIR
 __all__ = ["run_in_venv"]
 
 
-
 @contextmanager
 def swap_sys_path(venv_executable: os.PathLike, extra_sys_path: list[str] = None):
     """Temporarily swap the sys.path of the child process with the sys.path of the parent process."""
@@ -54,7 +53,6 @@ def swap_sys_path(venv_executable: os.PathLike, extra_sys_path: list[str] = None
         yield
     finally:
         sys.path = old_path
-
 
 
 def _install_pip_dependencies(
@@ -101,7 +99,9 @@ class PickleableFunctionWithPipeIO:
         self._venv_executable = venv_executable
 
     def __call__(self, *args_serialized, **kwargs_serialized):
-        with swap_sys_path(venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path):
+        with swap_sys_path(
+            venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path
+        ):
             try:
                 fn = cloudpickle.loads(self._func_serialized)
                 args = [cloudpickle.loads(arg) for arg in args_serialized]
@@ -204,7 +204,7 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
         def wrapper(*args, **kwargs):
             # Generate a new multiprocessing context for the parent process in "spawn" mode
             parent_mp_context = multiprocessing.get_context("spawn")
-            parent_conn, child_conn = parent_mp_context.Pipe() 
+            parent_conn, child_conn = parent_mp_context.Pipe()
             # Serialize function arguments using cloudpickle
             args_serialized = [cloudpickle.dumps(arg) for arg in args]
             kwargs_serialized = {
