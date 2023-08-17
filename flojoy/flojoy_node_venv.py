@@ -64,7 +64,7 @@ def _install_pip_dependencies(
     if not verbose:
         command += ["-q", "-q"]
     command += list(pip_dependencies)
-    with LogPipe(logging.DEBUG) as pipe_stdout, LogPipe(logging.ERROR) as pipe_stderr:
+    with LogPipe(logging.INFO) as pipe_stdout, LogPipe(logging.ERROR) as pipe_stderr:
         proc = subprocess.Popen(command, stdout=pipe_stdout, stderr=pipe_stderr)
         proc.wait()
     if proc.returncode != 0:
