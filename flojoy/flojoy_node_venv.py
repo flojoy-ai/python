@@ -68,7 +68,7 @@ def _install_pip_dependencies(
         proc = subprocess.Popen(command, stdout=pipe_stdout, stderr=pipe_stderr)
         proc.wait()
     if(proc.returncode != 0):
-        raise subprocess.CalledProcessError(proc.returncode, command, output=pipe_stdout.read(), stderr=pipe_stderr.read())
+        raise subprocess.CalledProcessError(proc.returncode, command, output=pipe_stdout.buffer.getvalue(), stderr=pipe_stderr.buffer.getvalue())
 
 def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
     """Get the sys.path of the virtual environment."""
