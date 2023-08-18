@@ -23,129 +23,140 @@ class NumpyEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, obj)
 
 
+DataC = TypeVar("DataC")
+
+
+class DefaultModel(GenericModel, Generic[DataC]):
+    ref: str
+    dataContainer: dict
+    metadata: dict
+    workspaceId: str
+    privacy: str
+    location: str
+    note: str
+
+
+class OrderedPairModel(DefaultModel[DataC], Generic[DataC]):
+    data: Optional[DataC]
+
+    @validator("dataContainer")
+    def type_must_match(cls, dc):
+        assert dc["type"] == "OrderedPair", "dataContainer type does not match."
+        return dc
+
+    @validator("dataContainer")
+    def keys_must_match(cls, dc):
+        assert "x" in dc, 'dataContainer does not contain "x" dataset.'
+        assert "y" in dc, 'dataContainer does not contain "y" dataset.'
+        assert isinstance(dc["x"], list), '"x" dataset is not a list'
+        assert isinstance(dc["y"], list), '"y" dataset is not a list'
+        return dc
+
+
+class OrderedTripleModel(DefaultModel[DataC], Generic[DataC]):
+    data: Optional[DataC]
+
+    @validator("dataContainer")
+    def type_must_match(cls, dc):
+        assert dc["type"] == "OrderedTriple", "dataContainer type does not match."
+        return dc
+
+    @validator("dataContainer")
+    def keys_must_match(cls, dc):
+        assert "x" in dc, 'dataContainer does not contain "x" dataset.'
+        assert "y" in dc, 'dataContainer does not contain "y" dataset.'
+        assert "z" in dc, 'dataContainer does not contain "z" dataset.'
+        assert isinstance(dc["x"], list), '"x" dataset is not a list'
+        assert isinstance(dc["y"], list), '"y" dataset is not a list'
+        assert isinstance(dc["z"], list), '"z" dataset is not a list'
+        return dc
+
+
+class DataFrameModel(DefaultModel[DataC], Generic[DataC]):
+    data: Optional[DataC]
+
+    @validator("dataContainer")
+    def type_must_match(cls, dc):
+        assert dc["type"] == "DataFrame", "dataContainer type does not match."
+        return dc
+
+    @validator("dataContainer")
+    def keys_must_match(cls, dc):
+        assert "m" in dc, 'dataContainer does not contain "m" dataset.'
+        assert isinstance(
+            dc["m"], dict
+        ), f'"m" dataset is not a list, type: {type(dc["m"])}'
+        return dc
+
+
+class MatrixModel(DefaultModel[DataC], Generic[DataC]):
+    data: Optional[DataC]
+
+    @validator("dataContainer")
+    def type_must_match(cls, dc):
+        assert dc["type"] == "Matrix", "dataContainer type does not match."
+        return dc
+
+    @validator("dataContainer")
+    def keys_must_match(cls, dc):
+        assert "m" in dc, 'dataContainer does not contain "m" dataset.'
+        assert isinstance(dc["m"], list), '"m" dataset is not a list'
+        return dc
+
+
+class GrayscaleModel(DefaultModel[DataC], Generic[DataC]):
+    data: Optional[DataC]
+
+    @validator("dataContainer")
+    def type_must_match(cls, dc):
+        assert dc["type"] == "Grayscale", "dataContainer type does not match."
+        return dc
+
+    @validator("dataContainer")
+    def keys_must_match(cls, dc):
+        assert "m" in dc, 'dataContainer does not contain "m" dataset.'
+        assert isinstance(dc["m"], list), '"m" dataset is not a list'
+        return dc
+
+
+class ScalarModel(DefaultModel[DataC], Generic[DataC]):
+    data: Optional[DataC]
+
+    @validator("dataContainer")
+    def type_must_match(cls, dc):
+        assert dc["type"] == "Scalar", "dataContainer type does not match."
+        return dc
+
+    @validator("dataContainer")
+    def keys_must_match(cls, dc):
+        assert "c" in dc, 'dataContainer does not contain "c" dataset.'
+        # int as well just in case?
+        assert isinstance(dc["c"], float) or isinstance(
+            dc["c"], int
+        ), '"c" dataset is not a float or int'
+        return dc
+
+
+class ImageModel(DefaultModel[DataC], Generic[DataC]):
+    data: Optional[DataC]
+
+    @validator("dataContainer")
+    def type_must_match(cls, dc):
+        assert dc["type"] == "Image", "dataContainer type does not match."
+        return dc
+
+    @validator("dataContainer")
+    def keys_must_match(cls, dc):
+        assert "r" in dc, 'dataContainer does not contain "r" dataset.'
+        assert "g" in dc, 'dataContainer does not contain "g" dataset.'
+        assert "b" in dc, 'dataContainer does not contain "b" dataset.'
+        assert isinstance(dc["r"], list), '"r" dataset is not a list'
+        assert isinstance(dc["g"], list), '"g" dataset is not a list'
+        assert isinstance(dc["b"], list), '"b" dataset is not a list'
+        return dc
+
+
 def check_deserialize(response):
-    DataC = TypeVar("DataC")
-
-    class DefaultModel(GenericModel, Generic[DataC]):
-        ref: str
-        dataContainer: dict
-        metadata: dict
-        workspaceId: str
-        privacy: str
-        location: str
-        note: str
-
-    class OrderedPairModel(DefaultModel[DataC], Generic[DataC]):
-        data: Optional[DataC]
-
-        @validator("dataContainer")
-        def type_must_match(cls, dc):
-            assert dc["type"] == "OrderedPair", "dataContainer type does not match."
-            return dc
-
-        @validator("dataContainer")
-        def keys_must_match(cls, dc):
-            assert "x" in dc, 'dataContainer does not contain "x" dataset.'
-            assert "y" in dc, 'dataContainer does not contain "y" dataset.'
-            assert isinstance(dc["x"], list), '"x" dataset is not a list'
-            assert isinstance(dc["y"], list), '"y" dataset is not a list'
-            return dc
-
-    class OrderedTripleModel(DefaultModel[DataC], Generic[DataC]):
-        data: Optional[DataC]
-
-        @validator("dataContainer")
-        def type_must_match(cls, dc):
-            assert dc["type"] == "OrderedTriple", "dataContainer type does not match."
-            return dc
-
-        @validator("dataContainer")
-        def keys_must_match(cls, dc):
-            assert "x" in dc, 'dataContainer does not contain "x" dataset.'
-            assert "y" in dc, 'dataContainer does not contain "y" dataset.'
-            assert "x" in dc, 'dataContainer does not contain "z" dataset.'
-            assert isinstance(dc["x"], list), '"x" dataset is not a list'
-            assert isinstance(dc["y"], list), '"y" dataset is not a list'
-            assert isinstance(dc["z"], list), '"z" dataset is not a list'
-            return dc
-
-    class DataFrameModel(DefaultModel[DataC], Generic[DataC]):
-        data: Optional[DataC]
-
-        @validator("dataContainer")
-        def type_must_match(cls, dc):
-            assert dc["type"] == "DataFrame", "dataContainer type does not match."
-            return dc
-
-        @validator("dataContainer")
-        def keys_must_match(cls, dc):
-            assert "m" in dc, 'dataContainer does not contain "m" dataset.'
-            assert isinstance(
-                dc["m"], dict
-            ), f'"m" dataset is not a list, type: {type(dc["m"])}'
-            return dc
-
-    class MatrixModel(DefaultModel[DataC], Generic[DataC]):
-        data: Optional[DataC]
-
-        @validator("dataContainer")
-        def type_must_match(cls, dc):
-            assert dc["type"] == "Matrix", "dataContainer type does not match."
-            return dc
-
-        @validator("dataContainer")
-        def keys_must_match(cls, dc):
-            assert "m" in dc, 'dataContainer does not contain "m" dataset.'
-            assert isinstance(dc["m"], list), '"m" dataset is not a list'
-            return dc
-
-    class GrayscaleModel(DefaultModel[DataC], Generic[DataC]):
-        data: Optional[DataC]
-
-        @validator("dataContainer")
-        def type_must_match(cls, dc):
-            assert dc["type"] == "Grayscale", "dataContainer type does not match."
-            return dc
-
-        @validator("dataContainer")
-        def keys_must_match(cls, dc):
-            assert "m" in dc, 'dataContainer does not contain "m" dataset.'
-            assert isinstance(dc["m"], list), '"m" dataset is not a list'
-            return dc
-
-    class ScalarModel(DefaultModel[DataC], Generic[DataC]):
-        data: Optional[DataC]
-
-        @validator("dataContainer")
-        def type_must_match(cls, dc):
-            assert dc["type"] == "Scalar", "dataContainer type does not match."
-            return dc
-
-        @validator("dataContainer")
-        def keys_must_match(cls, dc):
-            assert "c" in dc, 'dataContainer does not contain "m" dataset.'
-            # int as well just in case?
-            assert isinstance(dc["c"], float), '"c" dataset is not a float'
-            return dc
-
-    class ImageModel(DefaultModel[DataC], Generic[DataC]):
-        data: Optional[DataC]
-
-        @validator("dataContainer")
-        def type_must_match(cls, dc):
-            assert dc["type"] == "Image", "dataContainer type does not match."
-            return dc
-
-        @validator("dataContainer")
-        def keys_must_match(cls, dc):
-            assert "r" in dc, 'dataContainer does not contain "r" dataset.'
-            assert "g" in dc, 'dataContainer does not contain "r" dataset.'
-            assert "b" in dc, 'dataContainer does not contain "r" dataset.'
-            assert isinstance(dc["r"], list), '"r" dataset is not a list'
-            assert isinstance(dc["g"], list), '"g" dataset is not a list'
-            assert isinstance(dc["b"], list), '"b" dataset is not a list'
-            return dc
-
     dc_type = response["dataContainer"]["type"]
     match dc_type:
         case "OrderedPair":
@@ -329,10 +340,7 @@ class FlojoyCloud:
         """
         dc_type = dc["dataContainer"]["type"]
         match dc_type:
-            case "OrderedPair":
-                df = pd.DataFrame(dc["dataContainer"])
-                return df.drop(columns=["type"])
-            case "OrderedTriple":
+            case "OrderedPair" | "OrderedTriple":
                 df = pd.DataFrame(dc["dataContainer"])
                 return df.drop(columns=["type"])
             case "DataFrame" | "Matrix" | "Grayscale":
