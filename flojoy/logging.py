@@ -58,7 +58,7 @@ class LogPipe:
         while not self.closed or self.pipeReader.peek():
             byte_data = self.pipeReader.readline()
             if byte_data:
-                logging.log(self.level, byte_data.decode("utf-8").rstrip("\n"))
+                logging.log(logging.DEBUG, byte_data.decode("utf-8").rstrip("\n"))
                 self.buffer.write(byte_data)
             else:
                 sleep(0.1)

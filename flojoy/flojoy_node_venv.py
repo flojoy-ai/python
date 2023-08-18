@@ -38,7 +38,9 @@ from functools import wraps
 import cloudpickle
 
 from .utils import FLOJOY_CACHE_DIR
+from .socket_utils import SocketData, ModalConfig, send_to_socket
 from .logging import LogPipe
+import json
 
 __all__ = ["run_in_venv"]
 
@@ -55,9 +57,17 @@ def swap_sys_path(venv_executable: os.PathLike, extra_sys_path: list[str] | None
     finally:
         sys.path = old_path
 
+def stream_response(proc):
+    """Stream the output of a subprocess."""
+    while True:
+        line = proc.stdout.readline() or proc.stderr.readline()
+        if not line:
+            break
+        yield line
 
 def _install_pip_dependencies(
-    venv_executable: os.PathLike, pip_dependencies: tuple[str], verbose: bool = False
+    venv_executable: os.PathLike, pip_dependencies: tuple[str], socket_data: SocketData, verbose: bool = False,
+    
 ):
     """Install pip dependencies into the virtual environment."""
     command = [venv_executable, "-m", "pip", "install"]
@@ -65,7 +75,12 @@ def _install_pip_dependencies(
         command += ["-q", "-q"]
     command += list(pip_dependencies)
     with LogPipe(logging.INFO) as pipe_stdout, LogPipe(logging.ERROR) as pipe_stderr:
-        proc = subprocess.Popen(command, stdout=pipe_stdout, stderr=pipe_stderr)
+        proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        while proc.poll() is None:
+            stream = stream_response(proc)
+            for line in stream:
+                socket_data.MODAL_CONFIG["messages"] = line.decode(encoding="utf-8")
+                send_to_socket(socket_data)
         proc.wait()
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(
@@ -157,6 +172,8 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
         ...
         return Matrix(...)
     """
+    jobset_id = os.environ.get("FC_JOBSET_ID", "")
+    socket_data = SocketData(jobset_id=jobset_id, modal_config=ModalConfig(showModal=True))
     if pip_dependencies is None:
         pip_dependencies = []
     # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
@@ -180,16 +197,29 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     ).hexdigest()[:8]
     venv_path = os.path.join(venv_cache_dir, f"{pip_dependencies_hash}")
     venv_executable = _get_venv_executable_path(venv_path)
+    socket_data.MODAL_CONFIG["title"] = "Node virtual environment"
     # Create the node_env virtual environment if it does not exist
     if not os.path.exists(venv_path):
+        socket_data.MODAL_CONFIG['messages'] = "Some node requires running in a separate virtual environment.."
+        print(" posting data line 204: ", socket_data, type(socket_data._to_json()), flush=True)
+        send_to_socket(socket_data)
+
+        socket_data.MODAL_CONFIG["messages"] = f"Creating virtual environment at {venv_path}"
+        print(" posting data line 207: ", socket_data, type(socket_data._to_json()), flush=True)
+        send_to_socket(socket_data)
         venv.create(venv_path, with_pip=True)
         # Install the pip dependencies into the virtual environment
         if pip_dependencies:
             try:
+                socket_data.MODAL_CONFIG["messages"] = f"Installing {', '.join(pip_dependencies)} packages into virtual environment..."
+                print(" posting data line 214: ", socket_data, type(socket_data._to_json()), flush=True)
+                send_to_socket(socket_data)
                 _install_pip_dependencies(
                     venv_executable=venv_executable,
                     pip_dependencies=tuple(pip_dependencies),
+                    socket_data=socket_data,
                     verbose=verbose,
+                    
                 )
             except subprocess.CalledProcessError as e:
                 shutil.rmtree(venv_path)
@@ -198,9 +228,16 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 )
                 # Log every line of e.stderr
                 for line in e.stderr.decode().splitlines():
+                    socket_data.MODAL_CONFIG["messages"] = "[error]: " + line
+                    send_to_socket(socket_data)
                     logging.error(f"[ _install_pip_dependencies ] {line}")
+                socket_data.MODAL_CONFIG["messages"] = "Failed to install pip dependencies into virtual environment"
+                socket_data["SYSTEM_STATUS"] = "❌ Failed to install pip dependencies into virtual environment"
+                send_to_socket(socket_data)
                 raise e
 
+    
+    
     # Define the decorator
     def decorator(func):
         @wraps(func)
