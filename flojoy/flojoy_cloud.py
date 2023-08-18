@@ -213,8 +213,6 @@ class FlojoyCloud:
             apikey = utils.get_credentials()[0]["value"]
         elif apikey == "env":
             apikey = os.environ.get("FLOJOY_CLOUD_KEY")
-        else:
-            pass
 
         self.headers = {"api_key": apikey, "Content-Type": content}
         self.valid_types = [
@@ -369,7 +367,7 @@ class FlojoyCloud:
         an error will be thrown.
         """
         url = f"https://cloud.flojoy.ai/api/v1/dcs/?inbox=true&size={size}"
-        response = requests.request("GET", url, headers=self.headers, data="")
+        response = requests.request("GET", url, headers=self.headers)
         response = json.loads(response.text)
         try:
             response = response["data"]
@@ -397,7 +395,7 @@ class FlojoyCloud:
         an error will be thrown.
         """
         url = f"https://cloud.flojoy.ai/api/v1/measurements/?size={size}"
-        response = requests.request("GET", url, headers=self.headers, data="")
+        response = requests.request("GET", url, headers=self.headers)
         response = json.loads(response.text)
         try:
             response = response["data"]
@@ -411,7 +409,7 @@ class FlojoyCloud:
         A method fetchs measurements from the client.
         """
         url = f"https://cloud.flojoy.ai/api/v1/measurements/{meas_id}"
-        response = requests.request("GET", url, headers=self.headers, data="")
+        response = requests.request("GET", url, headers=self.headers)
         response = json.loads(response.text)
 
         return response
