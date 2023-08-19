@@ -1,13 +1,12 @@
 """
 Nodes should try to accomodate any reasonable combination of inputs that a first-time Flojoy Studio user might try.
 
-For example, the ADD node should make a best effort to do something reasonable when a matrix is added to a dataframe, or a 2 matrices of a different size are added.
+For example, the ADD node should make a best effort to do something reasonable when a matrix is added to a DataFrame, or a 2 matrices of a different size are added.
 
 For this reason, we've created the `Reconciler` class to handle the process of turning different data types into compatible, easily added objects. 
 """
 from typing import Tuple
 import numpy
-import pandas
 
 from .data_container import DataContainer
 
@@ -24,25 +23,25 @@ class Reconciler:
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
         types_to_reconcile = set([lhs.type, rhs.type])
-        if types_to_reconcile == set(["matrix"]):
-            return self.reconcile__matrix(lhs, rhs)
-        elif types_to_reconcile == set(["dataframe"]):
-            return self.reconcile__dataframe(lhs, rhs)
-        elif types_to_reconcile == set(["ordered_pair"]):
-            return self.reconcile__ordered_pair(lhs, rhs)
-        elif types_to_reconcile == set(["matrix", "scalar"]):
-            return self.reconcile__matrix_scalar(lhs, rhs)
-        elif types_to_reconcile == set(["matrix", "dataframe"]):
-            return self.reconcile__dataframe_matrix(lhs, rhs)
-        elif types_to_reconcile == set(["scalar", "dataframe"]):
-            return self.reconcile__dataframe_scalar(lhs, rhs)
+        if types_to_reconcile == set(["Matrix"]):
+            return self.reconcile_matrix(lhs, rhs)
+        elif types_to_reconcile == set(["DataFrame"]):
+            return self.reconcile_dataframe(lhs, rhs)
+        elif types_to_reconcile == set(["OrderedPair"]):
+            return self.reconcile_ordered_pair(lhs, rhs)
+        elif types_to_reconcile == set(["Matrix", "Scalar"]):
+            return self.reconcile_matrix_scalar(lhs, rhs)
+        elif types_to_reconcile == set(["Matrix", "DataFrame"]):
+            return self.reconcile_dataframe_matrix(lhs, rhs)
+        elif types_to_reconcile == set(["Scalar", "DataFrame"]):
+            return self.reconcile_dataframe_scalar(lhs, rhs)
         else:
             raise IrreconcilableContainersException(
                 "FloJoy doesn't know how to reconcile data containers of type %s and %s"
                 % (lhs.type, rhs.type)
             )
 
-    def reconcile__matrix(
+    def reconcile_matrix(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
         # make the matrices equal sizes, by padding
@@ -63,41 +62,41 @@ class Reconciler:
         )
 
         return (
-            DataContainer(type="matrix", m=new_lhs),
-            DataContainer(type="matrix", m=new_rhs),
+            DataContainer(type="Matrix", m=new_lhs),
+            DataContainer(type="Matrix", m=new_rhs),
         )
 
-    def reconcile__dataframe(
+    def reconcile_dataframe(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        # pandas' handling for dataframes is actually pretty permissive. Let's just
+        # pandas' handling for DataFrames is actually pretty permissive. Let's just
         #  return both types as normal
         return (lhs, rhs)
 
-    def reconcile__dataframe_scalar(
+    def reconcile_dataframe_scalar(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
-        # let's expand the scalar to be a dataframe the same size as the other dataframe
-        if lhs.type == "dataframe":
+        # let's expand the scalar to be a DataFrame the same size as the other DataFrame
+        if lhs.type == "DataFrame":
             new_m = lhs.m.copy()
             new_m.iloc[:] = rhs.c
-            return lhs, DataContainer(type="dataframe", m=new_m)
+            return lhs, DataContainer(type="DataFrame", m=new_m)
 
         new_m = rhs.m.copy()
         new_m.iloc[:] = lhs.c
-        return DataContainer(type="dataframe", m=new_m), rhs
+        return DataContainer(type="DataFrame", m=new_m), rhs
 
-    def reconcile__ordered_pair(
+    def reconcile_ordered_pair(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
         raise NotImplementedError("TODO")
 
-    def reconcile__matrix_scalar(
+    def reconcile_matrix_scalar(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
         raise NotImplementedError("TODO")
 
-    def reconcile__dataframe_matrix(
+    def reconcile_dataframe_matrix(
         self, lhs: DataContainer, rhs: DataContainer
     ) -> Tuple[DataContainer, DataContainer]:
         raise NotImplementedError("TODO")

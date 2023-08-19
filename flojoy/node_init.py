@@ -1,4 +1,6 @@
-from typing import Callable
+from typing import Callable, Any
+
+from flojoy.parameter_types import format_param_value
 from .dao import Dao
 
 
@@ -22,12 +24,17 @@ class NodeInit:
     def __init__(self, func):
         self.func = func
 
-    def __call__(self, node_id: str):
-        return self.run(node_id)
+    def __call__(self, node_id: str, ctrls: dict[str, Any]):
+        return self.run(node_id, ctrls)
 
-    def run(self, node_id: str):
+    def run(self, node_id: str, ctrls: dict[str, Any]):
         daemon_container = NodeInitService().create_init_store(node_id)
-        res = self.func()
+
+        args = {
+            name: format_param_value(ctrl["value"], ctrl["type"])
+            for name, ctrl in ctrls.items()
+        }
+        res = self.func(**args)
         if res is not None:
             daemon_container.set(res)
 

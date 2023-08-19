@@ -11,7 +11,9 @@ pytestmark = pytest.mark.slow
 # Define a fixture to patch tempfile.tempdir
 @pytest.fixture
 def mock_venv_cache_dir():
-    _test_tempdir = os.path.join(tempfile.gettempdir(), "test_flojoy_node_venv")
+    _test_tempdir = os.path.realpath(
+        os.path.join(tempfile.gettempdir(), "test_flojoy_node_venv")
+    )
     # Wipe the directory to be patched if it exists
     shutil.rmtree(_test_tempdir, ignore_errors=True)
     os.makedirs(_test_tempdir)
@@ -27,7 +29,7 @@ def mock_venv_cache_dir():
 def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
     """Test that run_in_venv imports properly jax for example"""
 
-    from flojoy import flojoy, run_in_venv
+    from flojoy import run_in_venv
 
     @run_in_venv(pip_dependencies=["jax[cpu]==0.4.13"])
     def empty_function_with_jax():
@@ -35,7 +37,6 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
         # Fetch the list of installed packages
         import sys
         import importlib.metadata
-        import jax
 
         # Get the list of installed packages
         packages_dict = {
@@ -49,20 +50,20 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir):
     # Test for executable
     assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_venv_cache_dir)
+    assert sys_path[-1].startswith(os.path.dirname(__file__))
+    assert sys_path[-2].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["jax"] == "0.4.13"
 
 
 def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
-    from flojoy import flojoy, run_in_venv
+    from flojoy import run_in_venv
 
     # Define a function that imports flytekit and returns its version
     @run_in_venv(pip_dependencies=["flytekit==1.8.2"])
     def empty_function_with_flytekit():
         import sys
         import importlib.metadata
-        import flytekit
 
         # Get the list of installed packages
         packages_dict = {
@@ -76,7 +77,8 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir):
     # Test for executable
     assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_venv_cache_dir)
+    assert sys_path[-1].startswith(os.path.dirname(__file__))
+    assert sys_path[-2].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["flytekit"] == "1.8.2"
 
@@ -90,7 +92,6 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
     def empty_function_with_opencv():
         import sys
         import importlib.metadata
-        import cv2
 
         # Get the list of installed packages
         packages_dict = {
@@ -104,7 +105,8 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir):
     # Test for executable
     assert sys_executable.startswith(mock_venv_cache_dir)
     # Test for sys.path
-    assert sys_path[-1].startswith(mock_venv_cache_dir)
+    assert sys_path[-1].startswith(os.path.dirname(__file__))
+    assert sys_path[-2].startswith(mock_venv_cache_dir)
     # Test for package version
     assert packages_dict["opencv-python-headless"] == "4.7.0.72"
 
@@ -119,5 +121,35 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir):
         return 1 / 0
 
     # Run the function and expect an error
-    with pytest.raises(ZeroDivisionError):
+    with pytest.raises(ChildProcessError):
         empty_function_with_error()
+
+
+@pytest.mark.parametrize("daemon", [True, False])
+def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, daemon):
+    from threading import Thread
+    from queue import Queue
+
+    def function_to_run_within_thread(queue):
+        from flojoy import run_in_venv
+
+        @run_in_venv(pip_dependencies=["numpy==1.23.0"])
+        def func_with_venv():
+            import numpy as np
+
+            return 42
+
+        # Run the function
+        queue.put(func_with_venv())
+
+    # Run the function in a thread
+    queue = Queue()
+    thread = Thread(target=function_to_run_within_thread, args=(queue,), daemon=daemon)
+    thread.start()
+    thread.join()
+    # Check that the thread has finished
+    assert not thread.is_alive()
+    # Check that there is something in the queue
+    assert not queue.empty()
+    # Check that the function has returned
+    assert queue.get(timeout=60) == 42

@@ -2,7 +2,7 @@ from .flojoy_instruction import FLOJOY_INSTRUCTION
 from .plotly_utils import data_container_to_plotly
 from .data_container import DataContainer
 from .dao import Dao
-from typing import Any, cast
+from typing import Any, cast, Optional
 
 __all__ = ["get_job_result", "get_next_directions", "get_next_nodes", "get_job_result"]
 
@@ -63,24 +63,28 @@ def get_job_result(job_id: str) -> dict[str, Any] | DataContainer | None:
 
 def get_text_blob_from_dc(dc: DataContainer) -> str | None:
     match dc.type:
-        case "text_blob":
+        case "TextBlob":
             return dc.text_blob
-        case "bytes":
+        case "Bytes":
             return dc.b.decode("utf-8")
         case _:
             return None
 
 
 def get_frontend_res_obj_from_result(
-    result: dict[str, Any] | DataContainer
-) -> dict[str, Any]:
-    if not result:
-        return {"plotly_fig": result}
+    result: Optional[dict[str, Any] | DataContainer]
+) -> Optional[dict[str, Any]]:
+    if result is None:
+        return None
+
     if isinstance(result, DataContainer):
         plotly_fig = data_container_to_plotly(data=result)
         return {"plotly_fig": plotly_fig, "text_blob": get_text_blob_from_dc(result)}
     if result.get(FLOJOY_INSTRUCTION.RESULT_FIELD):
         data = result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]]
+        if not data:
+            return result
+
         plotly_fig = None
         if isinstance(data, DataContainer):
             plotly_fig = data_container_to_plotly(data=data)

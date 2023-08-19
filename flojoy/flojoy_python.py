@@ -90,11 +90,12 @@ def display(
     return original_function
 
 def flojoy(
-        original_function: Callable[..., DataContainer | dict[str, Any]] | None = None,
-        *,
-        node_type: Optional[str] = None,
-        deps: Optional[dict[str, str]] = None,
-        inject_node_metadata: bool = False,
+    original_function: Callable[..., Optional[DataContainer | dict[str, Any]]]
+    | None = None,
+    *,
+    node_type: Optional[str] = None,
+    deps: Optional[dict[str, str]] = None,
+    inject_node_metadata: bool = False,
 ):
     """
     Decorator to turn Python functions with numerical return
@@ -139,7 +140,7 @@ def flojoy(
     ```
     """
 
-    def decorator(func: Callable[..., DataContainer | dict[str, Any]]):
+    def decorator(func: Callable[..., Optional[DataContainer | dict[str, Any]]]):
         @wraps(func)
         def wrapper(
                 node_id: str,
@@ -213,12 +214,13 @@ def flojoy(
                 # some special nodes like LOOP return dict instead of `DataContainer`
                 if isinstance(dc_obj, DataContainer):
                     dc_obj.validate()  # Validate returned DataContainer object
-                else:
+                elif dc_obj is not None:
                     for value in dc_obj.values():
                         if isinstance(value, DataContainer):
                             value.validate()
                 # Response object to send to FE
                 result = get_frontend_res_obj_from_result(dc_obj)
+
                 JobService().post_job_result(
                     job_id, dc_obj
                 )  # post result to the job service before sending result to socket
@@ -253,8 +255,7 @@ def flojoy(
                     json.dumps(
                         {
                             "SYSTEM_STATUS": f"Failed to run: {func.__name__}",
-                            "FAILED_NODES": node_id,
-                            "FAILURE_REASON": e.args[0],
+                            "FAILED_NODES": {node_id: str(e)},
                             "jobsetId": jobset_id,
                         }
                     )

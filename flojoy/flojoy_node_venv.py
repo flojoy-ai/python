@@ -19,8 +19,11 @@ def TORCH_NODE(default: Matrix) -> Matrix:
     return Matrix(...)
 
 """
+from typing import Callable
+
 import hashlib
 import importlib.metadata
+import inspect
 import logging
 import multiprocessing
 import multiprocessing.connection
@@ -62,13 +65,14 @@ class MultiprocessingExecutableContextManager:
 class SwapSysPath:
     """Temporarily swap the sys.path of the child process with the sys.path of the parent process."""
 
-    def __init__(self, venv_executable):
+    def __init__(self, venv_executable, extra_sys_path):
         self.new_path = _get_venv_syspath(venv_executable)
+        self.extra_sys_path = [] if extra_sys_path is None else extra_sys_path
         self.old_path = None
 
     def __enter__(self):
         self.old_path = sys.path
-        sys.path = self.new_path
+        sys.path = self.new_path + self.extra_sys_path
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         sys.path = self.old_path
@@ -78,11 +82,18 @@ def _install_pip_dependencies(
     venv_executable: os.PathLike, pip_dependencies: tuple[str], verbose: bool = False
 ):
     """Install pip dependencies into the virtual environment."""
+    # TODO(roulbac): Stream logs from pip install
     command = [venv_executable, "-m", "pip", "install"]
     if not verbose:
         command += ["-q", "-q"]
     command += list(pip_dependencies)
-    subprocess.check_call(command)
+    result = subprocess.run(
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True
+    )
+    if verbose:
+        # Log every line if verbose, prefix with [pip]
+        for line in result.stdout.decode().splitlines():
+            logging.info(f"[ _install_pip_dependencies ] {line}")
 
 
 def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
@@ -97,26 +108,40 @@ class PickleableFunctionWithPipeIO:
 
     def __init__(
         self,
-        func_serialized: bytes,
+        func: Callable,
         child_conn: multiprocessing.connection.Connection,
         venv_executable: str,
     ):
-        self._func_serialized = func_serialized
+        self._func_serialized = cloudpickle.dumps(func)
+        func_module_path = os.path.dirname(os.path.realpath(inspect.getabsfile(func)))
+        # Check that the function is in a directory indeed
+        self._extra_sys_path = (
+            [func_module_path] if os.path.isdir(func_module_path) else None
+        )
         self._child_conn = child_conn
         self._venv_executable = venv_executable
 
     def __call__(self, *args_serialized, **kwargs_serialized):
-        fn = cloudpickle.loads(self._func_serialized)
-        args = [cloudpickle.loads(arg) for arg in args_serialized]
-        kwargs = {
-            key: cloudpickle.loads(value) for key, value in kwargs_serialized.items()
-        }
-        with SwapSysPath(venv_executable=self._venv_executable):
+        with SwapSysPath(
+            venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path
+        ):
             try:
-                result = fn(*args, **kwargs)
+                fn = cloudpickle.loads(self._func_serialized)
+                args = [cloudpickle.loads(arg) for arg in args_serialized]
+                kwargs = {
+                    key: cloudpickle.loads(value)
+                    for key, value in kwargs_serialized.items()
+                }
+                serialized_result = cloudpickle.dumps(fn(*args, **kwargs))
             except Exception as e:
-                result = (e, traceback.format_exception(type(e), e, e.__traceback__))
-        serialized_result = cloudpickle.dumps(result)
+                # Not all exceptions are expected to be picklable
+                # so we clone their traceback and send our own custom type of exception
+                exc = ChildProcessError(
+                    f"Child process failed with an exception of type {type(e)}."
+                ).with_traceback(e.__traceback__)
+                serialized_result = cloudpickle.dumps(
+                    (exc, traceback.format_exception(type(e), e, e.__traceback__))
+                )
         self._child_conn.send_bytes(serialized_result)
 
 
@@ -170,9 +195,9 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     os.makedirs(venv_cache_dir, exist_ok=True)
     # Generate a path-safe hash of the pip dependencies
     # this prevents the duplication of virtual environments
-    pip_dependencies_hash = hashlib.sha256(
-        "".join(pip_dependencies).encode()
-    ).hexdigest()
+    pip_dependencies_hash = hashlib.md5(
+        "".join(sorted(pip_dependencies)).encode()
+    ).hexdigest()[:8]
     venv_path = os.path.join(venv_cache_dir, f"{pip_dependencies_hash}")
     venv_executable = _get_venv_executable_path(venv_path)
     # Create the node_env virtual environment if it does not exist
@@ -189,8 +214,11 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             except subprocess.CalledProcessError as e:
                 shutil.rmtree(venv_path)
                 logging.error(
-                    f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}"
+                    f"[ _install_pip_dependencies ] Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
                 )
+                # Log every line of e.stderr
+                for line in e.stderr.decode().splitlines():
+                    logging.error(f"[ _install_pip_dependencies ] {line}")
                 raise e
 
     # Define the decorator
@@ -203,9 +231,8 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             kwargs_serialized = {
                 key: cloudpickle.dumps(value) for key, value in kwargs.items()
             }
-            func_serialized = cloudpickle.dumps(func)
             pickleable_func_with_pipe = PickleableFunctionWithPipeIO(
-                func_serialized, child_conn, venv_executable
+                func, child_conn, venv_executable
             )
             # Start the context manager that will change the executable used by multiprocessing
             with MultiprocessingExecutableContextManager(venv_executable):
@@ -227,7 +254,9 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 # Fetch exception and formatted traceback (list[str])
                 exception, tcb = result
                 # Reraise an exception with the same class
-                logging.error(f"Error in child process \n{''.join(tcb)}")
+                logging.error(
+                    f"[ run_in_venv ] Error in child process with the following traceback:\n{''.join(tcb)}"
+                )
                 raise exception
             return result
 
