@@ -71,7 +71,7 @@ def _install_pip_dependencies(
     command += list(pip_dependencies)
     with ExitStack() as stack:
         logpipe_stderr = stack.enter_context(LogPipe(logger, log_level=logging.ERROR, mode=LogPipeMode.SUBPROCESS))
-        logpipe_stdout = stack.enter_context(LogPipe(logger, log_level=logging.DEBUG, mode=LogPipeMode.SUBPROCESS))
+        logpipe_stdout = stack.enter_context(LogPipe(logger, log_level=logging.INFO, mode=LogPipeMode.SUBPROCESS))
         proc = subprocess.Popen(command, stdout=logpipe_stdout, stderr=logpipe_stderr)
         proc.wait()
         sleep(5)
@@ -90,13 +90,16 @@ def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
     return eval(cmd_output.stdout)
 
 @contextmanager
-def redirect_streams(log_pipe_writer: TextIO):
-    import sys
+def redirect_streams(stdout_pipe_writer: TextIO, stderr_pipe_writer: TextIO):
+    # Import here to ensure we use the child process sys module
+    import sys 
     try:
-        sys.stdout = log_pipe_writer
+        sys.stdout = stdout_pipe_writer
+        sys.stderr = stderr_pipe_writer
         yield
     finally:
         sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
 
 class PickleableFunctionWithPipeIO:
     """A wrapper for a function that can be pickled and executed in a child process."""
@@ -105,7 +108,8 @@ class PickleableFunctionWithPipeIO:
         self,
         func: Callable,
         child_conn: multiprocessing.connection.Connection,
-        log_pipe_writer: TextIO,
+        stdout_pipe_writer: TextIO,
+        stderr_pipe_writer: TextIO,
         venv_executable: str,
     ):
         self._func_serialized = cloudpickle.dumps(func)
@@ -116,10 +120,11 @@ class PickleableFunctionWithPipeIO:
         )
         self._child_conn = child_conn
         self._venv_executable = venv_executable
-        self.log_pipe_writer = log_pipe_writer
+        self.stdout_pipe_writer = stdout_pipe_writer
+        self.stderr_pipe_writer = stderr_pipe_writer
 
     def __call__(self, *args_serialized, **kwargs_serialized):
-        with redirect_streams(log_pipe_writer=self.log_pipe_writer):
+        with redirect_streams(stderr_pipe_writer=self.stderr_pipe_writer, stdout_pipe_writer=self.stdout_pipe_writer):
             with swap_sys_path(venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path):
                 try:
                     fn = cloudpickle.loads(self._func_serialized)
@@ -263,10 +268,17 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             child_mp_context = multiprocessing.get_context("spawn")
             child_mp_context.set_executable(venv_executable)
             func_name = func.__name__
-            with LogPipe(logging.getLogger(func_name), logging.INFO, LogPipeMode.MP_SPAWN) as log_pipe:
+            logger = logging.getLogger(func_name)
+            with ExitStack() as stack:
+                log_pipe_stdout = stack.enter_context(LogPipe(logger=logger, log_level=logging.INFO, mode=LogPipeMode.MP_SPAWN))
+                log_pipe_stderr = stack.enter_context(LogPipe(logger=logger, log_level=logging.ERROR, mode=LogPipeMode.MP_SPAWN))
                 # Serialize function arguments using cloudpickle
                 pickleable_func_with_pipe = PickleableFunctionWithPipeIO(
-                    func, child_conn, log_pipe.pipe.get_writer(), venv_executable
+                    func=func,
+                    child_conn=child_conn,
+                    stdout_pipe_writer=log_pipe_stdout.pipe.get_writer(),
+                    stderr_pipe_writer=log_pipe_stderr.pipe.get_writer(),
+                    venv_executable=venv_executable
                 )
                 args_serialized = [cloudpickle.dumps(arg) for arg in args]
                 kwargs_serialized = {
@@ -290,8 +302,8 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 # Fetch exception and formatted traceback (list[str])
                 exception, tcb = result
                 # Reraise an exception with the same class
-                logging.error(
-                    f"[ run_in_venv ] Error in child process with the following traceback:\n{''.join(tcb)}"
+                logger.error(
+                    f"Error in child process with the following traceback:\n{''.join(tcb)}"
                 )
                 raise exception
             return result
