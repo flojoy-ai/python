@@ -19,7 +19,8 @@ def TORCH_NODE(default: Matrix) -> Matrix:
     return Matrix(...)
 
 """
-from typing import Callable
+from time import sleep
+from typing import Callable, Optional, TextIO
 
 import hashlib
 from contextlib import ExitStack, contextmanager
@@ -30,6 +31,7 @@ import multiprocessing
 import multiprocessing.connection
 import os
 import shutil
+import re
 import subprocess
 import sys
 import traceback
@@ -38,7 +40,7 @@ from functools import wraps
 import cloudpickle
 
 from .utils import FLOJOY_CACHE_DIR
-from .logging import LogPipeSubProcessing, LogPipeMultiProcessing, LogPipeWriterMultiprocessing
+from .logging import LogPipe, LogPipeMode
 
 __all__ = ["run_in_venv"]
 
@@ -57,22 +59,27 @@ def swap_sys_path(venv_executable: os.PathLike, extra_sys_path: list[str] | None
 
 
 def _install_pip_dependencies(
-    venv_executable: os.PathLike, pip_dependencies: tuple[str], verbose: bool = False
+    venv_executable: os.PathLike,
+    pip_dependencies: tuple[str],
+    logger: logging.Logger,
+    verbose: bool = False
 ):
     """Install pip dependencies into the virtual environment."""
     command = [venv_executable, "-m", "pip", "install"]
     if not verbose:
         command += ["-q", "-q"]
     command += list(pip_dependencies)
-    with LogPipeSubProcessing(logging.INFO) as pipe_stdout, LogPipeSubProcessing(logging.ERROR) as pipe_stderr:
-        proc = subprocess.Popen(command, stdout=pipe_stdout, stderr=pipe_stderr)
+    with ExitStack() as stack:
+        logpipe_stderr = stack.enter_context(LogPipe(logger, log_level=logging.ERROR, mode=LogPipeMode.SUBPROCESS))
+        logpipe_stdout = stack.enter_context(LogPipe(logger, log_level=logging.DEBUG, mode=LogPipeMode.SUBPROCESS))
+        proc = subprocess.Popen(command, stdout=logpipe_stdout, stderr=logpipe_stderr)
         proc.wait()
+        sleep(5)
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(
             proc.returncode,
             command,
-            output=pipe_stdout.buffer.getvalue(),
-            stderr=pipe_stderr.buffer.getvalue(),
+            output=logpipe_stdout.buffer.getvalue(),
         )
 
 
@@ -83,14 +90,13 @@ def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
     return eval(cmd_output.stdout)
 
 @contextmanager
-def redirect_streams(log_pipe_writer: LogPipeWriterMultiprocessing):
+def redirect_streams(log_pipe_writer: TextIO):
     import sys
     try:
         sys.stdout = log_pipe_writer
         yield
     finally:
         sys.stdout = sys.__stdout__
-        log_pipe_writer.child_conn.close()
 
 class PickleableFunctionWithPipeIO:
     """A wrapper for a function that can be pickled and executed in a child process."""
@@ -99,7 +105,7 @@ class PickleableFunctionWithPipeIO:
         self,
         func: Callable,
         child_conn: multiprocessing.connection.Connection,
-        log_pipe_writer: LogPipeWriterMultiprocessing,
+        log_pipe_writer: TextIO,
         venv_executable: str,
     ):
         self._func_serialized = cloudpickle.dumps(func)
@@ -148,6 +154,32 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
 def _get_venv_cache_dir():
     return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
 
+def _get_decorated_function_name(decorator_name: str) -> Optional[str]:
+    stack = inspect.stack()
+    # Fetch the frame for which the @no_op_decorator is present
+    lineno, file_path = None, None
+    for frame in stack:
+        if(any([f"@{decorator_name}" in context for context in frame.code_context])):
+            lineno = frame.lineno
+            file_path = os.path.realpath(frame.filename)
+            break
+    if lineno is None or file_path is None:
+        return None 
+    if not os.path.exists(file_path):
+        return None
+    # Read the file
+    with open(file_path) as f:
+        lines = f.readlines()
+    func_name = None
+    # Fetch the function name after lineno, i.e. the first function name after @no_op_decorator
+    to_search = lines[lineno:]
+    for line in to_search:
+        if "def" in line:
+            func_name = re.findall(r"def\s+([^\s(]+)", line)[0]
+            break
+    return func_name
+
+
 
 def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False):
     """A decorator that allows a function to be executed in a virtual environment.
@@ -195,22 +227,28 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     # Create the node_env virtual environment if it does not exist
     if not os.path.exists(venv_path):
         venv.create(venv_path, with_pip=True)
+    # Get the name of the module in the parent frame
+    # this is needed to get the path of the module
+    # that the function is defined in
+    func_name = _get_decorated_function_name(decorator_name="run_in_venv")
+    logger = logging.getLogger(func_name)
     # Install the pip dependencies into the virtual environment
     if pip_dependencies:
         try:
             _install_pip_dependencies(
                 venv_executable=venv_executable,
                 pip_dependencies=tuple(pip_dependencies),
+                logger=logger,
                 verbose=verbose,
             )
         except subprocess.CalledProcessError as e:
             shutil.rmtree(venv_path)
-            logging.error(
-                f"[ _install_pip_dependencies ] Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
+            logger.error(
+                f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
             )
             # Log every line of e.stderr
             for line in e.stderr.decode().splitlines():
-                logging.error(f"[ _install_pip_dependencies ] {line}")
+                logging.error(f"{line}")
             raise e
 
     # Define the decorator
@@ -224,10 +262,11 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             # while setting its executable to the virtual environment python executable
             child_mp_context = multiprocessing.get_context("spawn")
             child_mp_context.set_executable(venv_executable)
-            with LogPipeMultiProcessing(logging.DEBUG) as log_pipe:
+            func_name = func.__name__
+            with LogPipe(logging.getLogger(func_name), logging.INFO, LogPipeMode.MP_SPAWN) as log_pipe:
                 # Serialize function arguments using cloudpickle
                 pickleable_func_with_pipe = PickleableFunctionWithPipeIO(
-                    func, child_conn, log_pipe.pipe_writer, venv_executable
+                    func, child_conn, log_pipe.pipe.get_writer(), venv_executable
                 )
                 args_serialized = [cloudpickle.dumps(arg) for arg in args]
                 kwargs_serialized = {
