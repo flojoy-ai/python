@@ -146,8 +146,9 @@ class LogPipe:
         self.pipe_read_lock = threading.Lock()
 
     def log_from_pipe(self, data: bytes):
-        if(data != b'\n'):
-            self.logger.log(self.log_level, data.decode("utf-8").strip("\n"))
+        data_str = data.decode("utf-8").strip("\n")
+        if(data_str != ""):
+            self.logger.log(self.log_level, data_str)
 
     def run(self):
         """Log everything that comes from the pipe."""
