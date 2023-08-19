@@ -147,7 +147,7 @@ class LogPipe:
 
     def log_from_pipe(self, data: bytes):
         if(data != b'\n'):
-            self.logger.log(self.log_level, data.decode("utf-8").rstrip("\n"))
+            self.logger.log(self.log_level, data.decode("utf-8").strip("\n"))
 
     def run(self):
         """Log everything that comes from the pipe."""
