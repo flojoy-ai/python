@@ -97,7 +97,7 @@ class LogPipeMultiProcessing:
     def run(self):
         """Log everything that comes from the pipe."""
         while True:
-            sleep(0.1)
+            sleep(0.01)
             with self.parent_conn_lock:
                 if(self.parent_conn.closed):
                     break
