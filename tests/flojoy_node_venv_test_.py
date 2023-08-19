@@ -35,6 +35,19 @@ def mock_venv_cache_dir():
     # Clean up
     shutil.rmtree(_test_tempdir)
 
+def test_logpipe_within_venv_process(logging_debug):
+
+    from flojoy import run_in_venv
+
+
+    @run_in_venv(pip_dependencies=["numpy"], verbose=True)
+    def foo():
+        print("HELLO FROM FOO")
+        print("HELLO FROM FOO")
+        return 42
+    
+    foo()
+
 
 def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
     """Test that run_in_venv imports properly jax for example"""
@@ -47,6 +60,8 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
         # Fetch the list of installed packages
         import sys
         import importlib.metadata
+
+        print("HELLO FROM JAX")
 
         # Get the list of installed packages
         packages_dict = {
@@ -75,6 +90,7 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, logging_debu
         import sys
         import importlib.metadata
 
+        print("HELLO FROM FLYTEKIT")
         # Get the list of installed packages
         packages_dict = {
             package.name: package.version
@@ -102,6 +118,8 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir, logging_debug)
     def empty_function_with_opencv():
         import sys
         import importlib.metadata
+
+        print("HELLO FROM OPENCV")
 
         # Get the list of installed packages
         packages_dict = {
