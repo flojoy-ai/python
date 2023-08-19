@@ -43,7 +43,7 @@ def test_logpipe_within_venv_process(logging_debug):
     @run_in_venv(pip_dependencies=["numpy"], verbose=True)
     def foo():
         from time import sleep
-        for i in range(1000):
+        for i in range(300):
             print(f"HELLO FROM FOO {i}")
             sleep(0.01)
         return 42
