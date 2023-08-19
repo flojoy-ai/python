@@ -77,7 +77,7 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
 
 class DefaultParams:
     def __init__(
-            self, node_id: str, job_id: str, jobset_id: str, node_type: str
+        self, node_id: str, job_id: str, jobset_id: str, node_type: str
     ) -> None:
         self.node_id = node_id
         self.job_id = job_id
@@ -143,11 +143,11 @@ def flojoy(
     def decorator(func: Callable[..., Optional[DataContainer | dict[str, Any]]]):
         @wraps(func)
         def wrapper(
-                node_id: str,
-                job_id: str,
-                jobset_id: str,
-                previous_jobs: list[dict[str, str]] = [],
-                ctrls: dict[str, Any] | None = None,
+            node_id: str,
+            job_id: str,
+            jobset_id: str,
+            previous_jobs: list[dict[str, str]] = [],
+            ctrls: dict[str, Any] | None = None,
         ):
             try:
                 FN = func.__name__
