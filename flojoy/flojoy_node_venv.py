@@ -222,7 +222,10 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     # that the function is defined in
     func_name = _get_decorated_function_name(decorator_name="run_in_venv")
     logger = logging.getLogger(func_name)
+    if(verbose):
+        logger.setLevel(logging.INFO)
     # Install the pip dependencies into the virtual environment
+    # TODO(roulbac): Install pip deps in a background thread
     if pip_dependencies:
         try:
             _install_pip_dependencies(
