@@ -78,7 +78,11 @@ def _install_pip_dependencies(
         logpipe_stdout = stack.enter_context(
             LogPipe(logger, log_level=logging.INFO, mode=LogPipeMode.SUBPROCESS)
         )
-        proc = subprocess.Popen(command, stdout=logpipe_stdout.get_pipe_writer(), stderr=logpipe_stderr.get_pipe_writer())
+        proc = subprocess.Popen(
+            command,
+            stdout=logpipe_stdout.get_pipe_writer(),
+            stderr=logpipe_stderr.get_pipe_writer(),
+        )
         proc.wait()
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, command)
@@ -98,7 +102,7 @@ class PickleableFunctionWithPipeIO:
         self,
         func: Callable,
         child_conn: multiprocessing.connection.Connection,
-        venv_executable: str
+        venv_executable: str,
     ):
         self._func_serialized = cloudpickle.dumps(func)
         func_module_path = os.path.dirname(os.path.realpath(inspect.getabsfile(func)))
@@ -110,7 +114,9 @@ class PickleableFunctionWithPipeIO:
         self._venv_executable = venv_executable
 
     def __call__(self, *args_serialized, **kwargs_serialized):
-        with swap_sys_path(venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path):
+        with swap_sys_path(
+            venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path
+        ):
             try:
                 fn = cloudpickle.loads(self._func_serialized)
                 args = [cloudpickle.loads(arg) for arg in args_serialized]
@@ -222,7 +228,7 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     # that the function is defined in
     func_name = _get_decorated_function_name(decorator_name="run_in_venv")
     logger = logging.getLogger(func_name)
-    if(verbose):
+    if verbose:
         logger.setLevel(logging.INFO)
     # Install the pip dependencies into the virtual environment
     # TODO(roulbac): Install pip deps in a background thread
@@ -277,8 +283,14 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                     venv_executable=venv_executable,
                 )
                 # Wrap the function with a decorator that redirects stdout and stderr to the log pipes
-                mp_func = LogPipe.wrap_and_redirect_stream(pickleable_func_with_pipe, StreamEnum.STDOUT, log_pipe_stdout.get_pipe_writer())
-                mp_func = LogPipe.wrap_and_redirect_stream(mp_func, StreamEnum.STDERR, log_pipe_stderr.get_pipe_writer())
+                mp_func = LogPipe.wrap_and_redirect_stream(
+                    pickleable_func_with_pipe,
+                    StreamEnum.STDOUT,
+                    log_pipe_stdout.get_pipe_writer(),
+                )
+                mp_func = LogPipe.wrap_and_redirect_stream(
+                    mp_func, StreamEnum.STDERR, log_pipe_stderr.get_pipe_writer()
+                )
                 args_serialized = [cloudpickle.dumps(arg) for arg in args]
                 kwargs_serialized = {
                     key: cloudpickle.dumps(value) for key, value in kwargs.items()

@@ -18,6 +18,7 @@ import requests
 
 pytestmark = pytest.mark.slow
 
+
 # Define a fixture that creates a local server to receive requests in the background
 @pytest.fixture(scope="function")
 def local_server():
@@ -25,14 +26,15 @@ def local_server():
 
     # Define a handler for the server
     class Handler(http.server.SimpleHTTPRequestHandler):
-
         def log_message(self, format: str, *args: Any) -> None:
             pass
-        
+
         def do_POST(self):
-            content_length = int(self.headers['Content-Length'])
+            content_length = int(self.headers["Content-Length"])
             post_body = self.rfile.read(content_length)
-            post_data.append(post_body.decode('utf-8'))  # Add the POST content to the post_data list
+            post_data.append(
+                post_body.decode("utf-8")
+            )  # Add the POST content to the post_data list
             self.send_response(200)
             self.end_headers()
             self.wfile.write(b"POST received")
@@ -41,10 +43,10 @@ def local_server():
     server = socketserver.TCPServer(("localhost", 0), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
-    
+
     # Yield the server and post_data so you can inspect it after the test if required
     yield server, post_data
-    
+
     # Clean up
     server.shutdown()
     thread.join()
@@ -77,8 +79,9 @@ def mock_venv_cache_dir():
     shutil.rmtree(_test_tempdir)
 
 
-def test_run_in_venv_streams_logs_to_http_server(mock_venv_cache_dir, configure_logging, local_server):
-
+def test_run_in_venv_streams_logs_to_http_server(
+    mock_venv_cache_dir, configure_logging, local_server
+):
     from flojoy import run_in_venv
 
     # Get the URL of the local server
@@ -93,21 +96,23 @@ def test_run_in_venv_streams_logs_to_http_server(mock_venv_cache_dir, configure_
 
         def emit(self, record):
             log_entry = self.format(record)
-            headers = {'Content-type': 'application/json'}
+            headers = {"Content-type": "application/json"}
             requests.post(self.url, data=json.dumps(log_entry), headers=headers)
 
     logger = logging.getLogger("func_that_streams_logs_to_server")
     handler = HttpLogHandler(url)
-    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
     logger.addHandler(handler)
-    
+
     @run_in_venv(pip_dependencies=["numpy"], verbose=True)
     def func_that_streams_logs_to_server():
         import sys
 
         print("Hi from the other virtual environment")
         print("Oops, I did it again", file=sys.stderr)
-    
+
     # Execute that function
     func_that_streams_logs_to_server()
 
@@ -118,7 +123,6 @@ def test_run_in_venv_streams_logs_to_http_server(mock_venv_cache_dir, configure_
     assert "cloudpickle" in post_data_str
     assert "Hi from the other virtual environment" in post_data_str
     assert "Oops, I did it again" in post_data_str
-    
 
 
 def test_run_in_venv_streams_logs_to_console(mock_venv_cache_dir, logging_debug):
@@ -273,7 +277,6 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir, logging_debug):
 
 @pytest.mark.parametrize("daemon", [True, False])
 def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, logging_debug, daemon):
-
     def function_to_run_within_thread(queue):
         from flojoy import run_in_venv
 
@@ -288,7 +291,9 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, logging_debug, daem
 
     # Run the function in a thread
     queue = Queue()
-    thread = threading.Thread(target=function_to_run_within_thread, args=(queue,), daemon=daemon)
+    thread = threading.Thread(
+        target=function_to_run_within_thread, args=(queue,), daemon=daemon
+    )
     thread.start()
     thread.join()
     # Check that the thread has finished

@@ -11,6 +11,7 @@ import multiprocessing.connection
 import threading
 import os
 
+
 class LogPipeMode(Enum):
     """
     An enumeration of the different modes for logging pipes.
@@ -19,8 +20,10 @@ class LogPipeMode(Enum):
         MP_SPAWN: To be used when logging from a subprocess created using the `spawn` start method of the `multiprocessing` module.
         SUBPROCESS: To be used when logging from a subprocess created using the `subprocess` module.
     """
+
     MP_SPAWN = auto()
     SUBPROCESS = auto()
+
 
 class StreamEnum(Enum):
     """
@@ -30,18 +33,21 @@ class StreamEnum(Enum):
         STDOUT: To be used when redirecting stdout.
         STDERR: To be used when redirecting stderr.
     """
+
     STDOUT = auto()
     STDERR = auto()
 
 
 class PipeWriter(Protocol):
-    """ Protocol for a pipe writer """
+    """Protocol for a pipe writer"""
+
     def write(self, data: bytes):
         ...
-    
+
     def fileno(self) -> int:
         ...
-    
+
+
 # Abstract Pipe class
 class ReadWritePipe(ABC):
     """
@@ -106,7 +112,6 @@ class ReadWritePipe(ABC):
         """
         pass
 
-
     @abstractmethod
     def get_writer(self) -> PipeWriter:
         """
@@ -157,7 +162,9 @@ class FileDescriptorReadWritePipe(ReadWritePipe):
 
     def get_writer(self) -> PipeWriter:
         if self.write_is_closed():
-            raise ValueError("Attempted to get writer while the write end of the pipe is closed.")
+            raise ValueError(
+                "Attempted to get writer while the write end of the pipe is closed."
+            )
         return self.writer
 
     def read(self) -> bytes:
@@ -170,7 +177,7 @@ class MPSpawnReadWritePipe:
 
     This class is a subclass of `ReadWritePipe` and uses the `multiprocessing` module to create a
     pipe that can be used to communicate between processes. It provides methods for reading and
-    writing data to the pipe, as well as checking if the pipe is closed or empty. The class is created 
+    writing data to the pipe, as well as checking if the pipe is closed or empty. The class is created
     to fulfill the need for logging from a python subprocess created with the `multiprocessing` module using the `spawn` start method.
 
     Attributes:
@@ -193,11 +200,12 @@ class MPSpawnReadWritePipe:
             write_conn (multiprocessing.connection.Connection): The connection used for writing
                 data to the pipe.
         """
+
         write_conn: multiprocessing.connection.Connection
 
         def write(self, data: bytes):
             self.write_conn.send_bytes(data.encode("utf-8"))
-        
+
         def fileno(self) -> int:
             return self.write_conn.fileno()
 
@@ -233,8 +241,11 @@ class MPSpawnReadWritePipe:
 
     def get_writer(self) -> PipeWriter:
         if self.write_is_closed():
-            raise ValueError("Attempted to get writer while the write end of the pipe is closed.")
+            raise ValueError(
+                "Attempted to get writer while the write end of the pipe is closed."
+            )
         return self._writer
+
 
 @contextmanager
 def _redirect_stream(stream: StreamEnum, pipe_writer: MPSpawnReadWritePipe._MPWriter):
@@ -257,9 +268,9 @@ def _redirect_stream(stream: StreamEnum, pipe_writer: MPSpawnReadWritePipe._MPWr
 
 
 def _wrap_to_redirect_stream(func, stream, pipe_writer, *args, **kwargs):
-    """Wrap a function to redirect its stdout or stderr to a pipe writer. 
+    """Wrap a function to redirect its stdout or stderr to a pipe writer.
     This should be used with functools.partial to keep things pickleable, rather
-    than defining the wrapper locally within wrap_and_redirect_stream. """
+    than defining the wrapper locally within wrap_and_redirect_stream."""
     with _redirect_stream(stream, pipe_writer):
         return func(*args, **kwargs)
 
@@ -269,7 +280,7 @@ class LogPipe:
     A class to log data from python subprocesses.
 
     This class is a context manager that can be used to redirect logs from a python subprocess to the
-    provided logger. It uses internally a pipe to read data from the either one of the subprocesses's 
+    provided logger. It uses internally a pipe to read data from the either one of the subprocesses's
     standard streams (stdout, stderr) and log it to the provided logger at the provided level.
     The class is created to fulfill the need for logging from a python subprocess.
 
@@ -296,7 +307,7 @@ class LogPipe:
         # This is a convenience method only, and could have been done manually by adding a handler to the logger.
         captured_stdout = lp.log_buffer.getvalue()
         ```
-    
+
     Example for the `multiprocessing` module with the `spawn` start method:
     ```
 
@@ -316,13 +327,14 @@ class LogPipe:
         # This is a convenience method only, and could have been done manually by adding a handler to the logger.
         captured_stdout = lp.log_buffer.getvalue()
     """
+
     def __init__(
-            self,
-            logger: logging.Logger,
-            log_level: int,
-            mode: LogPipeMode,
-            buffer_logs: bool = False,
-        ):
+        self,
+        logger: logging.Logger,
+        log_level: int,
+        mode: LogPipeMode,
+        buffer_logs: bool = False,
+    ):
         if mode == LogPipeMode.MP_SPAWN:
             self.pipe = MPSpawnReadWritePipe()
         elif mode == LogPipeMode.SUBPROCESS:
@@ -380,7 +392,9 @@ class LogPipe:
         return self.pipe.get_writer()
 
     @staticmethod
-    def wrap_and_redirect_stream(func: Callable, stream: StreamEnum, pipe_writer: PipeWriter) -> Callable:
+    def wrap_and_redirect_stream(
+        func: Callable, stream: StreamEnum, pipe_writer: PipeWriter
+    ) -> Callable:
         """
         Wraps a function to redirect its output to a pipe writer.
 
@@ -394,9 +408,15 @@ class LogPipe:
         """
 
         if stream not in StreamEnum.__members__.values():
-            raise ValueError(f"Invalid stream {stream}, expected one of {StreamEnum.__members__}")
+            raise ValueError(
+                f"Invalid stream {stream}, expected one of {StreamEnum.__members__}"
+            )
 
         if not isinstance(pipe_writer, MPSpawnReadWritePipe._MPWriter):
-            raise ValueError("Invalid pipe_writer, please provide a writer for a LogPipe started in MP_SPAWN mode")
+            raise ValueError(
+                "Invalid pipe_writer, please provide a writer for a LogPipe started in MP_SPAWN mode"
+            )
 
-        return partial(_wrap_to_redirect_stream, func=func, stream=stream, pipe_writer=pipe_writer)
+        return partial(
+            _wrap_to_redirect_stream, func=func, stream=stream, pipe_writer=pipe_writer
+        )
