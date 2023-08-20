@@ -1,22 +1,56 @@
 import io
+import json
 import pytest
 import os
 import shutil
 from unittest.mock import patch
-from threading import Thread
+import threading
 import tempfile
 from time import sleep
 import logging
+import http.server
+import socketserver
+from queue import Queue
+
+import requests
 
 
 pytestmark = pytest.mark.slow
 
+# Define a fixture that creates a local server to receive requests in the background
+@pytest.fixture(scope="function")
+def local_server():
+    post_data = []  # List to store POST request contents
+
+    # Define a handler for the server
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        
+        def do_POST(self):
+            content_length = int(self.headers['Content-Length'])
+            post_body = self.rfile.read(content_length)
+            post_data.append(post_body.decode('utf-8'))  # Add the POST content to the post_data list
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"POST received")
+
+    # Start the server in a thread
+    server = socketserver.TCPServer(("localhost", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    
+    # Yield the server and post_data so you can inspect it after the test if required
+    yield server, post_data
+    
+    # Clean up
+    server.shutdown()
+    thread.join()
+
 
 @pytest.fixture(scope="module")
-def logging_debug():
+def configure_logging():
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        level=logging.DEBUG,
+        level=logging.INFO,
         force=True,
     )
 
@@ -39,6 +73,48 @@ def mock_venv_cache_dir():
     shutil.rmtree(_test_tempdir)
 
 
+def test_run_in_venv_logs_can_be_streamed(mock_venv_cache_dir, configure_logging, local_server):
+
+    from flojoy import run_in_venv
+
+    # Get the URL of the local server
+    server, post_data = local_server
+
+    url = f"http://{server.server_address[0]}:{server.server_address[1]}"
+
+    class HttpLogHandler(logging.Handler):
+        def __init__(self, url):
+            super().__init__()
+            self.url = url
+
+        def emit(self, record):
+            log_entry = self.format(record)
+            headers = {'Content-type': 'application/json'}
+            requests.post(self.url, data=json.dumps(log_entry), headers=headers)
+
+    logger = logging.getLogger("func_that_streams_logs_to_server")
+    logger.addHandler(HttpLogHandler(url))
+    
+    @run_in_venv(pip_dependencies=["numpy"], verbose=True)
+    def func_that_streams_logs_to_server():
+        import sys
+
+        print("Hi from the other virtual environment")
+        print("Oops, I did it again", file=sys.stderr)
+    
+    # Execute that function
+    func_that_streams_logs_to_server()
+
+    # Check post_data contains the expected logs
+    post_data_str = "\n".join(post_data)
+    assert "numpy" in post_data_str
+    assert "flojoy" in post_data_str
+    assert "cloudpickle" in post_data_str
+    assert "Hi from the other virtual environment" in post_data_str
+    assert "Oops, I did it again" in post_data_str
+    
+
+
 def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
     from flojoy import run_in_venv
 
@@ -56,7 +132,7 @@ def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
             buf_sizes.append(buf.tell())
             sleep(0.1)
 
-    thread = Thread(target=monitor_buffer, daemon=False)
+    thread = threading.Thread(target=monitor_buffer, daemon=False)
     thread.start()
 
     @run_in_venv(pip_dependencies=["numpy"], verbose=True)
@@ -191,8 +267,6 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir, logging_debug):
 
 @pytest.mark.parametrize("daemon", [True, False])
 def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, logging_debug, daemon):
-    from threading import Thread
-    from queue import Queue
 
     def function_to_run_within_thread(queue):
         from flojoy import run_in_venv
@@ -208,7 +282,7 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, logging_debug, daem
 
     # Run the function in a thread
     queue = Queue()
-    thread = Thread(target=function_to_run_within_thread, args=(queue,), daemon=daemon)
+    thread = threading.Thread(target=function_to_run_within_thread, args=(queue,), daemon=daemon)
     thread.start()
     thread.join()
     # Check that the thread has finished
