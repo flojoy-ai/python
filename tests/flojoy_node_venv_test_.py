@@ -125,7 +125,7 @@ def test_run_in_venv_streams_logs_to_http_server(
     assert "Oops, I did it again" in post_data_str
 
 
-def test_run_in_venv_streams_logs_to_console(mock_venv_cache_dir, logging_debug):
+def test_run_in_venv_streams_logs_to_console(mock_venv_cache_dir, configure_logging):
     from flojoy import run_in_venv
 
     # Get the logger for the function below
@@ -176,7 +176,7 @@ def test_run_in_venv_streams_logs_to_console(mock_venv_cache_dir, logging_debug)
         assert f"HELLO STDERR FROM FOO {i}" in buf_val
 
 
-def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
+def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, configure_logging):
     """Test that run_in_venv imports properly jax for example"""
 
     from flojoy import run_in_venv
@@ -206,7 +206,7 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
     assert packages_dict["jax"] == "0.4.13"
 
 
-def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, logging_debug):
+def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, configure_logging):
     from flojoy import run_in_venv
 
     # Define a function that imports flytekit and returns its version
@@ -233,7 +233,7 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, logging_debu
     assert packages_dict["flytekit"] == "1.8.2"
 
 
-def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir, logging_debug):
+def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir, configure_logging):
     # Define a function that imports opencv-python-headless and returns its version
 
     from flojoy import run_in_venv
@@ -261,7 +261,7 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir, logging_debug)
     assert packages_dict["opencv-python-headless"] == "4.7.0.72"
 
 
-def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir, logging_debug):
+def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir, configure_logging):
     """Test that run_in_venv imports properly jax for example"""
 
     from flojoy import run_in_venv
@@ -276,7 +276,7 @@ def test_run_in_venv_does_not_hang_on_error(mock_venv_cache_dir, logging_debug):
 
 
 @pytest.mark.parametrize("daemon", [True, False])
-def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, logging_debug, daemon):
+def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, configure_logging, daemon):
     def function_to_run_within_thread(queue):
         from flojoy import run_in_venv
 
