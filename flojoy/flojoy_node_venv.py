@@ -20,7 +20,7 @@ def TORCH_NODE(default: Matrix) -> Matrix:
 
 """
 from time import sleep
-from typing import Callable, Optional, TextIO
+from typing import Callable, Optional
 
 import hashlib
 from contextlib import ExitStack, contextmanager
@@ -40,7 +40,7 @@ from functools import wraps
 import cloudpickle
 
 from .utils import FLOJOY_CACHE_DIR
-from .logging import LogPipe, LogPipeMode
+from .logging import LogPipe, LogPipeMode, StreamEnum
 
 __all__ = ["run_in_venv"]
 
@@ -78,15 +78,10 @@ def _install_pip_dependencies(
         logpipe_stdout = stack.enter_context(
             LogPipe(logger, log_level=logging.INFO, mode=LogPipeMode.SUBPROCESS)
         )
-        proc = subprocess.Popen(command, stdout=logpipe_stdout, stderr=logpipe_stderr)
+        proc = subprocess.Popen(command, stdout=logpipe_stdout.get_pipe_writer(), stderr=logpipe_stderr.get_pipe_writer())
         proc.wait()
-        sleep(5)
     if proc.returncode != 0:
-        raise subprocess.CalledProcessError(
-            proc.returncode,
-            command,
-            output=logpipe_stdout.buffer.getvalue(),
-        )
+        raise subprocess.CalledProcessError(proc.returncode, command)
 
 
 def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
@@ -96,20 +91,6 @@ def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
     return eval(cmd_output.stdout)
 
 
-@contextmanager
-def redirect_streams(stdout_pipe_writer: TextIO, stderr_pipe_writer: TextIO):
-    # Import here to ensure we use the child process sys module
-    import sys
-
-    try:
-        sys.stdout = stdout_pipe_writer
-        sys.stderr = stderr_pipe_writer
-        yield
-    finally:
-        sys.stdout = sys.__stdout__
-        sys.stderr = sys.__stderr__
-
-
 class PickleableFunctionWithPipeIO:
     """A wrapper for a function that can be pickled and executed in a child process."""
 
@@ -117,9 +98,7 @@ class PickleableFunctionWithPipeIO:
         self,
         func: Callable,
         child_conn: multiprocessing.connection.Connection,
-        stdout_pipe_writer: TextIO,
-        stderr_pipe_writer: TextIO,
-        venv_executable: str,
+        venv_executable: str
     ):
         self._func_serialized = cloudpickle.dumps(func)
         func_module_path = os.path.dirname(os.path.realpath(inspect.getabsfile(func)))
@@ -129,37 +108,28 @@ class PickleableFunctionWithPipeIO:
         )
         self._child_conn = child_conn
         self._venv_executable = venv_executable
-        self.stdout_pipe_writer = stdout_pipe_writer
-        self.stderr_pipe_writer = stderr_pipe_writer
 
     def __call__(self, *args_serialized, **kwargs_serialized):
-        with redirect_streams(
-            stderr_pipe_writer=self.stderr_pipe_writer,
-            stdout_pipe_writer=self.stdout_pipe_writer,
-        ):
-            with swap_sys_path(
-                venv_executable=self._venv_executable,
-                extra_sys_path=self._extra_sys_path,
-            ):
-                try:
-                    fn = cloudpickle.loads(self._func_serialized)
-                    args = [cloudpickle.loads(arg) for arg in args_serialized]
-                    kwargs = {
-                        key: cloudpickle.loads(value)
-                        for key, value in kwargs_serialized.items()
-                    }
-                    # Capture logs here too
-                    output = fn(*args, **kwargs)
-                    serialized_result = cloudpickle.dumps(output)
-                except Exception as e:
-                    # Not all exceptions are expected to be picklable
-                    # so we clone their traceback and send our own custom type of exception
-                    exc = ChildProcessError(
-                        f"Child process failed with an exception of type {type(e)}."
-                    ).with_traceback(e.__traceback__)
-                    serialized_result = cloudpickle.dumps(
-                        (exc, traceback.format_exception(type(e), e, e.__traceback__))
-                    )
+        with swap_sys_path(venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path):
+            try:
+                fn = cloudpickle.loads(self._func_serialized)
+                args = [cloudpickle.loads(arg) for arg in args_serialized]
+                kwargs = {
+                    key: cloudpickle.loads(value)
+                    for key, value in kwargs_serialized.items()
+                }
+                # Capture logs here too
+                output = fn(*args, **kwargs)
+                serialized_result = cloudpickle.dumps(output)
+            except Exception as e:
+                # Not all exceptions are expected to be picklable
+                # so we clone their traceback and send our own custom type of exception
+                exc = ChildProcessError(
+                    f"Child process failed with an exception of type {type(e)}."
+                ).with_traceback(e.__traceback__)
+                serialized_result = cloudpickle.dumps(
+                    (exc, traceback.format_exception(type(e), e, e.__traceback__))
+                )
         self._child_conn.send_bytes(serialized_result)
 
 
@@ -301,17 +271,18 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 pickleable_func_with_pipe = PickleableFunctionWithPipeIO(
                     func=func,
                     child_conn=child_conn,
-                    stdout_pipe_writer=log_pipe_stdout.pipe.get_writer(),
-                    stderr_pipe_writer=log_pipe_stderr.pipe.get_writer(),
                     venv_executable=venv_executable,
                 )
+                # Wrap the function with a decorator that redirects stdout and stderr to the log pipes
+                mp_func = LogPipe.wrap_and_redirect_stream(pickleable_func_with_pipe, StreamEnum.STDOUT, log_pipe_stdout.get_pipe_writer())
+                mp_func = LogPipe.wrap_and_redirect_stream(mp_func, StreamEnum.STDERR, log_pipe_stderr.get_pipe_writer())
                 args_serialized = [cloudpickle.dumps(arg) for arg in args]
                 kwargs_serialized = {
                     key: cloudpickle.dumps(value) for key, value in kwargs.items()
                 }
                 # Create a new process that will run the Python code
                 process = child_mp_context.Process(
-                    target=pickleable_func_with_pipe,
+                    target=mp_func,
                     args=args_serialized,
                     kwargs=kwargs_serialized,
                 )
