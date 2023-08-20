@@ -129,7 +129,7 @@ def test_run_in_venv_streams_logs_to_console(mock_venv_cache_dir, configure_logg
     from flojoy import run_in_venv
 
     # Get the logger for the function below
-    logger = logging.getLogger("foo")
+    logger = logging.getLogger("func_that_streams_logs_to_console")
     # Create a buffer to capture logs
     buf = io.StringIO()
     # Add a handler to the logger such that buffer is written to when the logger is used
