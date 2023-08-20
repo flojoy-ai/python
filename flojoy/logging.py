@@ -139,9 +139,7 @@ class LogPipe:
                 f"Invalid mode {mode}, expected one of {LogPipeMode.__members__}"
             )
         self.thread = threading.Thread(target=self.run, daemon=True)
-        self.buffer = io.StringIO()
         self.logger = logger
-        self.logger.addHandler(logging.StreamHandler(self.buffer))
         self.log_level = log_level
         self.pipe_read_lock = threading.Lock()
 
