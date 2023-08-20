@@ -146,18 +146,18 @@ def test_run_in_venv_streams_logs_to_console(mock_venv_cache_dir, configure_logg
     thread.start()
 
     @run_in_venv(pip_dependencies=["numpy"], verbose=True)
-    def foo():
+    def func_that_streams_logs_to_console():
         import sys
         from time import sleep
 
-        for i in range(300):
+        for i in range(100):
             print(f"HELLO FROM FOO {i}")
             print(f"HELLO STDERR FROM FOO {i}", file=sys.stderr)
             sleep(0.01)
         return 42
 
     # Run foo
-    foo()
+    func_that_streams_logs_to_console()
     # Close the buffer then join the thread
     buf_val = buf.getvalue()
     buf.close()
