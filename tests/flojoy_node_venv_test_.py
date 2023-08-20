@@ -61,10 +61,12 @@ def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
 
     @run_in_venv(pip_dependencies=["numpy"], verbose=True)
     def foo():
+        import sys
         from time import sleep
 
         for i in range(300):
             print(f"HELLO FROM FOO {i}")
+            print(f"HELLO STDERR FROM FOO {i}", file=sys.stderr)
             sleep(0.01)
         return 42
 
@@ -85,6 +87,7 @@ def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
     # 2 - For the print statements from within the function
     for i in range(300):
         assert f"HELLO FROM FOO {i}" in buf_val
+        assert f"HELLO STDERR FROM FOO {i}" in buf_val
 
 
 def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
