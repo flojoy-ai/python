@@ -46,7 +46,9 @@ __all__ = ["run_in_venv"]
 
 
 @contextmanager
-def swap_sys_path(venv_executable: os.PathLike, extra_sys_path: list[str] | None = None):
+def swap_sys_path(
+    venv_executable: os.PathLike, extra_sys_path: list[str] | None = None
+):
     """Temporarily swap the sys.path of the child process with the sys.path of the parent process."""
     old_path = sys.path
     try:
@@ -62,7 +64,7 @@ def _install_pip_dependencies(
     venv_executable: os.PathLike,
     pip_dependencies: tuple[str],
     logger: logging.Logger,
-    verbose: bool = False
+    verbose: bool = False,
 ):
     """Install pip dependencies into the virtual environment."""
     command = [venv_executable, "-m", "pip", "install"]
@@ -70,8 +72,12 @@ def _install_pip_dependencies(
         command += ["-q", "-q"]
     command += list(pip_dependencies)
     with ExitStack() as stack:
-        logpipe_stderr = stack.enter_context(LogPipe(logger, log_level=logging.ERROR, mode=LogPipeMode.SUBPROCESS))
-        logpipe_stdout = stack.enter_context(LogPipe(logger, log_level=logging.INFO, mode=LogPipeMode.SUBPROCESS))
+        logpipe_stderr = stack.enter_context(
+            LogPipe(logger, log_level=logging.ERROR, mode=LogPipeMode.SUBPROCESS)
+        )
+        logpipe_stdout = stack.enter_context(
+            LogPipe(logger, log_level=logging.INFO, mode=LogPipeMode.SUBPROCESS)
+        )
         proc = subprocess.Popen(command, stdout=logpipe_stdout, stderr=logpipe_stderr)
         proc.wait()
         sleep(5)
@@ -89,10 +95,12 @@ def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
     cmd_output = subprocess.run(command, check=True, capture_output=True, text=True)
     return eval(cmd_output.stdout)
 
+
 @contextmanager
 def redirect_streams(stdout_pipe_writer: TextIO, stderr_pipe_writer: TextIO):
     # Import here to ensure we use the child process sys module
-    import sys 
+    import sys
+
     try:
         sys.stdout = stdout_pipe_writer
         sys.stderr = stderr_pipe_writer
@@ -100,6 +108,7 @@ def redirect_streams(stdout_pipe_writer: TextIO, stderr_pipe_writer: TextIO):
     finally:
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
+
 
 class PickleableFunctionWithPipeIO:
     """A wrapper for a function that can be pickled and executed in a child process."""
@@ -124,8 +133,14 @@ class PickleableFunctionWithPipeIO:
         self.stderr_pipe_writer = stderr_pipe_writer
 
     def __call__(self, *args_serialized, **kwargs_serialized):
-        with redirect_streams(stderr_pipe_writer=self.stderr_pipe_writer, stdout_pipe_writer=self.stdout_pipe_writer):
-            with swap_sys_path(venv_executable=self._venv_executable, extra_sys_path=self._extra_sys_path):
+        with redirect_streams(
+            stderr_pipe_writer=self.stderr_pipe_writer,
+            stdout_pipe_writer=self.stdout_pipe_writer,
+        ):
+            with swap_sys_path(
+                venv_executable=self._venv_executable,
+                extra_sys_path=self._extra_sys_path,
+            ):
                 try:
                     fn = cloudpickle.loads(self._func_serialized)
                     args = [cloudpickle.loads(arg) for arg in args_serialized]
@@ -159,17 +174,18 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
 def _get_venv_cache_dir():
     return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
 
+
 def _get_decorated_function_name(decorator_name: str) -> Optional[str]:
     stack = inspect.stack()
     # Fetch the frame for which the @no_op_decorator is present
     lineno, file_path = None, None
     for frame in stack:
-        if(any([f"@{decorator_name}" in context for context in frame.code_context])):
+        if any([f"@{decorator_name}" in context for context in frame.code_context]):
             lineno = frame.lineno
             file_path = os.path.realpath(frame.filename)
             break
     if lineno is None or file_path is None:
-        return None 
+        return None
     if not os.path.exists(file_path):
         return None
     # Read the file
@@ -183,7 +199,6 @@ def _get_decorated_function_name(decorator_name: str) -> Optional[str]:
             func_name = re.findall(r"def\s+([^\s(]+)", line)[0]
             break
     return func_name
-
 
 
 def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False):
@@ -270,15 +285,25 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             func_name = func.__name__
             logger = logging.getLogger(func_name)
             with ExitStack() as stack:
-                log_pipe_stdout = stack.enter_context(LogPipe(logger=logger, log_level=logging.INFO, mode=LogPipeMode.MP_SPAWN))
-                log_pipe_stderr = stack.enter_context(LogPipe(logger=logger, log_level=logging.ERROR, mode=LogPipeMode.MP_SPAWN))
+                log_pipe_stdout = stack.enter_context(
+                    LogPipe(
+                        logger=logger, log_level=logging.INFO, mode=LogPipeMode.MP_SPAWN
+                    )
+                )
+                log_pipe_stderr = stack.enter_context(
+                    LogPipe(
+                        logger=logger,
+                        log_level=logging.ERROR,
+                        mode=LogPipeMode.MP_SPAWN,
+                    )
+                )
                 # Serialize function arguments using cloudpickle
                 pickleable_func_with_pipe = PickleableFunctionWithPipeIO(
                     func=func,
                     child_conn=child_conn,
                     stdout_pipe_writer=log_pipe_stdout.pipe.get_writer(),
                     stderr_pipe_writer=log_pipe_stderr.pipe.get_writer(),
-                    venv_executable=venv_executable
+                    venv_executable=venv_executable,
                 )
                 args_serialized = [cloudpickle.dumps(arg) for arg in args]
                 kwargs_serialized = {

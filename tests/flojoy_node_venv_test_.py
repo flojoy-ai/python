@@ -38,10 +38,10 @@ def mock_venv_cache_dir():
     # Clean up
     shutil.rmtree(_test_tempdir)
 
-def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
 
+def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
     from flojoy import run_in_venv
-    
+
     # Get the logger for the function below
     logger = logging.getLogger("foo")
     # Create a buffer to capture logs
@@ -62,6 +62,7 @@ def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
     @run_in_venv(pip_dependencies=["numpy"], verbose=True)
     def foo():
         from time import sleep
+
         for i in range(300):
             print(f"HELLO FROM FOO {i}")
             sleep(0.01)
@@ -74,7 +75,7 @@ def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
     buf.close()
     thread.join()
     # Check that the buffer size has increased over time
-    diff = [buf_sizes[i+1] - buf_sizes[i] for i in range(len(buf_sizes)-1)]
+    diff = [buf_sizes[i + 1] - buf_sizes[i] for i in range(len(buf_sizes) - 1)]
     assert all([d >= 0 for d in diff])
     # Check that the buffer contains the expected output
     # 1 - For pip install numpy
@@ -97,7 +98,6 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
         # Fetch the list of installed packages
         import sys
         import importlib.metadata
-
 
         # Get the list of installed packages
         packages_dict = {
