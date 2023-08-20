@@ -1,5 +1,6 @@
 import io
 import json
+from typing import Any
 import pytest
 import os
 import shutil
@@ -24,6 +25,9 @@ def local_server():
 
     # Define a handler for the server
     class Handler(http.server.SimpleHTTPRequestHandler):
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
         
         def do_POST(self):
             content_length = int(self.headers['Content-Length'])
@@ -93,7 +97,9 @@ def test_run_in_venv_logs_can_be_streamed(mock_venv_cache_dir, configure_logging
             requests.post(self.url, data=json.dumps(log_entry), headers=headers)
 
     logger = logging.getLogger("func_that_streams_logs_to_server")
-    logger.addHandler(HttpLogHandler(url))
+    handler = HttpLogHandler(url)
+    handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+    logger.addHandler(handler)
     
     @run_in_venv(pip_dependencies=["numpy"], verbose=True)
     def func_that_streams_logs_to_server():
