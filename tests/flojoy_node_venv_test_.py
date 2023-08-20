@@ -77,7 +77,7 @@ def mock_venv_cache_dir():
     shutil.rmtree(_test_tempdir)
 
 
-def test_run_in_venv_logs_can_be_streamed(mock_venv_cache_dir, configure_logging, local_server):
+def test_run_in_venv_streams_logs_to_http_server(mock_venv_cache_dir, configure_logging, local_server):
 
     from flojoy import run_in_venv
 
@@ -121,7 +121,7 @@ def test_run_in_venv_logs_can_be_streamed(mock_venv_cache_dir, configure_logging
     
 
 
-def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
+def test_run_in_venv_streams_logs_to_console(mock_venv_cache_dir, logging_debug):
     from flojoy import run_in_venv
 
     # Get the logger for the function below
