@@ -1,8 +1,11 @@
+import io
 import pytest
 import os
 import shutil
 from unittest.mock import patch
+from threading import Thread
 import tempfile
+from time import sleep
 import logging
 
 
@@ -35,10 +38,26 @@ def mock_venv_cache_dir():
     # Clean up
     shutil.rmtree(_test_tempdir)
 
-def test_logpipe_within_venv_process(logging_debug):
+def test_run_in_venv_streams_logs(mock_venv_cache_dir, logging_debug):
 
     from flojoy import run_in_venv
+    
+    # Get the logger for the function below
+    logger = logging.getLogger("foo")
+    # Create a buffer to capture logs
+    buf = io.StringIO()
+    # Add a handler to the logger such that buffer is written to when the logger is used
+    logger.addHandler(logging.StreamHandler(buf))
+    # Start a thread that logs the size of the buffer every 0.1s,
+    buf_sizes = []
 
+    def monitor_buffer():
+        while not buf.closed:
+            buf_sizes.append(buf.tell())
+            sleep(0.1)
+
+    thread = Thread(target=monitor_buffer, daemon=False)
+    thread.start()
 
     @run_in_venv(pip_dependencies=["numpy"], verbose=True)
     def foo():
@@ -47,8 +66,24 @@ def test_logpipe_within_venv_process(logging_debug):
             print(f"HELLO FROM FOO {i}")
             sleep(0.01)
         return 42
-    
+
+    # Run foo
     foo()
+    # Close the buffer then join the thread
+    buf_val = buf.getvalue()
+    buf.close()
+    thread.join()
+    # Check that the buffer size has increased over time
+    diff = [buf_sizes[i+1] - buf_sizes[i] for i in range(len(buf_sizes)-1)]
+    assert all([d >= 0 for d in diff])
+    # Check that the buffer contains the expected output
+    # 1 - For pip install numpy
+    assert "numpy" in buf_val
+    assert "flojoy" in buf_val
+    assert "cloudpickle" in buf_val
+    # 2 - For the print statements from within the function
+    for i in range(300):
+        assert f"HELLO FROM FOO {i}" in buf_val
 
 
 def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
@@ -56,14 +91,13 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, logging_debug):
 
     from flojoy import run_in_venv
 
-    @run_in_venv(pip_dependencies=["jax[cpu]==0.4.13"], verbose=True)
+    @run_in_venv(pip_dependencies=["jax[cpu]==0.4.13"])
     def empty_function_with_jax():
         # Import jax to check if it is installed
         # Fetch the list of installed packages
         import sys
         import importlib.metadata
 
-        print("HELLO FROM JAX")
 
         # Get the list of installed packages
         packages_dict = {
@@ -87,12 +121,11 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, logging_debu
     from flojoy import run_in_venv
 
     # Define a function that imports flytekit and returns its version
-    @run_in_venv(pip_dependencies=["flytekit==1.8.2"], verbose=True)
+    @run_in_venv(pip_dependencies=["flytekit==1.8.2"])
     def empty_function_with_flytekit():
         import sys
         import importlib.metadata
 
-        print("HELLO FROM FLYTEKIT")
         # Get the list of installed packages
         packages_dict = {
             package.name: package.version
@@ -116,12 +149,10 @@ def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir, logging_debug)
 
     from flojoy import run_in_venv
 
-    @run_in_venv(pip_dependencies=["opencv-python-headless==4.7.0.72"], verbose=True)
+    @run_in_venv(pip_dependencies=["opencv-python-headless==4.7.0.72"])
     def empty_function_with_opencv():
         import sys
         import importlib.metadata
-
-        print("HELLO FROM OPENCV")
 
         # Get the list of installed packages
         packages_dict = {
@@ -163,7 +194,7 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, logging_debug, daem
     def function_to_run_within_thread(queue):
         from flojoy import run_in_venv
 
-        @run_in_venv(pip_dependencies=["numpy==1.23.0"], verbose=True)
+        @run_in_venv(pip_dependencies=["numpy==1.23.0"])
         def func_with_venv():
             import numpy as np
 
