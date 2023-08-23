@@ -73,10 +73,10 @@ def _install_pip_dependencies(
     command += list(pip_dependencies)
     with ExitStack() as stack:
         logpipe_stderr = stack.enter_context(
-            LogPipe(logger, log_level=logging.ERROR, mode=LogPipeMode.SUBPROCESS)
+            LogPipe(logger, log_level=logging.ERROR, mode=LogPipeMode.SUBPROCESS, buffer_logs=True)
         )
         logpipe_stdout = stack.enter_context(
-            LogPipe(logger, log_level=logging.INFO, mode=LogPipeMode.SUBPROCESS)
+            LogPipe(logger, log_level=logging.INFO, mode=LogPipeMode.SUBPROCESS, buffer_logs=True)
         )
         proc = subprocess.Popen(
             command,
@@ -85,7 +85,12 @@ def _install_pip_dependencies(
         )
         proc.wait()
     if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, command)
+        raise subprocess.CalledProcessError(
+            proc.returncode,
+            command,
+            output=logpipe_stdout.log_buffer.getvalue(),
+            stderr=logpipe_stderr.log_buffer.getvalue(),
+        )
 
 
 def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
@@ -246,8 +251,9 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
             )
             # Log every line of e.stderr
-            for line in e.stderr.decode().splitlines():
-                logging.error(f"{line}")
+            if(e.stderr is not None):
+                for line in e.stderr.decode().splitlines():
+                    logging.error(f"{line}")
             raise e
 
     # Define the decorator
