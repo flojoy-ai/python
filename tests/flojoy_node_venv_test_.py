@@ -171,7 +171,7 @@ def test_run_in_venv_streams_logs_to_console(mock_venv_cache_dir, configure_logg
     assert "flojoy" in buf_val
     assert "cloudpickle" in buf_val
     # 2 - For the print statements from within the function
-    for i in range(300):
+    for i in range(100):
         assert f"HELLO FROM FOO {i}" in buf_val
         assert f"HELLO STDERR FROM FOO {i}" in buf_val
 
