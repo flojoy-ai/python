@@ -153,7 +153,7 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
 
 
 def _get_venv_cache_dir():
-    return os.path.realpath(os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv"))
+    return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
 
 
 def _get_decorated_function_name(decorator_name: str) -> Optional[str]:
@@ -218,6 +218,7 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
     # Get the root directory for the virtual environments
     venv_cache_dir = _get_venv_cache_dir()
     os.makedirs(venv_cache_dir, exist_ok=True)
+    venv_cache_dir = os.path.realpath(venv_cache_dir)
     # Generate a path-safe hash of the pip dependencies
     # this prevents the duplication of virtual environments
     pip_dependencies_hash = hashlib.md5(
