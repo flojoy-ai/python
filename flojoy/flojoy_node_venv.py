@@ -157,9 +157,9 @@ class PickleableFunctionWithPipeIO:
 def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str:
     """Get the path to the python executable of the virtual environment."""
     if sys.platform == "win32":
-        return os.path.join(venv_path, "Scripts", "python.exe")
+        return os.path.realpath(os.path.join(venv_path, "Scripts", "python.exe"))
     else:
-        return os.path.join(venv_path, "bin", "python")
+        return os.path.realpath(os.path.join(venv_path, "bin", "python"))
 
 
 def _get_venv_cache_dir():
