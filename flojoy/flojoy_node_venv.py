@@ -99,7 +99,7 @@ def _install_pip_dependencies(
             proc.returncode,
             command,
             output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
-            output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
+            stderr=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
         )
 
 
