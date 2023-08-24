@@ -98,8 +98,8 @@ def _install_pip_dependencies(
         raise subprocess.CalledProcessError(
             proc.returncode,
             command,
-            output=logpipe_stdout.log_buffer.getvalue(),
-            stderr=logpipe_stderr.log_buffer.getvalue(),
+            output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
+            output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
         )
 
 
@@ -263,7 +263,7 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             )
             # Log every line of e.stderr
             if e.stderr is not None:
-                for line in e.stderr.decode().splitlines():
+                for line in e.stderr.decode("utf-8").splitlines():
                     logging.error(f"{line}")
             raise e
 
