@@ -3,9 +3,12 @@ import json
 import requests
 import pandas as pd
 import numpy as np
-from pydantic import ValidationError, validator
+from pydantic import validator
 from typing import Optional, Generic, TypeVar
 from pydantic.generics import GenericModel
+
+from flojoy import DataContainer
+from flojoy.utils import PlotlyJSONEncoder
 
 
 class NumpyEncoder(json.JSONEncoder):
@@ -231,6 +234,9 @@ class FlojoyCloud:
         A method that formats data into a payload that can be handled by
         the Flojoy cloud client.
         """
+        if isinstance(data, DataContainer):
+            return json.dumps({"data": data}, cls=PlotlyJSONEncoder)
+
         assert (
             dc_type in self.valid_types
         ), f"Type {dc_type} not supported. Check capitals (e.g. OrderedPair)."
@@ -271,8 +277,9 @@ class FlojoyCloud:
                     )
                     raise TypeError
             case "DataFrame":
-                data = data.to_json()
-                payload = json.dumps({"data": {"type": "DataFrame", "m": data}})
+                payload = json.dumps(
+                    {"data": {"type": "DataFrame", "m": data}}, cls=PlotlyJSONEncoder
+                )
             case "Matrix":
                 payload = json.dumps(
                     {"data": {"type": "Matrix", "m": data}}, cls=NumpyEncoder
