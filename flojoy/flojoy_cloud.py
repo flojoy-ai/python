@@ -228,7 +228,7 @@ class FlojoyCloud:
 
     def __init__(self, apikey: str):
         self.headers = {"api_key": apikey}
-        self.base_url = "https://cloud.flojoy.ai/api/v1/"
+        self.base_url = "https://cloud.flojoy.ai/api/v1"
         self.valid_types = [
             "OrderedPair",
             "OrderedTriple",
@@ -336,7 +336,7 @@ class FlojoyCloud:
         """
         A method that retrieves DataContainers from the Flojoy cloud.
         """
-        url = f"{self.base_url}dcs/{dc_id}"
+        url = f"{self.base_url}/dcs/{dc_id}"
         response = requests.request("GET", url, headers=self.headers)
         response = json.loads(response.text)
         check_deserialize(response)
@@ -411,7 +411,7 @@ class FlojoyCloud:
         """
         A method that creates a measurements with the name specified.
         """
-        url = f"{self.base_url}measurements"
+        url = f"{self.base_url}/measurements"
         payload = json.dumps({"name": name, "privacy": privacy})
         response = requests.request("POST", url, headers=self.headers, data=payload)
         response = json.loads(response.text)
@@ -425,7 +425,7 @@ class FlojoyCloud:
         If the number of measurements is less than the specified number,
         an error will be thrown.
         """
-        url = f"{self.base_url}measurements/?size={size}"
+        url = f"{self.base_url}/measurements/?size={size}"
         response = requests.request("GET", url, headers=self.headers)
         response = json.loads(response.text)
         response = response["data"]
@@ -436,7 +436,7 @@ class FlojoyCloud:
         """
         A method fetchs measurements from the client.
         """
-        url = f"{self.base_url}measurements/{meas_id}"
+        url = f"{self.base_url}/measurements/{meas_id}"
         response = requests.request("GET", url, headers=self.headers)
         response = json.loads(response.text)
 
@@ -446,7 +446,7 @@ class FlojoyCloud:
         """
         Rename the specified measurement.
         """
-        url = f"{self.base_url}measurements/{meas_id}"
+        url = f"{self.base_url}/measurements/{meas_id}"
         payload = payload = json.dumps({"name": name})
         response = requests.request("PATCH", url, headers=self.headers, data=payload)
         response = json.loads(response.text)
@@ -457,7 +457,7 @@ class FlojoyCloud:
         """
         A method that stores a formatted data payload in a measurement.
         """
-        url = f"{self.base_url}dcs/add/{meas_id}"
+        url = f"{self.base_url}/dcs/add/{meas_id}"
         payload = self._create_payload(data, dc_type)
         response = requests.request("POST", url, headers=self.headers, data=payload)
 
