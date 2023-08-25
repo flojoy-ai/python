@@ -396,11 +396,11 @@ class FlojoyCloud:
             case "Vector":
                 return Vector(v=np.array(dc["v"]))
             case "Image":
-                r = np.array(dc["r"])
-                g = np.array(dc["g"])
-                b = np.array(dc["b"])
+                r = np.array(dc["r"], dtype=np.uint8)
+                g = np.array(dc["g"], dtype=np.uint8)
+                b = np.array(dc["b"], dtype=np.uint8)
                 if "a" in dc:
-                    a = np.array(dc["a"])
+                    a = np.array(dc["a"], dtype=np.uint8)
                     return FlojoyImage(r=r, g=g, b=b, a=a)
                 else:
                     return FlojoyImage(r=r, g=g, b=b)
