@@ -1,7 +1,5 @@
-from flojoy import utils
 from PIL import Image
 import json
-import os
 import requests
 import pandas as pd
 import numpy as np
@@ -29,9 +27,7 @@ DataC = TypeVar("DataC")
 class DefaultModel(GenericModel, Generic[DataC]):
     ref: str
     dataContainer: dict
-    metadata: dict
     workspaceId: str
-    privacy: str
     location: str
     note: str
 
@@ -320,15 +316,6 @@ class FlojoyCloud:
 
         return payload
 
-    def store_dc(self, data, dc_type):
-        """
-        A method that stores a formatted data payload onto the Flojoy cloud.
-        """
-        url = "https://cloud.flojoy.ai/api/v1/dcs/"
-        payload = self.create_payload(data, dc_type)
-        response = requests.request("POST", url, headers=self.headers, data=payload)
-        return json.loads(response.text)
-
     def fetch_dc(self, dc_id):
         """
         A method that retrieves DataContainers from the Flojoy cloud.
@@ -369,23 +356,6 @@ class FlojoyCloud:
                     img_combined = np.stack((r, g, b), axis=2)
                     return Image.fromarray(np.uint8(img_combined)).convert("RGB")
 
-    def list_dcs(self, size=10):
-        """
-        A method that lists the number of DataContainers specified.
-
-        If the number of DataContainers is less than the specified number,
-        an error will be thrown.
-        """
-        url = f"https://cloud.flojoy.ai/api/v1/dcs/?inbox=true&size={size}"
-        response = requests.request("GET", url, headers=self.headers)
-        response = json.loads(response.text)
-        try:
-            response = response["data"]
-        except KeyError:
-            print("Size larger than the number of DataContainers.")
-
-        return response
-
     def create_measurement(self, name, privacy="private"):
         """
         A method that creates a measurements with the name specified.
@@ -407,10 +377,7 @@ class FlojoyCloud:
         url = f"https://cloud.flojoy.ai/api/v1/measurements/?size={size}"
         response = requests.request("GET", url, headers=self.headers)
         response = json.loads(response.text)
-        try:
-            response = response["data"]
-        except KeyError:
-            print("Size larger than the number of DataContainers.")
+        response = response["data"]
 
         return response
 
@@ -424,11 +391,23 @@ class FlojoyCloud:
 
         return response
 
-    def store_in_measurement(self, data, dc_type, meas_id):
+    def rename_measurement(self, meas_id, name):
+        """
+        A method fetchs measurements from the client.
+        """
+        url = f"https://cloud.flojoy.ai/api/v1/measurements/{meas_id}"
+        payload = payload = json.dumps({"name": name})
+        response = requests.request("PATCH", url, headers=self.headers, data=payload)
+        response = json.loads(response.text)
+
+        return response
+
+    def store_dc(self, data, dc_type, meas_id):
         """
         A method that stores a formatted data payload in a measurement.
         """
-        url = f"https://cloud.flojoy.ai/api/v1/measurements/{meas_id}"
+        url = f"https://cloud.flojoy.ai/api/v1/dcs/add/{meas_id}"
         payload = self.create_payload(data, dc_type)
         response = requests.request("POST", url, headers=self.headers, data=payload)
+
         return json.loads(response.text)
