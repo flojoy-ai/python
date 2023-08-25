@@ -212,7 +212,7 @@ class FlojoyCloud:
     os.environ.get("FLOJOY_CLOUD_KEY")
     """
 
-    def __init__(self, apikey):
+    def __init__(self, apikey: str):
         self.headers = {"api_key": apikey}
         self.base_url = "https://cloud.flojoy.ai/api/v1/"
         self.valid_types = [
@@ -226,7 +226,7 @@ class FlojoyCloud:
             "Image",
         ]
 
-    def create_payload(self, data, dc_type):
+    def create_payload(self, data, dc_type: str) -> str:
         """
         A method that formats data into a payload that can be handled by
         the Flojoy cloud client.
@@ -314,7 +314,7 @@ class FlojoyCloud:
 
         return payload
 
-    def fetch_dc(self, dc_id):
+    def fetch_dc(self, dc_id: str) -> dict:
         """
         A method that retrieves DataContainers from the Flojoy cloud.
         """
@@ -324,7 +324,7 @@ class FlojoyCloud:
         check_deserialize(response)
         return response
 
-    def to_python(self, dc):
+    def to_python(self, dc: dict) -> pd.DataFrame | float | list | Image.Image:
         """
         A method that converts data from DataContainers into pythonic
         data types like Pillow for images.
@@ -354,7 +354,7 @@ class FlojoyCloud:
                     img_combined = np.stack((r, g, b), axis=2)
                     return Image.fromarray(np.uint8(img_combined)).convert("RGB")
 
-    def create_measurement(self, name, privacy="private"):
+    def create_measurement(self, name: str, privacy: str = "private") -> dict:
         """
         A method that creates a measurements with the name specified.
         """
@@ -365,7 +365,7 @@ class FlojoyCloud:
 
         return response
 
-    def list_measurements(self, size=10):
+    def list_measurements(self, size: int = 10) -> list:
         """
         A method that lists the number of measurements specified.
 
@@ -379,7 +379,7 @@ class FlojoyCloud:
 
         return response
 
-    def fetch_measurement(self, meas_id):
+    def fetch_measurement(self, meas_id: str):
         """
         A method fetchs measurements from the client.
         """
@@ -389,7 +389,7 @@ class FlojoyCloud:
 
         return response
 
-    def rename_measurement(self, meas_id, name):
+    def rename_measurement(self, meas_id: str, name: str):
         """
         Rename the specified measurement.
         """
@@ -400,7 +400,7 @@ class FlojoyCloud:
 
         return response
 
-    def store_dc(self, data, dc_type, meas_id):
+    def store_dc(self, data, dc_type: str, meas_id: str):
         """
         A method that stores a formatted data payload in a measurement.
         """
