@@ -235,23 +235,18 @@ class FlojoyCloud:
         ), f"Type {dc_type} not supported. Check capitals (e.g. OrderedPair)."
         match dc_type:
             case "OrderedPair":
-                if isinstance(data, dict) and "x" in data:
-                    payload = json.dumps(
-                        {
-                            "data": {
-                                "type": "OrderedPair",
-                                "x": data["x"],
-                                "y": data["y"],
-                            }
-                        },
-                        cls=NumpyEncoder,
-                    )
-                else:
-                    print(
-                        "For ordered pair type, data must be in"
-                        " dictionary form with keys 'x' and 'y'"
-                    )
-                    raise TypeError
+                if not (isinstance(data, dict) and "x" in data and "y" in data):
+                    raise TypeError("For ordered pair type, data must be in dictionary form with keys 'x' and 'y'")
+                payload = json.dumps(
+                    {
+                        "data": {
+                            "type": "OrderedPair",
+                            "x": data["x"],
+                            "y": data["y"],
+                        }
+                    },
+                    cls=NumpyEncoder,
+                )
         match dc_type:
             case "OrderedTriple":
                 if isinstance(data, dict) and "x" in data:
