@@ -226,7 +226,7 @@ class FlojoyCloud:
             "Image",
         ]
 
-    def create_payload(self, data, dc_type: str) -> str:
+    def _create_payload(self, data, dc_type: str) -> str:
         """
         A method that formats data into a payload that can be handled by
         the Flojoy cloud client.
@@ -405,7 +405,7 @@ class FlojoyCloud:
         A method that stores a formatted data payload in a measurement.
         """
         url = f"{self.base_url}dcs/add/{meas_id}"
-        payload = self.create_payload(data, dc_type)
+        payload = self._create_payload(data, dc_type)
         response = requests.request("POST", url, headers=self.headers, data=payload)
 
         return json.loads(response.text)
