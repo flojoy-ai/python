@@ -7,7 +7,18 @@ from pydantic import validator
 from typing import Optional, Generic, TypeVar
 from pydantic.generics import GenericModel
 
+
 from flojoy import DataContainer
+from flojoy.data_container import (
+    OrderedPair,
+    OrderedTriple,
+    DataFrame,
+    Matrix,
+    Grayscale,
+    Vector,
+    Scalar,
+    Image as FlojoyImage,
+)
 from flojoy.utils import PlotlyJSONEncoder
 
 
@@ -189,7 +200,7 @@ def check_deserialize(response):
         case "Scalar":
             ScalarModel.parse_obj(response)
         case "Vector":
-            ScalarModel.parse_obj(response)
+            VectorModel.parse_obj(response)
         case "Image":
             ImageModel.parse_obj(response)
         case _:
@@ -360,6 +371,41 @@ class FlojoyCloud:
                 else:
                     img_combined = np.stack((r, g, b), axis=2)
                     return Image.fromarray(np.uint8(img_combined)).convert("RGB")
+
+    def to_dc(self, dc: dict) -> DataContainer:
+        """
+        A method that converts data from DataContainers into pythonic
+        data types like Pillow for images.
+        """
+        dc = dc["dataContainer"]
+        match dc["type"]:
+            case "OrderedPair":
+                return OrderedPair(x=np.array(dc["x"]), y=np.array(dc["y"]))
+            case "OrderedTriple":
+                return OrderedTriple(
+                    x=np.array(dc["x"]), y=np.array(dc["y"]), z=np.array(dc["z"])
+                )
+            case "DataFrame":
+                return DataFrame(df=pd.DataFrame(dc["m"]))
+            case "Matrix":
+                return Matrix(m=np.array(dc["m"]))
+            case "Grayscale":
+                return Grayscale(img=np.array(dc["m"]))
+            case "Scalar":
+                return Scalar(c=float(dc["c"]))
+            case "Vector":
+                return Vector(v=np.array(dc["v"]))
+            case "Image":
+                r = np.array(dc["r"])
+                g = np.array(dc["g"])
+                b = np.array(dc["b"])
+                if "a" in dc:
+                    a = np.array(dc["a"])
+                    return FlojoyImage(r=r, g=g, b=b, a=a)
+                else:
+                    return FlojoyImage(r=r, g=g, b=b)
+            case _:
+                raise Exception("Unknown data container type")
 
     def create_measurement(self, name: str, privacy: str = "private") -> dict:
         """
