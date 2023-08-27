@@ -19,9 +19,12 @@ def TORCH_NODE(default: Matrix) -> Matrix:
     return Matrix(...)
 
 """
+from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
+import signal
 import threading
-from typing import Callable, Optional
+from time import sleep
+from typing import Any, Callable, Optional
 
 import hashlib
 from contextlib import ExitStack, contextmanager
@@ -87,9 +90,11 @@ def _bootstrap_venv(
     verbose: bool = False,
 ):
     venv_executable = _get_venv_executable_path(venv_path)
-    if(not os.path.exists(venv_executable)):
+    if not os.path.exists(venv_executable):
         if os.path.exists(venv_path):
-            logger.warning(f"For some reason, the virtual environment at {venv_path} does not contain a python executable. Deleting the virtual environment and creating a new one...")
+            logger.warning(
+                f"For some reason, the virtual environment at {venv_path} does not contain a python executable. Deleting the virtual environment and creating a new one..."
+            )
             shutil.rmtree(venv_path, ignore_errors=True)
         logger.info(f"Creating new virtual environment at {venv_path}...")
         venv.create(venv_path, with_pip=True)
@@ -119,6 +124,7 @@ def _bootstrap_venv(
             stdout=logpipe_stdout.get_pipe_writer(),
             stderr=logpipe_stderr.get_pipe_writer(),
         )
+        # Save PIDs somewhere
         proc.wait()
     venv_complete_path = os.path.realpath(os.path.join(venv_path, ".venv_is_complete"))
     if proc.returncode != 0:
@@ -128,46 +134,48 @@ def _bootstrap_venv(
         logger.error(
             f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
         )
-        raise subprocess.CalledProcessError(
+        exc = subprocess.CalledProcessError(
             proc.returncode,
             command,
             output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
             stderr=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
         )
+        PipInstallThread._cancel.set()
+        raise exc
     else:
         # Create a file to mark the virtual environment as complete
         with open(os.path.join(venv_path, ".venv_is_complete"), "w") as f:
             f.write("")
 
 
-# TODO(roulbac): Cancel and exit on the first failed thread
-class PipInstallThreadPool:
-    """A singleton pool of workers to run pip install in parallel.
-    
-    This class is a singleton because we want to share the same pool of workers
-    across all the nodes in the graph. This is because we want to avoid the
-    duplication of virtual environments and pip installs.
-    """
-    _thread_pool: Optional[ThreadPoolExecutor] = None
-    _futures: dict[str, Future] = {}
+class PipInstallThread(threading.Thread):
+    _sema = threading.BoundedSemaphore(1)
+    _cancel = threading.Event()
+    _threads = []
 
-    def __new__(cls):
-        if cls._thread_pool is None:
-            cls._thread_pool = ThreadPoolExecutor(max_workers=1)
-        return cls
+    def __init__(
+        self,
+        group: None = None,
+        target: Callable[..., object] | None = None,
+        name: str | None = None,
+        args: Iterable[Any] = ...,
+        kwargs: Mapping[str, Any] | None = None,
+        *,
+        daemon: bool | None = None,
+    ) -> None:
+        super().__init__(group, target, name, args, kwargs, daemon=daemon)
+        self.target = target
+        self.args = args or tuple()
+        self.kwargs = kwargs or {}
+        self.exc = None
+        PipInstallThread._threads.append(self)
 
-    @classmethod
-    def add_to_pool(cls, key, func, *args, **kwargs):
-        if key not in cls._futures:
-            future = cls._thread_pool.submit(func, *args, **kwargs)
-            cls._futures[key] = future
-        return cls._futures[key]
-
-    @classmethod
-    def get(cls, key) -> Future:
-        if key not in cls._futures:
-            raise KeyError(f"Key {key} not found in PipInstallPool. The pip install task may not have been added to the pool.")
-        return cls._futures[key]
+    def run(self):
+        with PipInstallThread._sema:
+            # Just exit if all was cancelled
+            if PipInstallThread._cancel.is_set():
+                return
+            self.target(*self.args, **self.kwargs)
 
 
 class PickleableFunctionWithPipeIO:
@@ -235,7 +243,6 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
         return Matrix(...)
     """
 
-
     def decorator(func, *, pip_dependencies=pip_dependencies, verbose=verbose):
         # Return the function as-is if we are not in the main process
         # This is due to the fact that the decorator is called twice
@@ -246,7 +253,8 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
 
         # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
         packages_dict = {
-            package.name: package.version for package in importlib.metadata.distributions()
+            package.name: package.version
+            for package in importlib.metadata.distributions()
         }
         pip_dependencies = sorted(
             [
@@ -269,16 +277,8 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
         logger = logging.getLogger(func.__name__)
         if verbose:
             logger.setLevel(logging.INFO)
-        
-        # future = PipInstallThreadPool().add_to_pool(
-        #     key=pip_dependencies_hash,
-        #     func=_bootstrap_venv,
-        #     venv_path=venv_path,
-        #     pip_dependencies=pip_dependencies,
-        #     logger=logger,
-        #     verbose=verbose,
-        # )
-        thread = threading.Thread(
+
+        thread = PipInstallThread(
             target=_bootstrap_venv,
             args=(venv_path, pip_dependencies, logger, verbose),
             daemon=False,
@@ -288,9 +288,18 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
         @wraps(func)
         def wrapper(*args, **kwargs):
             # Wait for the pip install to finish
-            logger.info(f"Waiting for pip install to finish for virtual environment of {func.__name__} at  {venv_path}...") 
+            logger.info(
+                f"Waiting for pip install to finish for virtual environment of {func.__name__} at  {venv_path}..."
+            )
             thread.join()
-            logger.info(f"Pip install complete. Spawning process for function {func.__name__}...")
+            if PipInstallThread._cancel.is_set():
+                # Wait for all threads to exit
+                while all([thread.is_alive() for thread in PipInstallThread._threads]):
+                    sleep(0.1)
+                sys.exit(1)
+            logger.info(
+                f"Pip install complete. Spawning process for function {func.__name__}..."
+            )
             # Generate a new multiprocessing context for the parent process in "spawn" mode
             parent_mp_context = multiprocessing.get_context("spawn")
             parent_conn, child_conn = parent_mp_context.Pipe()

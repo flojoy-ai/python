@@ -214,10 +214,10 @@ class MPSpawnReadWritePipe:
 
         def fileno(self) -> int:
             return self.write_conn.fileno()
-        
+
         def close(self):
             self.write_conn.close()
-        
+
         def flush(self):
             pass
 
