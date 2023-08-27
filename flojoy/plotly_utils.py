@@ -30,7 +30,13 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any] | None:
         case "OrderedTriple":
             fig = px.scatter_3d(x=data_copy.x, y=data_copy.y, z=data_copy.z)
         case "Scalar":
-            fig = px.histogram(x=data_copy.c)
+            fig.add_trace(
+                go.Indicator(
+                    value=data_copy.c,
+                    domain={"y": [0, 1], "x": [0, 1]},
+                    number={'valueformat': 'f'}
+                )
+            )
         case "Vector":
             df = pd.DataFrame(data_copy.v)
             fig = go.Figure(
