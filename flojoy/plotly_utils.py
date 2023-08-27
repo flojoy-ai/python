@@ -34,7 +34,7 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any] | None:
                 go.Indicator(
                     value=data_copy.c,
                     domain={"y": [0, 1], "x": [0, 1]},
-                    number={'valueformat': 'f'}
+                    number={"valueformat": "f"},
                 )
             )
         case "Vector":
