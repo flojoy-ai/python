@@ -47,6 +47,12 @@ class PipeWriter(Protocol):
     def fileno(self) -> int:
         ...
 
+    def close(self):
+        ...
+
+    def flush(self):
+        ...
+
 
 # Abstract Pipe class
 class ReadWritePipe(ABC):
@@ -208,6 +214,12 @@ class MPSpawnReadWritePipe:
 
         def fileno(self) -> int:
             return self.write_conn.fileno()
+        
+        def close(self):
+            self.write_conn.close()
+        
+        def flush(self):
+            pass
 
     def __init__(self) -> None:
         super().__init__()

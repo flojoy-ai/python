@@ -19,7 +19,8 @@ def TORCH_NODE(default: Matrix) -> Matrix:
     return Matrix(...)
 
 """
-from time import sleep
+from concurrent.futures import Future, ThreadPoolExecutor
+import threading
 from typing import Callable, Optional
 
 import hashlib
@@ -45,6 +46,17 @@ from .logging import LogPipe, LogPipeMode, StreamEnum
 __all__ = ["run_in_venv"]
 
 
+def _get_venv_cache_dir():
+    return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
+
+
+def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
+    """Get the sys.path of the virtual environment."""
+    command = [venv_executable, "-c", "import sys\nprint(sys.path)"]
+    cmd_output = subprocess.run(command, check=True, capture_output=True, text=True)
+    return eval(cmd_output.stdout)
+
+
 @contextmanager
 def swap_sys_path(
     venv_executable: os.PathLike, extra_sys_path: list[str] | None = None
@@ -60,13 +72,27 @@ def swap_sys_path(
         sys.path = old_path
 
 
-def _install_pip_dependencies(
-    venv_executable: os.PathLike,
-    pip_dependencies: tuple[str],
+def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str:
+    """Get the path to the python executable of the virtual environment."""
+    if sys.platform == "win32":
+        return os.path.realpath(os.path.join(venv_path, "Scripts", "python.exe"))
+    else:
+        return os.path.realpath(os.path.join(venv_path, "bin", "python"))
+
+
+def _bootstrap_venv(
+    venv_path: os.PathLike,
+    pip_dependencies: list[str],
     logger: logging.Logger,
     verbose: bool = False,
 ):
-    """Install pip dependencies into the virtual environment."""
+    venv_executable = _get_venv_executable_path(venv_path)
+    if(not os.path.exists(venv_executable)):
+        if os.path.exists(venv_path):
+            logger.warning(f"For some reason, the virtual environment at {venv_path} does not contain a python executable. Deleting the virtual environment and creating a new one...")
+            shutil.rmtree(venv_path, ignore_errors=True)
+        logger.info(f"Creating new virtual environment at {venv_path}...")
+        venv.create(venv_path, with_pip=True)
     command = [venv_executable, "-m", "pip", "install"]
     if not verbose:
         command += ["-q", "-q"]
@@ -94,20 +120,54 @@ def _install_pip_dependencies(
             stderr=logpipe_stderr.get_pipe_writer(),
         )
         proc.wait()
+    venv_complete_path = os.path.realpath(os.path.join(venv_path, ".venv_is_complete"))
     if proc.returncode != 0:
+        if os.path.exists(venv_complete_path):
+            os.remove(venv_complete_path)
+        shutil.rmtree(venv_path, ignore_errors=True)
+        logger.error(
+            f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
+        )
         raise subprocess.CalledProcessError(
             proc.returncode,
             command,
             output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
             stderr=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
         )
+    else:
+        # Create a file to mark the virtual environment as complete
+        with open(os.path.join(venv_path, ".venv_is_complete"), "w") as f:
+            f.write("")
 
 
-def _get_venv_syspath(venv_executable: os.PathLike) -> list[str]:
-    """Get the sys.path of the virtual environment."""
-    command = [venv_executable, "-c", "import sys\nprint(sys.path)"]
-    cmd_output = subprocess.run(command, check=True, capture_output=True, text=True)
-    return eval(cmd_output.stdout)
+# TODO(roulbac): Cancel and exit on the first failed thread
+class PipInstallThreadPool:
+    """A singleton pool of workers to run pip install in parallel.
+    
+    This class is a singleton because we want to share the same pool of workers
+    across all the nodes in the graph. This is because we want to avoid the
+    duplication of virtual environments and pip installs.
+    """
+    _thread_pool: Optional[ThreadPoolExecutor] = None
+    _futures: dict[str, Future] = {}
+
+    def __new__(cls):
+        if cls._thread_pool is None:
+            cls._thread_pool = ThreadPoolExecutor(max_workers=1)
+        return cls
+
+    @classmethod
+    def add_to_pool(cls, key, func, *args, **kwargs):
+        if key not in cls._futures:
+            future = cls._thread_pool.submit(func, *args, **kwargs)
+            cls._futures[key] = future
+        return cls._futures[key]
+
+    @classmethod
+    def get(cls, key) -> Future:
+        if key not in cls._futures:
+            raise KeyError(f"Key {key} not found in PipInstallPool. The pip install task may not have been added to the pool.")
+        return cls._futures[key]
 
 
 class PickleableFunctionWithPipeIO:
@@ -154,49 +214,11 @@ class PickleableFunctionWithPipeIO:
         self._child_conn.send_bytes(serialized_result)
 
 
-def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str:
-    """Get the path to the python executable of the virtual environment."""
-    if sys.platform == "win32":
-        return os.path.realpath(os.path.join(venv_path, "Scripts", "python.exe"))
-    else:
-        return os.path.realpath(os.path.join(venv_path, "bin", "python"))
-
-
-def _get_venv_cache_dir():
-    return os.path.join(FLOJOY_CACHE_DIR, "flojoy_node_venv")
-
-
-def _get_decorated_function_name(decorator_name: str) -> Optional[str]:
-    stack = inspect.stack()
-    # Fetch the frame for which the @no_op_decorator is present
-    lineno, file_path = None, None
-    for frame in stack:
-        if any([f"@{decorator_name}" in context for context in frame.code_context]):
-            lineno = frame.lineno
-            file_path = os.path.realpath(frame.filename)
-            break
-    if lineno is None or file_path is None:
-        return None
-    if not os.path.exists(file_path):
-        return None
-    # Read the file
-    with open(file_path) as f:
-        lines = f.readlines()
-    func_name = None
-    # Fetch the function name after lineno, i.e. the first function name after @no_op_decorator
-    to_search = lines[lineno:]
-    for line in to_search:
-        if "def" in line:
-            func_name = re.findall(r"def\s+([^\s(]+)", line)[0]
-            break
-    return func_name
-
-
-def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False):
+def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
     """A decorator that allows a function to be executed in a virtual environment.
 
     Args:
-        pip_dependencies (list[str]): A list of pip dependencies to install into the virtual environment. Defaults to [].
+        pip_dependencies (list[str]): A list of pip dependencies to install into the virtual environment.
         verbose (bool): Whether to print the pip install output. Defaults to False.
 
     Example usage:
@@ -212,65 +234,63 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
         ...
         return Matrix(...)
     """
-    if pip_dependencies is None:
-        pip_dependencies = []
-    # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
-    packages_dict = {
-        package.name: package.version for package in importlib.metadata.distributions()
-    }
-    pip_dependencies = sorted(
-        [
-            f"flojoy=={packages_dict['flojoy']}",
-            f"cloudpickle=={packages_dict['cloudpickle']}",
-        ]
-        + pip_dependencies
-    )
-    # Get the root directory for the virtual environments
-    venv_cache_dir = _get_venv_cache_dir()
-    os.makedirs(venv_cache_dir, exist_ok=True)
-    venv_cache_dir = os.path.realpath(venv_cache_dir)
-    # Generate a path-safe hash of the pip dependencies
-    # this prevents the duplication of virtual environments
-    pip_dependencies_hash = hashlib.md5(
-        "".join(sorted(pip_dependencies)).encode()
-    ).hexdigest()[:8]
-    venv_path = os.path.join(venv_cache_dir, f"{pip_dependencies_hash}")
-    venv_executable = _get_venv_executable_path(venv_path)
-    # Create the node_env virtual environment if it does not exist
-    if not os.path.exists(venv_path):
-        venv.create(venv_path, with_pip=True)
-    # Get the name of the module in the parent frame
-    # this is needed to get the path of the module
-    # that the function is defined in
-    func_name = _get_decorated_function_name(decorator_name="run_in_venv")
-    logger = logging.getLogger(func_name)
-    if verbose:
-        logger.setLevel(logging.INFO)
-    # Install the pip dependencies into the virtual environment
-    # TODO(roulbac): Install pip deps in a background thread
-    if pip_dependencies:
-        try:
-            _install_pip_dependencies(
-                venv_executable=venv_executable,
-                pip_dependencies=tuple(pip_dependencies),
-                logger=logger,
-                verbose=verbose,
-            )
-        except subprocess.CalledProcessError as e:
-            shutil.rmtree(venv_path)
-            logger.error(
-                f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
-            )
-            # Log every line of e.stderr
-            if e.stderr is not None:
-                for line in e.stderr.decode("utf-8").splitlines():
-                    logging.error(f"{line}")
-            raise e
 
-    # Define the decorator
-    def decorator(func):
+
+    def decorator(func, *, pip_dependencies=pip_dependencies, verbose=verbose):
+        # Return the function as-is if we are not in the main process
+        # This is due to the fact that the decorator is called twice
+        # once in the main process and once in the child process
+        # when unpickling the function
+        if multiprocessing.current_process().name != "MainProcess":
+            return func
+
+        # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
+        packages_dict = {
+            package.name: package.version for package in importlib.metadata.distributions()
+        }
+        pip_dependencies = sorted(
+            [
+                f"flojoy=={packages_dict['flojoy']}",
+                f"cloudpickle=={packages_dict['cloudpickle']}",
+            ]
+            + pip_dependencies
+        )
+        # Get the root directory for the virtual environments
+        venv_cache_dir = _get_venv_cache_dir()
+        os.makedirs(venv_cache_dir, exist_ok=True)
+        venv_cache_dir = os.path.realpath(venv_cache_dir)
+        # Generate a path-safe hash of the pip dependencies
+        # this prevents the duplication of virtual environments
+        pip_dependencies_hash = hashlib.md5(
+            "".join(sorted(pip_dependencies)).encode()
+        ).hexdigest()[:8]
+        venv_path = os.path.join(venv_cache_dir, f"{pip_dependencies_hash}")
+        venv_executable = _get_venv_executable_path(venv_path)
+        logger = logging.getLogger(func.__name__)
+        if verbose:
+            logger.setLevel(logging.INFO)
+        
+        # future = PipInstallThreadPool().add_to_pool(
+        #     key=pip_dependencies_hash,
+        #     func=_bootstrap_venv,
+        #     venv_path=venv_path,
+        #     pip_dependencies=pip_dependencies,
+        #     logger=logger,
+        #     verbose=verbose,
+        # )
+        thread = threading.Thread(
+            target=_bootstrap_venv,
+            args=(venv_path, pip_dependencies, logger, verbose),
+            daemon=False,
+        )
+        thread.start()
+
         @wraps(func)
         def wrapper(*args, **kwargs):
+            # Wait for the pip install to finish
+            logger.info(f"Waiting for pip install to finish for virtual environment of {func.__name__} at  {venv_path}...") 
+            thread.join()
+            logger.info(f"Pip install complete. Spawning process for function {func.__name__}...")
             # Generate a new multiprocessing context for the parent process in "spawn" mode
             parent_mp_context = multiprocessing.get_context("spawn")
             parent_conn, child_conn = parent_mp_context.Pipe()
@@ -278,8 +298,6 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
             # while setting its executable to the virtual environment python executable
             child_mp_context = multiprocessing.get_context("spawn")
             child_mp_context.set_executable(venv_executable)
-            func_name = func.__name__
-            logger = logging.getLogger(func_name)
             with ExitStack() as stack:
                 log_pipe_stdout = stack.enter_context(
                     LogPipe(
@@ -308,14 +326,15 @@ def run_in_venv(pip_dependencies: list[str] | None = None, verbose: bool = False
                 mp_func = LogPipe.wrap_and_redirect_stream(
                     mp_func, StreamEnum.STDERR, log_pipe_stderr.get_pipe_writer()
                 )
-                args_serialized = [cloudpickle.dumps(arg) for arg in args]
+                # Resolve the function arguments using inspect
+                # this is needed to avoid pickling issues
                 kwargs_serialized = {
-                    key: cloudpickle.dumps(value) for key, value in kwargs.items()
+                    key: cloudpickle.dumps(value)
+                    for key, value in inspect.getcallargs(func, *args, **kwargs).items()
                 }
                 # Create a new process that will run the Python code
                 process = child_mp_context.Process(
                     target=mp_func,
-                    args=args_serialized,
                     kwargs=kwargs_serialized,
                 )
                 # Start the process
