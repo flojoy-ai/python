@@ -124,9 +124,23 @@ def _bootstrap_venv(
             stdout=logpipe_stdout.get_pipe_writer(),
             stderr=logpipe_stderr.get_pipe_writer(),
         )
-        # Save PIDs somewhere
-        proc.wait()
+        # Poll the process until it finishes, while occasionally checking if there was a failure
+        # in the global cancel event
+        while proc.poll() is None:
+            if PipInstallThread._cancel_all_threads.is_set():
+                proc.terminate()
+                logger.error(
+                    f"Another thread has failed its pip install step, terminating pip install process for {venv_path}..."
+                )
+                break
+            sleep(0.1)
+
     venv_complete_path = os.path.realpath(os.path.join(venv_path, ".venv_is_complete"))
+
+    # The process was terminated due to the _cancel_all_threads event
+    if proc.returncode is None:
+        return
+
     if proc.returncode != 0:
         if os.path.exists(venv_complete_path):
             os.remove(venv_complete_path)
@@ -134,24 +148,23 @@ def _bootstrap_venv(
         logger.error(
             f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
         )
-        exc = subprocess.CalledProcessError(
+        raise subprocess.CalledProcessError(
             proc.returncode,
             command,
             output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
             stderr=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
         )
-        PipInstallThread._cancel.set()
-        raise exc
-    else:
-        # Create a file to mark the virtual environment as complete
-        with open(os.path.join(venv_path, ".venv_is_complete"), "w") as f:
-            f.write("")
+
+    # Create a file to mark the virtual environment as complete
+    with open(os.path.join(venv_path, ".venv_is_complete"), "w") as f:
+        f.write("")
 
 
 class PipInstallThread(threading.Thread):
-    _sema = threading.BoundedSemaphore(1)
-    _cancel = threading.Event()
-    _threads = []
+    _bounded_semaphore = threading.BoundedSemaphore(4)
+    _cancel_all_threads = threading.Event()
+    _threads = dict()
+    _exceptions = dict()
 
     def __init__(
         self,
@@ -160,22 +173,30 @@ class PipInstallThread(threading.Thread):
         name: str | None = None,
         args: Iterable[Any] = ...,
         kwargs: Mapping[str, Any] | None = None,
-        *,
-        daemon: bool | None = None,
     ) -> None:
-        super().__init__(group, target, name, args, kwargs, daemon=daemon)
+        super().__init__(group, target, name, args, kwargs, daemon=False)
         self.target = target
         self.args = args or tuple()
         self.kwargs = kwargs or {}
-        self.exc = None
-        PipInstallThread._threads.append(self)
+        PipInstallThread._threads.update({self.name: self})
+        PipInstallThread._exceptions.update({self.name: None})
 
     def run(self):
-        with PipInstallThread._sema:
+        with PipInstallThread._bounded_semaphore:
             # Just exit if all was cancelled
-            if PipInstallThread._cancel.is_set():
+            if PipInstallThread._cancel_all_threads.is_set():
                 return
-            self.target(*self.args, **self.kwargs)
+            try:
+                self.target(*self.args, **self.kwargs)
+            except Exception as e:
+                PipInstallThread._exceptions.update({self.name: e})
+                raise e
+
+    @staticmethod
+    def terminate_all():
+        PipInstallThread._cancel_all_threads.set()
+        while all([thread.is_alive() for thread in PipInstallThread._threads.values()]):
+            sleep(0.1)
 
 
 class PickleableFunctionWithPipeIO:
@@ -281,7 +302,6 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
         thread = PipInstallThread(
             target=_bootstrap_venv,
             args=(venv_path, pip_dependencies, logger, verbose),
-            daemon=False,
         )
         thread.start()
 
@@ -292,11 +312,12 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
                 f"Waiting for pip install to finish for virtual environment of {func.__name__} at  {venv_path}..."
             )
             thread.join()
-            if PipInstallThread._cancel.is_set():
-                # Wait for all threads to exit
-                while all([thread.is_alive() for thread in PipInstallThread._threads]):
-                    sleep(0.1)
-                sys.exit(1)
+            # Check if the thread threw an exception
+            if PipInstallThread._exceptions[thread.name] is not None:
+                # Clean up the other threads (and the processes they spawned)
+                PipInstallThread.terminate_all()
+                # Re-raise from the main thread
+                raise PipInstallThread._exceptions[thread.name]
             logger.info(
                 f"Pip install complete. Spawning process for function {func.__name__}..."
             )
