@@ -269,7 +269,7 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
         # This is due to the fact that the decorator is called twice
         # once in the main process and once in the child process
         # when unpickling the function
-        if "run_in_venv" in multiprocessing.current_process().name:
+        if multiprocessing.current_process().name.startswith("run_in_venv"):
             return func
 
         # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
@@ -277,9 +277,10 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
             package.name: package.version
             for package in importlib.metadata.distributions()
         }
+        # TODO(roulbac): remove the git ref
         pip_dependencies = sorted(
             [
-                f"flojoy=={packages_dict['flojoy']}",
+                f"git+https://git@github.com/flojoy-ai/python.git@reda-stream-logs-all",
                 f"cloudpickle=={packages_dict['cloudpickle']}",
             ]
             + pip_dependencies
