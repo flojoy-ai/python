@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image as PILImage
 import json
 import requests
 import pandas as pd
@@ -17,7 +17,7 @@ from flojoy.data_container import (
     Grayscale,
     Vector,
     Scalar,
-    Image as FlojoyImage,
+    Image,
 )
 from flojoy.utils import PlotlyJSONEncoder
 
@@ -342,7 +342,7 @@ class FlojoyCloud:
         check_deserialize(response)
         return response
 
-    def to_python(self, dc: dict) -> pd.DataFrame | float | list | Image.Image:
+    def to_python(self, dc: dict) -> pd.DataFrame | float | list | PILImage.Image:
         """
         A method that converts data from DataContainers into pythonic
         data types like Pillow for images.
@@ -367,10 +367,10 @@ class FlojoyCloud:
                 if "a" in image:
                     a = image["a"]
                     img_combined = np.stack((r, g, b, a), axis=2)
-                    return Image.fromarray(np.uint8(img_combined)).convert("RGBA")
+                    return PILImage.fromarray(np.uint8(img_combined)).convert("RGBA")
                 else:
                     img_combined = np.stack((r, g, b), axis=2)
-                    return Image.fromarray(np.uint8(img_combined)).convert("RGB")
+                    return PILImage.fromarray(np.uint8(img_combined)).convert("RGB")
 
     def to_dc(self, dc: dict) -> DataContainer:
         """
@@ -401,9 +401,9 @@ class FlojoyCloud:
                 b = np.array(dc["b"], dtype=np.uint8)
                 if "a" in dc:
                     a = np.array(dc["a"], dtype=np.uint8)
-                    return FlojoyImage(r=r, g=g, b=b, a=a)
+                    return Image(r=r, g=g, b=b, a=a)
                 else:
-                    return FlojoyImage(r=r, g=g, b=b)
+                    return Image(r=r, g=g, b=b)
             case _:
                 raise Exception("Unknown data container type")
 
