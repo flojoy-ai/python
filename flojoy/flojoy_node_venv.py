@@ -269,7 +269,7 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
         # This is due to the fact that the decorator is called twice
         # once in the main process and once in the child process
         # when unpickling the function
-        if multiprocessing.current_process().name != "MainProcess":
+        if "run_in_venv" in multiprocessing.current_process().name:
             return func
 
         # Pre-pend flojoy and cloudpickle as mandatory pip dependencies
@@ -363,7 +363,9 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
                     for key, value in inspect.getcallargs(func, *args, **kwargs).items()
                 }
                 # Create a new process that will run the Python code
+                # Append a name and a random suffix
                 process = child_mp_context.Process(
+                    name=f"run_in_venv_{os.urandom(4).hex()}",
                     target=mp_func,
                     kwargs=kwargs_serialized,
                 )
