@@ -4,7 +4,7 @@ setup(
     name="flojoy",
     packages=find_packages(exclude=["tests"]),
     package_data={"flojoy": ["__init__.pyi"]},
-    version="0.1.5-dev21",
+    version="0.1.5-dev22",
     license="MIT",
     description="Python client library for Flojoy.",
     author="flojoy",
