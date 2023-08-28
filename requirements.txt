@@ -54,7 +54,6 @@ tenacity==8.2.2
 tomli==2.0.1
 Twisted==22.10.0
 txaio==23.1.1
-typing_extensions==4.5.0
 uptime==3.0.1
 urllib3==1.26.15
 wrapt==1.15.0
@@ -62,3 +61,4 @@ zope.interface==6.0
 keyring==24.2.0
 cloudpickle==2.2.1
 huggingface-hub==0.16.4
+pydantic==2.3.0
