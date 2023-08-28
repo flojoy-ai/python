@@ -16,7 +16,7 @@ from .node_init import *
 from .node_preflight import *
 from .data_container import *
 from .config import *
-from flojoy_cloud import *
+from .flojoy_cloud import *
 
 def hf_hub_download(
     repo_id: str,
