@@ -226,8 +226,8 @@ class FlojoyCloud:
     os.environ.get("FLOJOY_CLOUD_KEY")
     """
 
-    def __init__(self, apikey: str):
-        self.headers = {"api_key": apikey}
+    def __init__(self, api_key: str):
+        self.headers = {"api_key": api_key}
         self.base_url = "https://cloud.flojoy.ai/api/v1"
         self.valid_types = [
             "OrderedPair",
