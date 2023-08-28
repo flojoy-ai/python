@@ -98,6 +98,8 @@ def _bootstrap_venv(
             shutil.rmtree(venv_path, ignore_errors=True)
         logger.info(f"Creating new virtual environment at {venv_path}...")
         venv.create(venv_path, with_pip=True)
+    # Deref the symlink -> Edge case with windows
+    venv_executable = os.path.realpath(venv_executable)
     command = [venv_executable, "-m", "pip", "install"]
     if not verbose:
         command += ["-q", "-q"]
