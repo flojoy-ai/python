@@ -1,6 +1,6 @@
 from .flojoy_instruction import FLOJOY_INSTRUCTION
 from .plotly_utils import data_container_to_plotly
-from .data_container import DataContainer
+from .data_container import DataContainer, Plotly, TextBlob, Bytes
 from .dao import Dao
 from typing import Any, cast, Optional
 
@@ -77,9 +77,15 @@ def get_frontend_res_obj_from_result(
     if result is None:
         return None
 
+    match result:
+        case Plotly() | TextBlob() | Bytes():
+            plotly_fig = data_container_to_plotly(data=result)
+            return {"plotly_fig": plotly_fig, "text_blob": get_text_blob_from_dc(result)}
+
     if isinstance(result, DataContainer):
-        plotly_fig = data_container_to_plotly(data=result)
-        return {"plotly_fig": plotly_fig, "text_blob": get_text_blob_from_dc(result)}
+        return None
+        # plotly_fig = data_container_to_plotly(data=result)
+        # return {"plotly_fig": plotly_fig, "text_blob": get_text_blob_from_dc(result)}
     if result.get(FLOJOY_INSTRUCTION.RESULT_FIELD):
         data = result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]]
         if not data:

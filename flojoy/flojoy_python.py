@@ -14,6 +14,7 @@ from .config import logger
 from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
+from timeit import default_timer as timer
 
 __all__ = ["flojoy", "DefaultParams", "display"]
 
@@ -226,7 +227,10 @@ def flojoy(
                 ##########################
                 # calling the node function
                 ##########################
+                # start = timer()
                 dc_obj = func(**args)  # DataContainer object from node
+                # end = timer()
+                # print("time taken to run node: ", end - start, flush=True)
                 ##########################
                 # end calling the node function
                 ##########################
@@ -238,8 +242,12 @@ def flojoy(
                     for value in dc_obj.values():
                         if isinstance(value, DataContainer):
                             value.validate()
+
                 # Response object to send to FE
+                # start = timer()
                 result = get_frontend_res_obj_from_result(dc_obj)
+                # end = timer()
+                # print("time taken to generate plotly fig: ", end - start, flush=True)
 
                 JobService().post_job_result(
                     job_id, dc_obj
