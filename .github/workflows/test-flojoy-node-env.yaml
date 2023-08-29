@@ -38,4 +38,4 @@ jobs:
 
       - name: Run python tests
         run: |
-          python -m pytest -vv tests/flojoy_node_venv_test_.py --runslow  
+          python -m pytest -vv -s tests/flojoy_node_venv_test_.py --runslow  
