@@ -315,6 +315,7 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
                 f"Waiting for pip install to finish for virtual environment of {func.__name__} at  {venv_path}..."
             )
             thread.join()
+            venv_executable = os.path.realpath(venv_executable)
             # Check if the thread threw an exception
             if PipInstallThread._exceptions[thread.name] is not None:
                 # Clean up the other threads (and the processes they spawned)
