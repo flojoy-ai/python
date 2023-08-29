@@ -7,12 +7,12 @@ authors = [
   "Dallas Strandell <dalstrande@outlook.com>",
 ]
 name = "flojoy"
-version = "0.1.8"
+version = "0.1.9"
 description = ""
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "~3.10"
 pandas = "1.4.2"
 numpy = "1.23.0"
 plotly = "5.8.2"
