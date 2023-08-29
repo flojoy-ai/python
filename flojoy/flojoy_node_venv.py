@@ -279,10 +279,9 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
             package.name: package.version
             for package in importlib.metadata.distributions()
         }
-        # TODO(roulbac): remove the git ref
         pip_dependencies = sorted(
             [
-                f"git+https://git@github.com/flojoy-ai/python.git@reda-stream-logs-all",
+                f"flojoy=={packages_dict['flojoy']}",
                 f"cloudpickle=={packages_dict['cloudpickle']}",
             ]
             + pip_dependencies
