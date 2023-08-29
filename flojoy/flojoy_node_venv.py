@@ -245,7 +245,7 @@ class PickleableFunctionWithPipeIO:
         self._child_conn.send_bytes(serialized_result)
 
 
-def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
+def run_in_venv(pip_dependencies: list[str], verbose: bool = True):
     """A decorator that allows a function to be executed in a virtual environment.
 
     Args:
@@ -296,6 +296,7 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
             "".join(sorted(pip_dependencies)).encode()
         ).hexdigest()[:8]
         venv_path = os.path.join(venv_cache_dir, f"{pip_dependencies_hash}")
+        venv_executable = _get_venv_executable_path(venv_path)
         logger = logging.getLogger(func.__name__)
         if verbose:
             logger.setLevel(logging.INFO)
@@ -313,7 +314,7 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
                 f"Waiting for pip install to finish for virtual environment of {func.__name__} at  {venv_path}..."
             )
             thread.join()
-            venv_executable = _get_venv_executable_path(venv_path)
+            venv_executable = os.path.realpath(_get_venv_executable_path(venv_path))
             # Check if the thread threw an exception
             if PipInstallThread._exceptions[thread.name] is not None:
                 # Clean up the other threads (and the processes they spawned)
