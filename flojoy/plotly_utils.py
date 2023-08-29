@@ -32,6 +32,8 @@ def data_container_to_plotly(data: DataContainer) -> dict[str, Any] | None:
         case "Scalar":
             fig.add_trace(
                 go.Indicator(
+                    # FIXME: Remove this hack to fix the issue of
+                    # nodes not actually returning a float for scalar values
                     value=data_copy.c
                     if isinstance(data_copy.c, float)
                     else data_copy.c[0],
