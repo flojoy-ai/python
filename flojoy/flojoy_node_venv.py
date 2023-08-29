@@ -245,7 +245,7 @@ class PickleableFunctionWithPipeIO:
         self._child_conn.send_bytes(serialized_result)
 
 
-def run_in_venv(pip_dependencies: list[str], verbose: bool = False):
+def run_in_venv(pip_dependencies: list[str], verbose: bool = True):
     """A decorator that allows a function to be executed in a virtual environment.
 
     Args:
