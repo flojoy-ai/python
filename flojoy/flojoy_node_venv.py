@@ -97,6 +97,7 @@ def _bootstrap_venv(
             )
             shutil.rmtree(venv_path, ignore_errors=True)
         logger.info(f"Creating new virtual environment at {venv_path}...")
+
         venv.create(venv_path, with_pip=True)
     # Deref the symlink -> Edge case with windows
     venv_executable = os.path.realpath(venv_executable)
@@ -163,7 +164,7 @@ def _bootstrap_venv(
 
 
 class PipInstallThread(threading.Thread):
-    _bounded_semaphore = threading.BoundedSemaphore(4)
+    _bounded_semaphore = threading.BoundedSemaphore(1)
     _cancel_all_threads = threading.Event()
     _threads = dict()
     _exceptions = dict()
@@ -250,7 +251,7 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = True):
 
     Args:
         pip_dependencies (list[str]): A list of pip dependencies to install into the virtual environment.
-        verbose (bool): Whether to print the pip install output. Defaults to False.
+        verbose (bool): Whether to print the pip install output. Defaults to True.
 
     Example usage:
     ```python
@@ -279,6 +280,7 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = True):
             package.name: package.version
             for package in importlib.metadata.distributions()
         }
+
         pip_dependencies = sorted(
             [
                 f"flojoy=={packages_dict['flojoy']}",
@@ -314,7 +316,6 @@ def run_in_venv(pip_dependencies: list[str], verbose: bool = True):
                 f"Waiting for pip install to finish for virtual environment of {func.__name__} at  {venv_path}..."
             )
             thread.join()
-            venv_executable = os.path.realpath(_get_venv_executable_path(venv_path))
             # Check if the thread threw an exception
             if PipInstallThread._exceptions[thread.name] is not None:
                 # Clean up the other threads (and the processes they spawned)
