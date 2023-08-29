@@ -86,8 +86,10 @@ class DefaultParams:
 
 
 def display(
-        original_function: Callable[..., DataContainer | dict[str, Any]] | None = None):
+    original_function: Callable[..., DataContainer | dict[str, Any]] | None = None
+):
     return original_function
+
 
 def flojoy(
     original_function: Callable[..., Optional[DataContainer | dict[str, Any]]]
