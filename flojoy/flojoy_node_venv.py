@@ -178,7 +178,7 @@ def _bootstrap_venv(
 
 
 class PipInstallThread(threading.Thread):
-    _bounded_semaphore = threading.BoundedSemaphore(2)
+    _bounded_semaphore = threading.BoundedSemaphore(1)
     _cancel_all_threads = threading.Event()
     _threads = dict()
     _exceptions = dict()
