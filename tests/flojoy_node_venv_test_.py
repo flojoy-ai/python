@@ -1,5 +1,7 @@
 import io
+import sys
 import json
+from textwrap import dedent
 from typing import Any
 import pytest
 import os
@@ -11,6 +13,7 @@ from time import sleep
 import logging
 import http.server
 import socketserver
+import subprocess
 from queue import Queue
 
 import requests
@@ -78,6 +81,19 @@ def mock_venv_cache_dir():
     # Clean up
     shutil.rmtree(_test_tempdir)
 
+@pytest.fixture
+def func_within_func_source_code():
+    return dedent("""
+    from flojoy import run_in_venv
+
+    @run_in_venv(pip_dependencies=["numpy", "torch"], verbose=True)
+    def inner_func():
+        import torch
+        import numpy as np
+        return 0
+
+    inner_func()
+    """)
 
 def test_run_in_venv_streams_logs_to_http_server(
     mock_venv_cache_dir, configure_logging, local_server
@@ -302,3 +318,21 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, configure_logging, 
     assert not queue.empty()
     # Check that the function has returned
     assert queue.get(timeout=60) == 42
+
+
+def test_run_in_venv_same_pip_deps_from_two_subprocesses_is_safe(
+    mock_venv_cache_dir,
+    configure_logging,
+    func_within_func_source_code
+):
+    """ Tests that two functions ran from two subprocesses do not interfere with each other """
+    # Spawn the two functions in two subprocesses
+    # Repeat 10 times
+    for _ in range(10):
+        p1 = subprocess.Popen([sys.executable, "-c", f'{func_within_func_source_code}'])
+        p2 = subprocess.Popen([sys.executable, "-c", f'{func_within_func_source_code}'])
+        # Wait for the two processes to finish
+        p1.wait()
+        p2.wait()
+        # Check that the processes have finished successfully
+        assert p1.returncode == 0 and p2.returncode == 0
