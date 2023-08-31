@@ -82,7 +82,7 @@ def mock_venv_cache_dir():
     shutil.rmtree(_test_tempdir)
 
 @pytest.fixture
-def func_within_func_source_code():
+def run_in_venv_script_source_code():
     return dedent("""
     from flojoy import run_in_venv
 
@@ -323,14 +323,14 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, configure_logging, 
 def test_run_in_venv_same_pip_deps_from_two_subprocesses_is_safe(
     mock_venv_cache_dir,
     configure_logging,
-    func_within_func_source_code
+    run_in_venv_script_source_code
 ):
     """ Tests that two functions ran from two subprocesses do not interfere with each other """
     # Spawn the two functions in two subprocesses
     # Repeat 10 times
     for _ in range(10):
-        p1 = subprocess.Popen([sys.executable, "-c", f'{func_within_func_source_code}'])
-        p2 = subprocess.Popen([sys.executable, "-c", f'{func_within_func_source_code}'])
+        p1 = subprocess.Popen([sys.executable, "-c", f'{run_in_venv_script_source_code}'])
+        p2 = subprocess.Popen([sys.executable, "-c", f'{run_in_venv_script_source_code}'])
         # Wait for the two processes to finish
         p1.wait()
         p2.wait()
