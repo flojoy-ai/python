@@ -7,7 +7,7 @@ authors = [
   "Dallas Strandell <dalstrande@outlook.com>",
 ]
 name = "flojoy"
-version = "0.1.9"
+version = "0.1.10"
 description = ""
 readme = "README.md"
 
