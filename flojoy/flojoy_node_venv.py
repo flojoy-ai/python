@@ -176,6 +176,8 @@ def _bootstrap_venv(
         with open(venv_is_complete_path, "w") as f:
             f.write("")
 
+    # Leaved the portalocker.Lock on the virtual environment directory.
+    return
 
 class PipInstallThread(threading.Thread):
     _bounded_semaphore = threading.BoundedSemaphore(1)
