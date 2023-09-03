@@ -48,7 +48,8 @@ else:
 
 # Make as a function to mock at test-time
 def get_hf_hub_cache_path() -> str:
-    """Returns the path to the HuggingFace cache directory within the Flojoy cache directory"""
+    """Returns the path to the HuggingFace home directory (HF_HOME) within the Flojoy cache directory 
+    This is used to cache huggingface artifacts within the Flojoy cache directory. """
     return os.path.join(FLOJOY_CACHE_DIR, "cache", "huggingface")
 
 
