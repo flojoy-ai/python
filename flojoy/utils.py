@@ -11,8 +11,10 @@ import pandas as pd
 import yaml
 import requests
 from dotenv import dotenv_values  # type:ignore
-from huggingface_hub import hf_hub_download as _hf_hub_download
-from huggingface_hub import snapshot_download as _snapshot_download
+# TODO(roulbac): Remove these imports once the nodes using them have been
+# tested and updated to use huggingface_hub directly
+from huggingface_hub import hf_hub_download
+from huggingface_hub import snapshot_download
 from .dao import Dao
 from .config import FlojoyConfig, logger
 
@@ -45,30 +47,10 @@ else:
 
 
 # Make as a function to mock at test-time
-def _get_hf_hub_cache_path() -> str:
-    return os.path.join(FLOJOY_CACHE_DIR, "cache", "hf_hub")
-
-
-def hf_hub_download(*args, **kwargs):
-    if "cache_dir" not in kwargs:
-        kwargs["cache_dir"] = _get_hf_hub_cache_path()
-    else:
-        if kwargs["cache_dir"] != _get_hf_hub_cache_path():
-            raise ValueError(
-                f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
-            )
-    return _hf_hub_download(*args, **kwargs)
-
-
-def snapshot_download(*args, **kwargs):
-    if "cache_dir" not in kwargs:
-        kwargs["cache_dir"] = _get_hf_hub_cache_path()
-    else:
-        if kwargs["cache_dir"] != _get_hf_hub_cache_path():
-            raise ValueError(
-                f"Attempted to override cache_dir parameter, received {kwargs['cache_dir']} while the only alloed value is {_get_hf_hub_cache_path()}"
-            )
-    return _snapshot_download(*args, **kwargs)
+def get_hf_hub_cache_path() -> str:
+    """Returns the path to the HuggingFace home directory (HF_HOME) within the Flojoy cache directory 
+    This is used to cache huggingface artifacts within the Flojoy cache directory. """
+    return os.path.join(FLOJOY_CACHE_DIR, "cache", "huggingface")
 
 
 env_vars = dotenv_values("../.env")
