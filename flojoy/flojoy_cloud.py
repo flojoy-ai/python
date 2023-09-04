@@ -3,10 +3,8 @@ import json
 import requests
 import pandas as pd
 import numpy as np
-from pydantic import validator
+from pydantic import validator, BaseModel
 from typing import Optional, Generic, TypeVar
-from pydantic.generics import GenericModel
-
 
 from flojoy import DataContainer
 from flojoy.data_container import (
@@ -38,7 +36,7 @@ class NumpyEncoder(json.JSONEncoder):
 DataC = TypeVar("DataC")
 
 
-class DefaultModel(GenericModel, Generic[DataC]):
+class DefaultModel(BaseModel, Generic[DataC]):
     ref: str
     dataContainer: dict
     workspaceId: str
