@@ -222,11 +222,13 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, configure_logging
     assert packages_dict["jax"] == "0.4.13"
 
 
+# Skip until dependency versions can be resolved with Flojoy (incompatible pandas versions)
+@pytest.mark.skip(reason="Skip until dependencies on pandas can be resolved")
 def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, configure_logging):
     from flojoy import run_in_venv
 
     # Define a function that imports flytekit and returns its version
-    @run_in_venv(pip_dependencies=["flytekit==1.8.2"])
+    @run_in_venv(pip_dependencies=["flytekit==1.9.0"])
     def empty_function_with_flytekit():
         import sys
         import importlib.metadata
@@ -246,7 +248,7 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, configure_lo
     assert sys_path[-1].startswith(os.path.dirname(__file__))
     assert sys_path[-2].startswith(mock_venv_cache_dir)
     # Test for package version
-    assert packages_dict["flytekit"] == "1.8.2"
+    assert packages_dict["flytekit"] == "1.9.0"
 
 
 def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir, configure_logging):
@@ -296,7 +298,7 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, configure_logging, 
     def function_to_run_within_thread(queue):
         from flojoy import run_in_venv
 
-        @run_in_venv(pip_dependencies=["numpy==1.23.0"])
+        @run_in_venv(pip_dependencies=["numpy"])
         def func_with_venv():
             import numpy as np
 
