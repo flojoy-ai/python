@@ -102,7 +102,6 @@ def _bootstrap_venv(
         logger.info(f"Acquired lock on {lockfile_path}...")
         # Check if the virtual environment is complete, i.e. it contains a .venv_is_complete file
         venv_is_complete_path = os.path.realpath(os.path.join(venv_path, ".venv_is_complete"))
-        venv_executable = _get_venv_executable_path(venv_path)
         # Look for the .venv_is_complete file. If it does not exist, wipe and re-create the venv
         # The .venv_is_complete file is created at the end of a successful pip install process
         if not os.path.exists(venv_is_complete_path):
@@ -112,8 +111,9 @@ def _bootstrap_venv(
             shutil.rmtree(venv_path, ignore_errors=True)
             logger.info(f"Creating new virtual environment at {venv_path}...")
             venv.create(venv_path, with_pip=True)
-        # Deref the symlink -> Edge case with windows
-        venv_executable = os.path.realpath(venv_executable)
+        # At this point, the venv should be created and 
+        # _get_venv_executable_path should return a valid path (with symlinks resolved)
+        venv_executable = _get_venv_executable_path(venv_path)
         command = [venv_executable, "-m", "pip", "install"]
         if not verbose:
             command += ["-q", "-q"]
