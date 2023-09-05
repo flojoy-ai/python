@@ -163,8 +163,11 @@ def _bootstrap_venv(
                 os.remove(venv_is_complete_path)
             # Then delete the entire directory.
             shutil.rmtree(venv_path, ignore_errors=True)
+            bullet_points_list = "\n - ".join([""] + pip_dependencies)
             logger.error(
-                f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
+                f"Failed to install pip dependencies into virtual environment from "
+                f"the provided list: {bullet_points_list}\n. "
+                f"The virtual environment under {venv_path} has been deleted."
             )
             raise subprocess.CalledProcessError(
                 proc.returncode,
