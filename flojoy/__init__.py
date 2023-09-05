@@ -14,3 +14,4 @@ from .job_service import *
 from .node_init import *
 from .config import *
 from .node_preflight import *
+from .flojoy_cloud import *

@@ -182,7 +182,7 @@ class DataContainer(Box):
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
         if (
-            key not in ["type", "extra"]
+            key not in ["type", "extra", "c"]
             and type(value) not in self.SKIP_ARRAYIEFY_TYPES
         ):
             formatted_value = self._ndarrayify(value)
@@ -235,6 +235,7 @@ class DataContainer(Box):
 
     def validate(self):
         dc_type = self.type
+
         if dc_type not in self.allowed_types:
             closest_type = find_closest_match(dc_type, self.allowed_types)
             helper_text = (

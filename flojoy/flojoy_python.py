@@ -13,7 +13,7 @@ from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
 
-__all__ = ["flojoy", "DefaultParams"]
+__all__ = ["flojoy", "DefaultParams", "display"]
 
 
 def fetch_inputs(previous_jobs: list[dict[str, str]]):
@@ -83,6 +83,12 @@ class DefaultParams:
         self.job_id = job_id
         self.jobset_id = jobset_id
         self.node_type = node_type
+
+
+def display(
+    original_function: Callable[..., DataContainer | dict[str, Any]] | None = None
+):
+    return original_function
 
 
 def flojoy(
