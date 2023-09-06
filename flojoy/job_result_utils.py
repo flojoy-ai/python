@@ -77,6 +77,7 @@ def get_frontend_res_obj_from_result(
     if result is None:
         return None
 
+    # Only return a plotly fig if it is a viz node
     match result:
         case Plotly() | TextBlob() | Bytes():
             plotly_fig = data_container_to_plotly(data=result)
@@ -84,20 +85,23 @@ def get_frontend_res_obj_from_result(
 
     if isinstance(result, DataContainer):
         return None
-        # plotly_fig = data_container_to_plotly(data=result)
-        # return {"plotly_fig": plotly_fig, "text_blob": get_text_blob_from_dc(result)}
+
     if result.get(FLOJOY_INSTRUCTION.RESULT_FIELD):
         data = result[result[FLOJOY_INSTRUCTION.RESULT_FIELD]]
         if not data:
             return result
 
         plotly_fig = None
-        if isinstance(data, DataContainer):
-            plotly_fig = data_container_to_plotly(data=data)
+        text_blob = None
+        match result:
+            case Plotly() | TextBlob() | Bytes():
+                plotly_fig = data_container_to_plotly(data=result)
+                text_blob = get_text_blob_from_dc(result)
+
         return {
             **result,
             "plotly_fig": plotly_fig,
-            "text_blob": get_text_blob_from_dc(data),
+            "text_blob": text_blob,
         }
     keys = list(result.keys())
     return get_frontend_res_obj_from_result(result[keys[0]])
