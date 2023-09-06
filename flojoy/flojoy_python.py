@@ -227,10 +227,7 @@ def flojoy(
                 ##########################
                 # calling the node function
                 ##########################
-                # start = timer()
                 dc_obj = func(**args)  # DataContainer object from node
-                # end = timer()
-                # print("time taken to run node: ", end - start, flush=True)
                 ##########################
                 # end calling the node function
                 ##########################
