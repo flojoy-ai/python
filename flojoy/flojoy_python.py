@@ -244,10 +244,7 @@ def flojoy(
                             value.validate()
 
                 # Response object to send to FE
-                # start = timer()
                 result = get_frontend_res_obj_from_result(dc_obj)
-                # end = timer()
-                # print("time taken to generate plotly fig: ", end - start, flush=True)
 
                 JobService().post_job_result(
                     job_id, dc_obj
