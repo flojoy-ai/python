@@ -25,6 +25,7 @@ DCType = Literal[
     "Plotly",
     "Bytes",
     "TextBlob",
+    "Boolean",
     "Scalar",
     "Surface",
     "Vector",
@@ -52,6 +53,7 @@ DCKwargsValue = Union[
     go.Figure,
     bytes,
     str,
+    bool,
     None,
 ]
 
@@ -108,6 +110,7 @@ class DataContainer(Box):
         "b": ["r", "g", "t", "a", "extra"],
         "a": ["r", "g", "b", "t", "extra"],
         "bytes": ["extra"],
+        "bool": ["extra"],
         "text_blob": ["extra"],
         "extra": [*(k for k in allowed_keys if k not in ["extra"])],
         "fig": ["t", "extra"],
@@ -125,11 +128,13 @@ class DataContainer(Box):
         "Plotly": ["fig"],
         "Bytes": ["b"],
         "TextBlob": ["text_blob"],
+        "Boolean": ["b"],
     }
 
     SKIP_ARRAYIEFY_TYPES = [
         str,
         bytes,
+        bool,
         go.Figure,
         pd.DataFrame,
         np.ndarray,
@@ -477,6 +482,14 @@ class TextBlob(DataContainer):
     def __init__(self, text_blob: str):
         super().__init__(type="TextBlob", text_blob=text_blob)
 
+class Boolean(DataContainer):
+    b: bool
+
+    def __init__ (
+            self,
+            b: bool,
+    ):
+        super().__init__(type="Boolean", b=b)
 
 class ParametricImage(DataContainer):
     t: DCNpArrayType
