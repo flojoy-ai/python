@@ -1,7 +1,7 @@
 import difflib
 import typing
 import numpy as np
-import pandas as pd
+from pandas import DataFrame as PandasDataFrame
 from box import Box, box_list
 import plotly.graph_objects as go  # type:ignore
 from typing import Union, Literal, get_args, Any, cast
@@ -48,7 +48,7 @@ DCKwargsValue = Union[
     float,
     dict[str, Union[int, float, DCNpArrayType]],
     DCNpArrayType,
-    pd.DataFrame,
+    PandasDataFrame,
     go.Figure,
     bytes,
     str,
@@ -131,7 +131,7 @@ class DataContainer(Box):
         str,
         bytes,
         go.Figure,
-        pd.DataFrame,
+        PandasDataFrame,
         np.ndarray,
     ]  # value types not to be arrayified
 
@@ -144,7 +144,9 @@ class DataContainer(Box):
 
     def _ndarrayify(
         self, value: DCKwargsValue
-    ) -> Union[DCNpArrayType, pd.DataFrame, dict[str, DCNpArrayType], go.Figure, None]:
+    ) -> Union[
+        DCNpArrayType, PandasDataFrame, dict[str, DCNpArrayType], go.Figure, None
+    ]:
         if isinstance(value, int) or isinstance(value, float):
             return np.array([value])
         elif isinstance(value, dict):
@@ -411,18 +413,18 @@ class ParametricMatrix(DataContainer):
 
 
 class DataFrame(DataContainer):
-    m: pd.DataFrame
+    m: PandasDataFrame
 
-    def __init__(self, df: pd.DataFrame, extra: ExtraType = None):  # type:ignore
+    def __init__(self, df: PandasDataFrame, extra: ExtraType = None):  # type:ignore
         super().__init__(type="DataFrame", m=df, extra=extra)
 
 
 class ParametricDataFrame(DataContainer):
-    m: pd.DataFrame
+    m: PandasDataFrame
     t: DCNpArrayType
 
     def __init__(  # type:ignore
-        self, df: pd.DataFrame, t: DCNpArrayType, extra: ExtraType = None
+        self, df: PandasDataFrame, t: DCNpArrayType, extra: ExtraType = None
     ):
         super().__init__(type="ParametricDataFrame", m=df, t=t, extra=extra)
 
