@@ -90,15 +90,17 @@ class DefaultParams:
         self.jobset_id = jobset_id
         self.node_type = node_type
 
+
 class cache_huggingface_to_flojoy(ContextDecorator):
-    """ Context manager to override the HF_HOME env var """
+    """Context manager to override the HF_HOME env var"""
+
     def __enter__(self):
         self.old_env_var = os.environ.get("HF_HOME")
         os.environ["HF_HOME"] = get_hf_hub_cache_path()
         return self
 
     def __exit__(self, *exc):
-        if(self.old_env_var is None):
+        if self.old_env_var is None:
             del os.environ["HF_HOME"]
         else:
             os.environ["HF_HOME"] = self.old_env_var
@@ -165,6 +167,7 @@ def flojoy(
     def decorator(func: Callable[..., Optional[DataContainer | dict[str, Any]]]):
         # Wrap func here to override the HF_HOME env var
         func = cache_huggingface_to_flojoy()(func)
+
         @wraps(func)
         def wrapper(
             node_id: str,
@@ -233,9 +236,7 @@ def flojoy(
                             value.validate()
 
                 # post result to the job service so we can get it later if needed
-                JobService().post_job_result(
-                    job_id, dc_obj
-                ) 
+                JobService().post_job_result(job_id, dc_obj)
 
                 # Package the result and return it
                 FN = func.__name__
@@ -246,9 +247,8 @@ def flojoy(
                     node_id=node_id,
                     jobset_id=jobset_id,
                 )
-            
-            except Exception as e:
 
+            except Exception as e:
                 logger.error("error occured while running the node")
                 logger.debug(traceback.format_exc())
                 return JobFailure(

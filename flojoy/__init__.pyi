@@ -19,7 +19,6 @@ from .config import *
 from .flojoy_cloud import *
 from .models import *
 
-
 def flojoy(
     original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict | None]
     | None = None,

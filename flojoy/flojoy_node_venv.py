@@ -85,9 +85,9 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
 def _get_venv_lockfile_path(venv_path: os.PathLike | str) -> os.PathLike | str:
     """Get the path to the lockfile of the virtual environment."""
     return os.path.join(
-        os.path.dirname(venv_path),
-        f".{os.path.basename(venv_path)}.lockfile"
+        os.path.dirname(venv_path), f".{os.path.basename(venv_path)}.lockfile"
     )
+
 
 def _bootstrap_venv(
     venv_path: os.PathLike,
@@ -98,10 +98,14 @@ def _bootstrap_venv(
     lockfile_path = _get_venv_lockfile_path(venv_path)
     logger.info(f"Waiting to acquire lock on {lockfile_path}...")
     # Acquire a lock on the virtual environment to ensure no other process is using it
-    with portalocker.Lock(lockfile_path, mode="ab", fail_when_locked=False, flags=portalocker.LOCK_EX) as lock:
+    with portalocker.Lock(
+        lockfile_path, mode="ab", fail_when_locked=False, flags=portalocker.LOCK_EX
+    ) as lock:
         logger.info(f"Acquired lock on {lockfile_path}...")
         # Check if the virtual environment is complete, i.e. it contains a .venv_is_complete file
-        venv_is_complete_path = os.path.realpath(os.path.join(venv_path, ".venv_is_complete"))
+        venv_is_complete_path = os.path.realpath(
+            os.path.join(venv_path, ".venv_is_complete")
+        )
         # Look for the .venv_is_complete file. If it does not exist, wipe and re-create the venv
         # The .venv_is_complete file is created at the end of a successful pip install process
         if not os.path.exists(venv_is_complete_path):
@@ -111,7 +115,7 @@ def _bootstrap_venv(
             shutil.rmtree(venv_path, ignore_errors=True)
             logger.info(f"Creating new virtual environment at {venv_path}...")
             venv.create(venv_path, with_pip=True)
-        # At this point, the venv should be created and 
+        # At this point, the venv should be created and
         # _get_venv_executable_path should return a valid path (with symlinks resolved)
         venv_executable = _get_venv_executable_path(venv_path)
         command = [venv_executable, "-m", "pip", "install"]
@@ -151,7 +155,6 @@ def _bootstrap_venv(
                     break
                 sleep(0.1)
 
-
         # The process was terminated due to the _cancel_all_threads event
         if proc.returncode is None:
             return
@@ -182,6 +185,7 @@ def _bootstrap_venv(
 
     # Leaved the portalocker.Lock on the virtual environment directory.
     return
+
 
 class PipInstallThread(threading.Thread):
     _bounded_semaphore = threading.BoundedSemaphore(1)

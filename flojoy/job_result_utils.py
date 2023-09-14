@@ -81,7 +81,10 @@ def get_frontend_res_obj_from_result(
     match result:
         case Plotly() | TextBlob() | Bytes():
             plotly_fig = data_container_to_plotly(data=result)
-            return {"plotly_fig": plotly_fig, "text_blob": get_text_blob_from_dc(result)}
+            return {
+                "plotly_fig": plotly_fig,
+                "text_blob": get_text_blob_from_dc(result),
+            }
 
     if isinstance(result, DataContainer):
         return None

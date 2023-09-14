@@ -1,6 +1,7 @@
 from .JobFeedback import JobFeedback
 
-__all__ = ['JobSuccess']
+__all__ = ["JobSuccess"]
+
 
 class JobSuccess(JobFeedback):
     def __init__(self, result, fn, node_id, jobset_id):

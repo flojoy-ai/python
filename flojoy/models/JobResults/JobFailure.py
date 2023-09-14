@@ -1,6 +1,7 @@
 from .JobFeedback import JobFeedback
 
-__all__ = ['JobFailure']
+__all__ = ["JobFailure"]
+
 
 class JobFailure(JobFeedback):
     def __init__(self, func_name, node_id, error, jobset_id):
