@@ -1,4 +1,6 @@
+from contextlib import ContextDecorator
 import json
+import os
 import traceback
 from functools import wraps
 
@@ -10,11 +12,12 @@ from .data_container import DataContainer
 from .utils import PlotlyJSONEncoder
 from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
-from .utils import send_to_socket
+from .utils import send_to_socket, get_hf_hub_cache_path
 from .config import logger
 from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
+from timeit import default_timer as timer
 
 __all__ = ["flojoy", "DefaultParams", "display"]
 
@@ -87,6 +90,20 @@ class DefaultParams:
         self.jobset_id = jobset_id
         self.node_type = node_type
 
+class cache_huggingface_to_flojoy(ContextDecorator):
+    """ Context manager to override the HF_HOME env var """
+    def __enter__(self):
+        self.old_env_var = os.environ.get("HF_HOME")
+        os.environ["HF_HOME"] = get_hf_hub_cache_path()
+        return self
+
+    def __exit__(self, *exc):
+        if(self.old_env_var is None):
+            del os.environ["HF_HOME"]
+        else:
+            os.environ["HF_HOME"] = self.old_env_var
+        return False
+
 
 def display(
     original_function: Callable[..., DataContainer | dict[str, Any]] | None = None
@@ -146,6 +163,8 @@ def flojoy(
     """
 
     def decorator(func: Callable[..., Optional[DataContainer | dict[str, Any]]]):
+        # Wrap func here to override the HF_HOME env var
+        func = cache_huggingface_to_flojoy()(func)
         @wraps(func)
         def wrapper(
             node_id: str,

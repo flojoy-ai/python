@@ -1,5 +1,7 @@
 import io
+import sys
 import json
+from textwrap import dedent
 from typing import Any
 import pytest
 import os
@@ -11,6 +13,7 @@ from time import sleep
 import logging
 import http.server
 import socketserver
+import subprocess
 from queue import Queue
 
 import requests
@@ -78,6 +81,19 @@ def mock_venv_cache_dir():
     # Clean up
     shutil.rmtree(_test_tempdir)
 
+@pytest.fixture
+def run_in_venv_script_source_code():
+    return dedent("""
+    from flojoy import run_in_venv
+
+    @run_in_venv(pip_dependencies=["numpy", "torch"], verbose=True)
+    def inner_func():
+        import torch
+        import numpy as np
+        return 0
+
+    inner_func()
+    """)
 
 def test_run_in_venv_streams_logs_to_http_server(
     mock_venv_cache_dir, configure_logging, local_server
@@ -206,11 +222,13 @@ def test_run_in_venv_imports_jax_properly(mock_venv_cache_dir, configure_logging
     assert packages_dict["jax"] == "0.4.13"
 
 
+# Skip until dependency versions can be resolved with Flojoy (incompatible pandas versions)
+@pytest.mark.skip(reason="Skip until dependencies on pandas can be resolved")
 def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, configure_logging):
     from flojoy import run_in_venv
 
     # Define a function that imports flytekit and returns its version
-    @run_in_venv(pip_dependencies=["flytekit==1.8.2"])
+    @run_in_venv(pip_dependencies=["flytekit==1.9.0"])
     def empty_function_with_flytekit():
         import sys
         import importlib.metadata
@@ -230,7 +248,7 @@ def test_run_in_venv_imports_flytekit_properly(mock_venv_cache_dir, configure_lo
     assert sys_path[-1].startswith(os.path.dirname(__file__))
     assert sys_path[-2].startswith(mock_venv_cache_dir)
     # Test for package version
-    assert packages_dict["flytekit"] == "1.8.2"
+    assert packages_dict["flytekit"] == "1.9.0"
 
 
 def test_run_in_venv_imports_opencv_properly(mock_venv_cache_dir, configure_logging):
@@ -280,7 +298,7 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, configure_logging, 
     def function_to_run_within_thread(queue):
         from flojoy import run_in_venv
 
-        @run_in_venv(pip_dependencies=["numpy==1.23.0"])
+        @run_in_venv(pip_dependencies=["numpy"])
         def func_with_venv():
             import numpy as np
 
@@ -302,3 +320,21 @@ def test_run_in_venv_runs_within_thread(mock_venv_cache_dir, configure_logging, 
     assert not queue.empty()
     # Check that the function has returned
     assert queue.get(timeout=60) == 42
+
+
+def test_run_in_venv_same_pip_deps_from_two_subprocesses_is_safe(
+    mock_venv_cache_dir,
+    configure_logging,
+    run_in_venv_script_source_code
+):
+    """ Tests that two functions ran from two subprocesses do not interfere with each other """
+    # Spawn the two functions in two subprocesses
+    # Repeat 10 times
+    for _ in range(10):
+        p1 = subprocess.Popen([sys.executable, "-c", f'{run_in_venv_script_source_code}'])
+        p2 = subprocess.Popen([sys.executable, "-c", f'{run_in_venv_script_source_code}'])
+        # Wait for the two processes to finish
+        p1.wait()
+        p2.wait()
+        # Check that the processes have finished successfully
+        assert p1.returncode == 0 and p2.returncode == 0

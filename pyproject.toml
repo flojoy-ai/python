@@ -7,7 +7,7 @@ authors = [
   "Dallas Strandell <dalstrande@outlook.com>",
 ]
 name = "flojoy"
-version = "0.1.11"
+version = "0.1.12"
 description = ""
 readme = "README.md"
 
@@ -28,6 +28,7 @@ cloudpickle = "^2.2.1"
 networkx = "^3.0"
 scipy = "^1.10.0"
 matplotlib = "^3.6.0"
+portalocker = "^2.7.0"
 
 
 [tool.poetry.group.dev.dependencies]

@@ -21,7 +21,6 @@ def TORCH_NODE(default: Matrix) -> Matrix:
 """
 from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
-import signal
 import threading
 from time import sleep
 from typing import Any, Callable, Optional
@@ -34,8 +33,8 @@ import logging
 import multiprocessing
 import multiprocessing.connection
 import os
+import portalocker
 import shutil
-import re
 import subprocess
 import sys
 import traceback
@@ -83,84 +82,106 @@ def _get_venv_executable_path(venv_path: os.PathLike | str) -> os.PathLike | str
         return os.path.realpath(os.path.join(venv_path, "bin", "python"))
 
 
+def _get_venv_lockfile_path(venv_path: os.PathLike | str) -> os.PathLike | str:
+    """Get the path to the lockfile of the virtual environment."""
+    return os.path.join(
+        os.path.dirname(venv_path),
+        f".{os.path.basename(venv_path)}.lockfile"
+    )
+
 def _bootstrap_venv(
     venv_path: os.PathLike,
     pip_dependencies: list[str],
     logger: logging.Logger,
     verbose: bool = False,
 ):
-    venv_executable = _get_venv_executable_path(venv_path)
-    if not os.path.exists(venv_executable):
-        if os.path.exists(venv_path):
+    lockfile_path = _get_venv_lockfile_path(venv_path)
+    logger.info(f"Waiting to acquire lock on {lockfile_path}...")
+    # Acquire a lock on the virtual environment to ensure no other process is using it
+    with portalocker.Lock(lockfile_path, mode="ab", fail_when_locked=False, flags=portalocker.LOCK_EX) as lock:
+        logger.info(f"Acquired lock on {lockfile_path}...")
+        # Check if the virtual environment is complete, i.e. it contains a .venv_is_complete file
+        venv_is_complete_path = os.path.realpath(os.path.join(venv_path, ".venv_is_complete"))
+        # Look for the .venv_is_complete file. If it does not exist, wipe and re-create the venv
+        # The .venv_is_complete file is created at the end of a successful pip install process
+        if not os.path.exists(venv_is_complete_path):
             logger.warning(
-                f"For some reason, the virtual environment at {venv_path} does not contain a python executable. Deleting the virtual environment and creating a new one..."
+                f"For some reason, the virtual environment at {venv_path} was found to be incomplete. Deleting the virtual environment and creating a new one..."
             )
             shutil.rmtree(venv_path, ignore_errors=True)
-        logger.info(f"Creating new virtual environment at {venv_path}...")
-        venv.create(venv_path, with_pip=True)
-    # Deref the symlink -> Edge case with windows
-    venv_executable = os.path.realpath(venv_executable)
-    command = [venv_executable, "-m", "pip", "install"]
-    if not verbose:
-        command += ["-q", "-q"]
-    command += list(pip_dependencies)
-    with ExitStack() as stack:
-        logpipe_stderr = stack.enter_context(
-            LogPipe(
-                logger,
-                log_level=logging.ERROR,
-                mode=LogPipeMode.SUBPROCESS,
-                buffer_logs=True,
-            )
-        )
-        logpipe_stdout = stack.enter_context(
-            LogPipe(
-                logger,
-                log_level=logging.INFO,
-                mode=LogPipeMode.SUBPROCESS,
-                buffer_logs=True,
-            )
-        )
-        proc = subprocess.Popen(
-            command,
-            stdout=logpipe_stdout.get_pipe_writer(),
-            stderr=logpipe_stderr.get_pipe_writer(),
-        )
-        # Poll the process until it finishes, while occasionally checking if there was a failure
-        # in the global cancel event
-        while proc.poll() is None:
-            if PipInstallThread._cancel_all_threads.is_set():
-                proc.terminate()
-                logger.error(
-                    f"Another thread has failed its pip install step, terminating pip install process for {venv_path}..."
+            logger.info(f"Creating new virtual environment at {venv_path}...")
+            venv.create(venv_path, with_pip=True)
+        # At this point, the venv should be created and 
+        # _get_venv_executable_path should return a valid path (with symlinks resolved)
+        venv_executable = _get_venv_executable_path(venv_path)
+        command = [venv_executable, "-m", "pip", "install"]
+        if not verbose:
+            command += ["-q", "-q"]
+        command += list(pip_dependencies)
+        with ExitStack() as stack:
+            logpipe_stderr = stack.enter_context(
+                LogPipe(
+                    logger,
+                    log_level=logging.ERROR,
+                    mode=LogPipeMode.SUBPROCESS,
+                    buffer_logs=True,
                 )
-                break
-            sleep(0.1)
+            )
+            logpipe_stdout = stack.enter_context(
+                LogPipe(
+                    logger,
+                    log_level=logging.INFO,
+                    mode=LogPipeMode.SUBPROCESS,
+                    buffer_logs=True,
+                )
+            )
+            proc = subprocess.Popen(
+                command,
+                stdout=logpipe_stdout.get_pipe_writer(),
+                stderr=logpipe_stderr.get_pipe_writer(),
+            )
+            # Poll the process until it finishes, while occasionally checking if there was a failure
+            # in the global cancel event
+            while proc.poll() is None:
+                if PipInstallThread._cancel_all_threads.is_set():
+                    proc.terminate()
+                    logger.error(
+                        f"Another thread has failed its pip install step, terminating pip install process for {venv_path}..."
+                    )
+                    break
+                sleep(0.1)
 
-    venv_complete_path = os.path.realpath(os.path.join(venv_path, ".venv_is_complete"))
 
-    # The process was terminated due to the _cancel_all_threads event
-    if proc.returncode is None:
-        return
+        # The process was terminated due to the _cancel_all_threads event
+        if proc.returncode is None:
+            return
 
-    if proc.returncode != 0:
-        if os.path.exists(venv_complete_path):
-            os.remove(venv_complete_path)
-        shutil.rmtree(venv_path, ignore_errors=True)
-        logger.error(
-            f"Failed to install pip dependencies into virtual environment from the provided list: {pip_dependencies}. The virtual environment under {venv_path} has been deleted."
-        )
-        raise subprocess.CalledProcessError(
-            proc.returncode,
-            command,
-            output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
-            stderr=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
-        )
+        if proc.returncode != 0:
+            # First wipe the .venv_is_complete file to mark the directory as invalid
+            # in case the deletion of the entire directory fails.
+            if os.path.exists(venv_is_complete_path):
+                os.remove(venv_is_complete_path)
+            # Then delete the entire directory.
+            shutil.rmtree(venv_path, ignore_errors=True)
+            bullet_points_list = "\n - ".join([""] + pip_dependencies)
+            logger.error(
+                f"Failed to install pip dependencies into virtual environment from "
+                f"the provided list: {bullet_points_list}\n. "
+                f"The virtual environment under {venv_path} has been deleted."
+            )
+            raise subprocess.CalledProcessError(
+                proc.returncode,
+                command,
+                output=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
+                stderr=logpipe_stdout.log_buffer.getvalue().encode("utf-8"),
+            )
 
-    # Create a file to mark the virtual environment as complete
-    with open(os.path.join(venv_path, ".venv_is_complete"), "w") as f:
-        f.write("")
+        # Create a file to mark the virtual environment as complete
+        with open(venv_is_complete_path, "w") as f:
+            f.write("")
 
+    # Leaved the portalocker.Lock on the virtual environment directory.
+    return
 
 class PipInstallThread(threading.Thread):
     _bounded_semaphore = threading.BoundedSemaphore(1)
