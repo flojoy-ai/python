@@ -2,7 +2,6 @@ from typing import Any, Union
 
 class Camera:
     id: str | int
-
     def __init__(self, id: int) -> None:
         self.id = id
 
@@ -17,8 +16,8 @@ class SerialDevice:
     def __init__(self, id: int) -> None:
         self.id = id
 
-    def get_id(self):
-        return self.id
+    def get_port(self):
+        return self.port
 
 
 class NodeReference:
