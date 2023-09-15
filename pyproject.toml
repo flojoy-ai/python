@@ -29,6 +29,7 @@ networkx = "^3.0"
 scipy = "^1.10.0"
 matplotlib = "^3.6.0"
 portalocker = "^2.7.0"
+qcodes = "^0.39.1"
 
 
 [tool.poetry.group.dev.dependencies]

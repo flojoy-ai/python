@@ -1,5 +1,14 @@
 from typing import Any, Union
 
+class Camera:
+    id: str | int
+
+    def __init__(self, id: int) -> None:
+        self.id = id
+
+    def get_id(self):
+        return self.id
+
 
 class NodeReference:
     """Node parameter type"""
@@ -39,6 +48,8 @@ def format_param_value(value: Any, value_type: str):
             return bool(value)
         case "NodeReference":
             return NodeReference(str(value))
+        case "Camera":
+            return Camera(int(value)) if value.isnumeric() else Camera(value)
         case "list[str]":
             return parse_array(str(value), [str], "list[str]")
         case "list[float]":
