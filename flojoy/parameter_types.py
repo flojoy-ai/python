@@ -9,6 +9,17 @@ class Camera:
     def get_id(self):
         return self.id
 
+class SerialDevice:
+    port: str
+    description: str
+    hwid: str
+
+    def __init__(self, id: int) -> None:
+        self.id = id
+
+    def get_id(self):
+        return self.id
+
 
 class NodeReference:
     """Node parameter type"""
