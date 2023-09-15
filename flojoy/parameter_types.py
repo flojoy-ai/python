@@ -10,11 +10,9 @@ class Camera:
 
 class SerialDevice:
     port: str
-    description: str
-    hwid: str
 
-    def __init__(self, id: int) -> None:
-        self.id = id
+    def __init__(self, port: str) -> None:
+        self.port = port
 
     def get_port(self):
         return self.port
@@ -60,6 +58,8 @@ def format_param_value(value: Any, value_type: str):
             return NodeReference(str(value))
         case "Camera":
             return Camera(int(value)) if value.isnumeric() else Camera(value)
+        case "SerialDevice":
+            return SerialDevice(port=value)
         case "list[str]":
             return parse_array(str(value), [str], "list[str]")
         case "list[float]":
