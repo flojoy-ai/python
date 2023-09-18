@@ -28,6 +28,7 @@ DCType = Literal[
     "Scalar",
     "Surface",
     "Vector",
+    "Stateful",
     "ParametricDataFrame",
     "ParametricGrayscale",
     "ParametricImage",
@@ -514,3 +515,10 @@ class ParametricGrayscale(DataContainer):
         self, img: DCNpArrayType, t: DCNpArrayType, extra: ExtraType = None
     ):
         super().__init__(type="ParametricGrayscale", m=img, t=t, extra=extra)
+
+
+class Stateful(DataContainer):
+    obj: Any
+
+    def __init__(self, obj: Any, extra: ExtraType = None):
+        super().__init__(type="Stateful", obj=obj, extra=extra)
