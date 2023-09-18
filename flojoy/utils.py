@@ -45,6 +45,25 @@ if sys.platform == "win32":
 else:
     FLOJOY_CACHE_DIR = os.path.realpath(os.path.join(os.environ["HOME"], FLOJOY_DIR))
 
+# # package result 
+# def package_result(result: dict | None, fn: str, node_id: str, jobset_id: str) -> dict:
+#     return {
+#         "NODE_RESULTS": {
+#             "cmd": fn,
+#             "id": node_id,
+#             "result": result,
+#         },
+#         "jobsetId": jobset_id,
+#     }
+
+# # package error
+# def package_error(func_name, node_id, jobset_id, error):
+#     return {
+#         "SYSTEM_STATUS": f"Failed to run: {func_name}",
+#         "FAILED_NODES": {node_id: str(error)},
+#         "jobsetId": jobset_id,
+#     }
+
 
 # Make as a function to mock at test-time
 def get_hf_hub_cache_path() -> str:
