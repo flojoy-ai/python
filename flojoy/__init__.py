@@ -17,3 +17,4 @@ from .node_preflight import *
 from .flojoy_cloud import *
 from .instruments import *
 from .models import *
+from .connection_manager import *

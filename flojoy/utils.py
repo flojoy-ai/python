@@ -11,10 +11,13 @@ import pandas as pd
 import yaml
 import requests
 from dotenv import dotenv_values  # type:ignore
+
 # TODO(roulbac): Remove these imports once the nodes using them have been
 # tested and updated to use huggingface_hub directly
 from huggingface_hub import hf_hub_download
 from huggingface_hub import snapshot_download
+
+from flojoy.connection_manager import DeviceConnectionManager
 from .dao import Dao
 from .config import FlojoyConfig, logger
 
@@ -45,7 +48,7 @@ if sys.platform == "win32":
 else:
     FLOJOY_CACHE_DIR = os.path.realpath(os.path.join(os.environ["HOME"], FLOJOY_DIR))
 
-# # package result 
+# # package result
 # def package_result(result: dict | None, fn: str, node_id: str, jobset_id: str) -> dict:
 #     return {
 #         "NODE_RESULTS": {
@@ -67,8 +70,8 @@ else:
 
 # Make as a function to mock at test-time
 def get_hf_hub_cache_path() -> str:
-    """Returns the path to the HuggingFace home directory (HF_HOME) within the Flojoy cache directory 
-    This is used to cache huggingface artifacts within the Flojoy cache directory. """
+    """Returns the path to the HuggingFace home directory (HF_HOME) within the Flojoy cache directory
+    This is used to cache huggingface artifacts within the Flojoy cache directory."""
     return os.path.join(FLOJOY_CACHE_DIR, "cache", "huggingface")
 
 
@@ -110,6 +113,7 @@ def clear_flojoy_memory():
     Dao.get_instance().clear_job_results()
     Dao.get_instance().clear_small_memory()
     Dao.get_instance().clear_node_init_containers()
+    DeviceConnectionManager.clear()
 
 
 def send_to_socket(data: str):

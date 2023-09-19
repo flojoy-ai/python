@@ -4,11 +4,12 @@ import os
 import traceback
 from functools import wraps
 
+
 from .models.JobResults.JobFailure import JobFailure
 from .models.JobResults.JobSuccess import JobSuccess
 
 from .node_init import NodeInitService
-from .data_container import DataContainer
+from .data_container import DataContainer, Stateful
 from .utils import PlotlyJSONEncoder
 from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
@@ -18,6 +19,7 @@ from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
 from timeit import default_timer as timer
+from .connection_manager import DeviceConnectionManager
 
 __all__ = ["flojoy", "DefaultParams", "display"]
 
@@ -120,6 +122,7 @@ def flojoy(
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
     inject_node_metadata: bool = False,
+    inject_connection: bool = False,
 ):
     """
     Decorator to turn Python functions with numerical return
@@ -219,6 +222,14 @@ def flojoy(
                 if NodeInitService().has_init_store(node_id):
                     args["init_container"] = NodeInitService().get_init_store(node_id)
 
+                if inject_connection:
+                    print("injecting connection", flush=True)
+                    device = args["connection"]
+                    print(f"device handle: {device}", flush=True)
+                    id = device.get_id()
+                    connection = DeviceConnectionManager.get_connection(id)
+                    args["connection"] = connection
+
                 ##########################
                 # calling the node function
                 ##########################
@@ -228,7 +239,9 @@ def flojoy(
                 ##########################
 
                 # some special nodes like LOOP return dict instead of `DataContainer`
-                if isinstance(dc_obj, DataContainer):
+                if isinstance(dc_obj, DataContainer) and not isinstance(
+                    dc_obj, Stateful
+                ):
                     dc_obj.validate()  # Validate returned DataContainer object
                 elif dc_obj is not None:
                     for value in dc_obj.values():
@@ -249,6 +262,7 @@ def flojoy(
                 )
 
             except Exception as e:
+                logger.error(str(e))
                 logger.error("error occured while running the node")
                 logger.debug(traceback.format_exc())
                 return JobFailure(

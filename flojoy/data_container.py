@@ -94,6 +94,7 @@ class DataContainer(Box):
         "a",
         "text_blob",
         "fig",
+        "obj",
         "extra",
     ]
     combinations = {
@@ -108,6 +109,7 @@ class DataContainer(Box):
         "g": ["r", "b", "t", "a", "extra"],
         "b": ["r", "g", "t", "a", "extra"],
         "a": ["r", "g", "b", "t", "extra"],
+        "obj": ["extra"],
         "bytes": ["extra"],
         "text_blob": ["extra"],
         "extra": [*(k for k in allowed_keys if k not in ["extra"])],
@@ -126,6 +128,7 @@ class DataContainer(Box):
         "Plotly": ["fig"],
         "Bytes": ["b"],
         "TextBlob": ["text_blob"],
+        "Stateful": ["obj"],
     }
 
     SKIP_ARRAYIEFY_TYPES = [
@@ -185,7 +188,7 @@ class DataContainer(Box):
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
         if (
-            key not in ["type", "extra", "c"]
+            key not in ["type", "extra", "c", "obj"]
             and type(value) not in self.SKIP_ARRAYIEFY_TYPES
         ):
             formatted_value = self._ndarrayify(value)

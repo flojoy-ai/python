@@ -1,21 +1,54 @@
 from typing import Any, Union
+from abc import ABC
 
-class Camera:
-    id: str | int
+
+class HardwareDevice(ABC):
+    # Some unique identifier for the hardware device,
+    # For cameras, this is either the port it's connected to or the camera index
+    # For serial devices, this is the connection port
+    # For visa devices, this is the visa address
+    _id: str | int
+
     def __init__(self, id: int) -> None:
-        self.id = id
+        self._id = id
 
     def get_id(self):
-        return self.id
+        return self._id
 
-class SerialDevice:
-    port: str
 
-    def __init__(self, port: str) -> None:
-        self.port = port
+class HardwareConnection(ABC):
+    _handle: Any
 
-    def get_port(self):
-        return self.port
+    def __init__(self, handle: Any) -> None:
+        self._handle = handle
+
+    def get_handle(self):
+        return self._handle
+
+
+class CameraDevice(HardwareDevice):
+    pass
+
+
+class SerialDevice(HardwareDevice):
+    pass
+
+
+class VisaDevice(HardwareDevice):
+    pass
+
+
+class CameraConnection(HardwareConnection):
+    def __del__(self):
+        self._handle.release()
+
+
+class SerialConnection(HardwareConnection):
+    pass
+
+
+class VisaConnection(HardwareConnection):
+    pass
 
 
 class NodeReference:
@@ -56,10 +89,14 @@ def format_param_value(value: Any, value_type: str):
             return bool(value)
         case "NodeReference":
             return NodeReference(str(value))
-        case "Camera":
-            return Camera(int(value)) if value.isnumeric() else Camera(value)
-        case "SerialDevice":
-            return SerialDevice(port=value)
+        case "CameraDevice" | "CameraConnection":
+            return (
+                CameraDevice(int(value)) if value.isnumeric() else CameraDevice(value)
+            )
+        case "SerialDevice" | "SerialConnection":
+            return SerialDevice(value)
+        case "VisaDevice" | "VisaConnection":
+            return VisaDevice(value)
         case "list[str]":
             return parse_array(str(value), [str], "list[str]")
         case "list[float]":
@@ -69,6 +106,7 @@ def format_param_value(value: Any, value_type: str):
         case "select" | "str":
             return str(value)
         case _:
+            print("hit default case", flush=True)
             return value
 
 
