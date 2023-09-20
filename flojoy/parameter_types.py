@@ -31,11 +31,15 @@ class CameraDevice(HardwareDevice):
 
 
 class SerialDevice(HardwareDevice):
-    pass
+    # alias for clarity
+    def get_port(self):
+        return self.get_id()
 
 
 class VisaDevice(HardwareDevice):
-    pass
+    # alias for clarity
+    def get_address(self):
+        return self.get_id()
 
 
 class CameraConnection(HardwareConnection):
