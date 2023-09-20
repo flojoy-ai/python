@@ -46,11 +46,12 @@ class CameraConnection(HardwareConnection):
 
 
 class SerialConnection(HardwareConnection):
-    pass
-
-
+    def __del__(self):
+        self._handle.close()
+    
 class VisaConnection(HardwareConnection):
-    pass
+    def __del__(self):
+        self._handle.close()
 
 
 class NodeReference:
