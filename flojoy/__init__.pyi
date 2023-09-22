@@ -27,4 +27,5 @@ def flojoy(
     deps: Optional[dict[str, str]] = None,
     inject_node_metadata: bool = False,
     inject_connection: bool = False,
+    visualizer: bool = False,
 ) -> Callable[..., DataContainer | dict[str, Any] | None]: ...

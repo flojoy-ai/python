@@ -1,7 +1,9 @@
+import json
 from .flojoy_instruction import FLOJOY_INSTRUCTION
 from .plotly_utils import data_container_to_plotly
 from .data_container import DataContainer, Plotly, TextBlob, Bytes
 from .dao import Dao
+from .utils import PlotlyJSONEncoder
 from typing import Any, cast, Optional
 
 __all__ = ["get_job_result", "get_next_directions", "get_next_nodes", "get_job_result"]
@@ -72,10 +74,16 @@ def get_text_blob_from_dc(dc: DataContainer) -> str | None:
 
 
 def get_frontend_res_obj_from_result(
-    result: Optional[dict[str, Any] | DataContainer]
+    result: Optional[dict[str, Any] | DataContainer],
+    visualizer: bool = False
 ) -> Optional[dict[str, Any]]:
     if result is None:
         return None
+    
+    if visualizer:
+        if isinstance(result, DataContainer):
+            # TODO: fix
+            return json.loads(json.dumps({"data": result}, cls=PlotlyJSONEncoder))
 
     # Only return a plotly fig if it is a viz node
     match result:
@@ -107,4 +115,4 @@ def get_frontend_res_obj_from_result(
             "text_blob": text_blob,
         }
     keys = list(result.keys())
-    return get_frontend_res_obj_from_result(result[keys[0]])
+    return get_frontend_res_obj_from_result(result[keys[0]],)
