@@ -38,6 +38,10 @@ class SerialDevice(HardwareDevice):
 class VisaDevice(HardwareDevice):
     def get_address(self):
         return str(self.get_id())
+    
+
+class NIDevice(HardwareDevice):
+    pass
 
 
 class CameraConnection(HardwareConnection):
@@ -48,8 +52,14 @@ class CameraConnection(HardwareConnection):
 class SerialConnection(HardwareConnection):
     def __del__(self):
         self._handle.close()
-    
+
+
 class VisaConnection(HardwareConnection):
+    def __del__(self):
+        self._handle.close()
+
+
+class NIConnection(HardwareConnection):
     def __del__(self):
         self._handle.close()
 

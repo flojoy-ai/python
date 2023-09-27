@@ -9,6 +9,8 @@ from flojoy.parameter_types import (
     SerialConnection,
     VisaDevice,
     VisaConnection,
+    NIDevice,
+    NIConnection,
 )
 from typing import Any
 from .config import logger
@@ -33,6 +35,8 @@ class DeviceConnectionManager:
                     cls.handles[id] = SerialConnection(connection)
                 case VisaDevice():
                     cls.handles[id] = VisaConnection(connection)
+                case NIDevice():
+                    cls.handles[id] = NIConnection(connection)
 
     @classmethod
     def get_connection(cls, id: str | int) -> HardwareConnection:
