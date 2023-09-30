@@ -4,8 +4,12 @@ import os
 import traceback
 from functools import wraps
 
-from flojoy.node_init import NodeInitService
-from .data_container import DataContainer
+
+from .models.JobResults.JobFailure import JobFailure
+from .models.JobResults.JobSuccess import JobSuccess
+
+from .node_init import NodeInitService
+from .data_container import DataContainer, Stateful
 from .utils import PlotlyJSONEncoder
 from typing import Callable, Any, Optional
 from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
@@ -15,6 +19,7 @@ from .parameter_types import format_param_value
 from inspect import signature
 from .job_service import JobService
 from timeit import default_timer as timer
+from .connection_manager import DeviceConnectionManager
 
 __all__ = ["flojoy", "DefaultParams", "display"]
 
@@ -87,15 +92,17 @@ class DefaultParams:
         self.jobset_id = jobset_id
         self.node_type = node_type
 
+
 class cache_huggingface_to_flojoy(ContextDecorator):
-    """ Context manager to override the HF_HOME env var """
+    """Context manager to override the HF_HOME env var"""
+
     def __enter__(self):
         self.old_env_var = os.environ.get("HF_HOME")
         os.environ["HF_HOME"] = get_hf_hub_cache_path()
         return self
 
     def __exit__(self, *exc):
-        if(self.old_env_var is None):
+        if self.old_env_var is None:
             del os.environ["HF_HOME"]
         else:
             os.environ["HF_HOME"] = self.old_env_var
@@ -115,6 +122,7 @@ def flojoy(
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
     inject_node_metadata: bool = False,
+    inject_connection: bool = False,
 ):
     """
     Decorator to turn Python functions with numerical return
@@ -162,6 +170,7 @@ def flojoy(
     def decorator(func: Callable[..., Optional[DataContainer | dict[str, Any]]]):
         # Wrap func here to override the HF_HOME env var
         func = cache_huggingface_to_flojoy()(func)
+
         @wraps(func)
         def wrapper(
             node_id: str,
@@ -171,17 +180,6 @@ def flojoy(
             ctrls: dict[str, Any] | None = None,
         ):
             try:
-                FN = func.__name__
-                sys_status = "🏃‍♀️ Running python job: " + FN
-                send_to_socket(
-                    json.dumps(
-                        {
-                            "SYSTEM_STATUS": sys_status,
-                            "jobsetId": jobset_id,
-                            "RUNNING_NODE": node_id,
-                        }
-                    )
-                )
                 logger.debug("previous jobs:", previous_jobs)
                 # Get command parameters set by the user through the control panel
                 func_params: dict[str, Any] = {}
@@ -224,6 +222,14 @@ def flojoy(
                 if NodeInitService().has_init_store(node_id):
                     args["init_container"] = NodeInitService().get_init_store(node_id)
 
+                if inject_connection:
+                    print("injecting connection", flush=True)
+                    device = args["connection"]
+                    print(f"device handle: {device}", flush=True)
+                    id = device.get_id()
+                    connection = DeviceConnectionManager.get_connection(id)
+                    args["connection"] = connection
+
                 ##########################
                 # calling the node function
                 ##########################
@@ -233,58 +239,38 @@ def flojoy(
                 ##########################
 
                 # some special nodes like LOOP return dict instead of `DataContainer`
-                if isinstance(dc_obj, DataContainer):
+                if isinstance(dc_obj, DataContainer) and not isinstance(
+                    dc_obj, Stateful
+                ):
                     dc_obj.validate()  # Validate returned DataContainer object
                 elif dc_obj is not None:
                     for value in dc_obj.values():
                         if isinstance(value, DataContainer):
                             value.validate()
 
-                # Response object to send to FE
+                # post result to the job service so we can get it later if needed
+                JobService().post_job_result(job_id, dc_obj)
+
+                # Package the result and return it
+                FN = func.__name__
                 result = get_frontend_res_obj_from_result(dc_obj)
-
-                JobService().post_job_result(
-                    job_id, dc_obj
-                )  # post result to the job service before sending result to socket
-
-                send_to_socket(
-                    json.dumps(
-                        {
-                            "NODE_RESULTS": {
-                                "cmd": FN,
-                                "id": node_id,
-                                "result": result,
-                            },
-                            "jobsetId": jobset_id,
-                        },
-                        cls=PlotlyJSONEncoder,
-                    )
+                return JobSuccess(
+                    result=result,
+                    fn=FN,
+                    node_id=node_id,
+                    jobset_id=jobset_id,
                 )
 
-                if func.__name__ == "END":
-                    send_to_socket(
-                        json.dumps(
-                            {
-                                "SYSTEM_STATUS": "🤙 python script run successful",
-                                "RUNNING_NODE": "",
-                                "jobsetId": jobset_id,
-                            }
-                        )
-                    )
-                return dc_obj
             except Exception as e:
-                send_to_socket(
-                    json.dumps(
-                        {
-                            "SYSTEM_STATUS": f"Failed to run: {func.__name__}",
-                            "FAILED_NODES": {node_id: str(e)},
-                            "jobsetId": jobset_id,
-                        }
-                    )
-                )
-                logger.debug("error occured while running the node")
+                logger.error(str(e))
+                logger.error("error occured while running the node")
                 logger.debug(traceback.format_exc())
-                raise e
+                return JobFailure(
+                    func_name=func.__name__,
+                    node_id=node_id,
+                    error=str(e),
+                    jobset_id=jobset_id,
+                )
 
         return wrapper
 

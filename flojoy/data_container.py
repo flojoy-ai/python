@@ -1,7 +1,7 @@
 import difflib
 import typing
 import numpy as np
-import pandas as pd
+from pandas import DataFrame as PandasDataFrame
 from box import Box, box_list
 import plotly.graph_objects as go  # type:ignore
 from typing import Union, Literal, get_args, Any, cast
@@ -29,6 +29,7 @@ DCType = Literal[
     "Scalar",
     "Surface",
     "Vector",
+    "Stateful",
     "ParametricDataFrame",
     "ParametricGrayscale",
     "ParametricImage",
@@ -49,7 +50,7 @@ DCKwargsValue = Union[
     float,
     dict[str, Union[int, float, DCNpArrayType]],
     DCNpArrayType,
-    pd.DataFrame,
+    PandasDataFrame,
     go.Figure,
     bytes,
     str,
@@ -95,6 +96,7 @@ class DataContainer(Box):
         "a",
         "text_blob",
         "fig",
+        "obj",
         "extra",
     ]
     combinations = {
@@ -109,6 +111,7 @@ class DataContainer(Box):
         "g": ["r", "b", "t", "a", "extra"],
         "b": ["r", "g", "t", "a", "extra"],
         "a": ["r", "g", "b", "t", "extra"],
+        "obj": ["extra"],
         "bytes": ["extra"],
         "bool": ["extra"],
         "text_blob": ["extra"],
@@ -129,6 +132,7 @@ class DataContainer(Box):
         "Bytes": ["b"],
         "TextBlob": ["text_blob"],
         "Boolean": ["b"],
+        "Stateful": ["obj"],
     }
 
     SKIP_ARRAYIEFY_TYPES = [
@@ -136,7 +140,7 @@ class DataContainer(Box):
         bytes,
         bool,
         go.Figure,
-        pd.DataFrame,
+        PandasDataFrame,
         np.ndarray,
     ]  # value types not to be arrayified
 
@@ -149,7 +153,9 @@ class DataContainer(Box):
 
     def _ndarrayify(
         self, value: DCKwargsValue
-    ) -> Union[DCNpArrayType, pd.DataFrame, dict[str, DCNpArrayType], go.Figure, None]:
+    ) -> Union[
+        DCNpArrayType, PandasDataFrame, dict[str, DCNpArrayType], go.Figure, None
+    ]:
         if isinstance(value, int) or isinstance(value, float):
             return np.array([value])
         elif isinstance(value, dict):
@@ -187,7 +193,7 @@ class DataContainer(Box):
 
     def __setitem__(self, key: str, value: DCKwargsValue) -> None:
         if (
-            key not in ["type", "extra", "c"]
+            key not in ["type", "extra", "c", "obj"]
             and type(value) not in self.SKIP_ARRAYIEFY_TYPES
         ):
             formatted_value = self._ndarrayify(value)
@@ -416,18 +422,18 @@ class ParametricMatrix(DataContainer):
 
 
 class DataFrame(DataContainer):
-    m: pd.DataFrame
+    m: PandasDataFrame
 
-    def __init__(self, df: pd.DataFrame, extra: ExtraType = None):  # type:ignore
+    def __init__(self, df: PandasDataFrame, extra: ExtraType = None):  # type:ignore
         super().__init__(type="DataFrame", m=df, extra=extra)
 
 
 class ParametricDataFrame(DataContainer):
-    m: pd.DataFrame
+    m: PandasDataFrame
     t: DCNpArrayType
 
     def __init__(  # type:ignore
-        self, df: pd.DataFrame, t: DCNpArrayType, extra: ExtraType = None
+        self, df: PandasDataFrame, t: DCNpArrayType, extra: ExtraType = None
     ):
         super().__init__(type="ParametricDataFrame", m=df, t=t, extra=extra)
 
@@ -525,3 +531,10 @@ class ParametricGrayscale(DataContainer):
         self, img: DCNpArrayType, t: DCNpArrayType, extra: ExtraType = None
     ):
         super().__init__(type="ParametricGrayscale", m=img, t=t, extra=extra)
+
+
+class Stateful(DataContainer):
+    obj: Any
+
+    def __init__(self, obj: Any, extra: ExtraType = None):
+        super().__init__(type="Stateful", obj=obj, extra=extra)

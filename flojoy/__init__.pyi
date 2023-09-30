@@ -17,7 +17,7 @@ from .node_preflight import *
 from .data_container import *
 from .config import *
 from .flojoy_cloud import *
-
+from .models import *
 
 def flojoy(
     original_function: Callable[..., DataContainer | dict[str, Any] | TypedDict | None]
@@ -26,4 +26,5 @@ def flojoy(
     node_type: Optional[str] = None,
     deps: Optional[dict[str, str]] = None,
     inject_node_metadata: bool = False,
+    inject_connection: bool = False,
 ) -> Callable[..., DataContainer | dict[str, Any] | None]: ...
