@@ -40,6 +40,11 @@ class VisaDevice(HardwareDevice):
         return str(self.get_id())
     
 
+class MecademicDevice(HardwareDevice):
+    def get_ip(self):
+        return str(self.get_id())
+    
+
 class NIDevice(HardwareDevice):
     pass
 
@@ -48,6 +53,9 @@ class CameraConnection(HardwareConnection):
     def __del__(self):
         self._handle.release()
 
+class MecademicConnection(HardwareConnection):
+    def __del__(self):
+        pass
 
 class SerialConnection(HardwareConnection):
     def __del__(self):
