@@ -1,25 +1,21 @@
-from contextlib import ContextDecorator
-import json
+import inspect
 import os
 import traceback
+from contextlib import ContextDecorator
 from functools import wraps
+from inspect import signature
+from typing import Any, Callable, Optional
 
-
+from .config import logger
+from .connection_manager import DeviceConnectionManager
+from .data_container import DataContainer, Stateful
+from .job_result_utils import get_dc_from_result, get_frontend_res_obj_from_result
+from .job_service import JobService
 from .models.JobResults.JobFailure import JobFailure
 from .models.JobResults.JobSuccess import JobSuccess
-
 from .node_init import NodeInitService
-from .data_container import DataContainer, Stateful
-from .utils import PlotlyJSONEncoder
-from typing import Callable, Any, Optional
-from .job_result_utils import get_frontend_res_obj_from_result, get_dc_from_result
-from .utils import send_to_socket, get_hf_hub_cache_path
-from .config import logger
 from .parameter_types import format_param_value
-from inspect import signature
-from .job_service import JobService
-from timeit import default_timer as timer
-from .connection_manager import DeviceConnectionManager
+from .utils import get_hf_hub_cache_path
 
 __all__ = ["flojoy", "DefaultParams", "display"]
 
@@ -208,6 +204,7 @@ def flojoy(
                 for param, value in func_params.items():
                     if param in sig.parameters:
                         args[param] = value
+
                 if inject_node_metadata:
                     args["default_params"] = DefaultParams(
                         job_id=job_id,
@@ -229,6 +226,14 @@ def flojoy(
                     id = device.get_id()
                     connection = DeviceConnectionManager.get_connection(id)
                     args["connection"] = connection
+
+                # This fixes when people forget to add `= None` in
+                # default: Optional[DataContainer] = None
+                if (
+                    "default" not in args
+                    and "default" in inspect.signature(func).parameters.keys()
+                ):
+                    args["default"] = None
 
                 ##########################
                 # calling the node function
@@ -263,7 +268,7 @@ def flojoy(
 
             except Exception as e:
                 logger.error(str(e))
-                logger.error("error occured while running the node")
+                logger.error("error occurred while running the node")
                 logger.debug(traceback.format_exc())
                 return JobFailure(
                     func_name=func.__name__,
