@@ -1,12 +1,17 @@
 from contextlib import ContextDecorator
+import inspect
 import os
 import traceback
 from functools import wraps
+from typing import Any, Callable, Optional
 
-
+from .config import logger
+from .connection_manager import DeviceConnectionManager
+from .data_container import DataContainer, Stateful
+from .job_result_utils import get_dc_from_result, get_frontend_res_obj_from_result
+from .job_service import JobService
 from .models.JobResults.JobFailure import JobFailure
 from .models.JobResults.JobSuccess import JobSuccess
-
 from .node_init import NodeInitService
 from .data_container import DataContainer, Stateful
 from typing import Callable, Any, Optional
@@ -198,6 +203,7 @@ def flojoy(
                 for param, value in func_params.items():
                     if param in sig.parameters:
                         args[param] = value
+
                 if inject_node_metadata:
                     args["default_params"] = DefaultParams(
                         job_id=job_id,
@@ -219,6 +225,14 @@ def flojoy(
                     _id = device.get_id()
                     connection = DeviceConnectionManager.get_connection(_id)
                     args["connection"] = connection
+
+                # This fixes when people forget to add `= None` in
+                # default: Optional[DataContainer] = None
+                if (
+                    "default" not in args
+                    and "default" in inspect.signature(func).parameters.keys()
+                ):
+                    args["default"] = None
 
                 ##########################
                 # calling the node function
@@ -253,7 +267,7 @@ def flojoy(
 
             except Exception as e:
                 logger.error(str(e))
-                logger.error("error occured while running the node")
+                logger.error("error occurred while running the node")
                 logger.debug(traceback.format_exc())
                 return JobFailure(
                     func_name=func.__name__,
