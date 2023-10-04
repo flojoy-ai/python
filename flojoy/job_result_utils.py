@@ -6,14 +6,14 @@ from .dao import Dao
 from .utils import PlotlyJSONEncoder
 from typing import Any, cast, Optional
 
-__all__ = ["get_job_result", "get_next_directions", "get_next_nodes", "get_job_result"]
+__all__ = [
+    "get_job_result", "get_next_directions", "get_next_nodes", "get_job_result"
+]
 
 
 def is_flow_controled(result: dict[str, Any] | DataContainer):
-    if (
-        FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS in result
-        or FLOJOY_INSTRUCTION.FLOW_TO_NODES in result
-    ):
+    if (FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS in result
+            or FLOJOY_INSTRUCTION.FLOW_TO_NODES in result):
         return True
     return False
 
@@ -25,11 +25,9 @@ def get_next_directions(result: dict[str, Any] | None) -> list[str] | None:
     if not result.get(FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS):
         for value in result.values():
             if isinstance(value, dict) and value.get(
-                FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS
-            ):
-                direction = cast(
-                    list[str], value[FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS]
-                )
+                    FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS):
+                direction = cast(list[str],
+                                 value[FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS])
                 break
     else:
         direction = result[FLOJOY_INSTRUCTION.FLOW_TO_DIRECTIONS]
@@ -43,8 +41,7 @@ def get_next_nodes(result: dict[str, Any] | None) -> list[str]:
 
 
 def get_dc_from_result(
-    result: dict[str, Any] | DataContainer | None
-) -> DataContainer | None:
+        result: dict[str, Any] | DataContainer | None) -> DataContainer | None:
     if not result:
         return None
     if isinstance(result, DataContainer):
@@ -57,7 +54,8 @@ def get_dc_from_result(
 def get_job_result(job_id: str) -> dict[str, Any] | DataContainer | None:
     try:
         job_result: Any = Dao.get_instance().get_job_result(job_id)
-        result = get_dc_from_result(cast(dict[str, Any] | DataContainer, job_result))
+        result = get_dc_from_result(
+            cast(dict[str, Any] | DataContainer, job_result))
         return result
     except Exception:
         return None
@@ -74,16 +72,14 @@ def get_text_blob_from_dc(dc: DataContainer) -> str | None:
 
 
 def get_frontend_res_obj_from_result(
-    result: Optional[dict[str, Any] | DataContainer],
-    visualizer: bool = False
-) -> Optional[dict[str, Any]]:
+        result: Optional[dict[str, Any] | DataContainer],
+        forward_result: bool = False) -> Optional[dict[str, Any]]:
     if result is None:
         return None
-    
-    if visualizer:
+
+    if forward_result:
         if isinstance(result, DataContainer):
-            # TODO: fix
-            return json.loads(json.dumps({"data": result}, cls=PlotlyJSONEncoder))
+            return {"data": result}
 
     # Only return a plotly fig if it is a viz node
     match result:
@@ -115,4 +111,4 @@ def get_frontend_res_obj_from_result(
             "text_blob": text_blob,
         }
     keys = list(result.keys())
-    return get_frontend_res_obj_from_result(result[keys[0]],)
+    return get_frontend_res_obj_from_result(result[keys[0]], )

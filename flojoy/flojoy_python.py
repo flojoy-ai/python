@@ -4,7 +4,6 @@ import os
 import traceback
 from functools import wraps
 
-
 from .models.JobResults.JobFailure import JobFailure
 from .models.JobResults.JobSuccess import JobSuccess
 
@@ -62,11 +61,8 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
                     f"Tried to get job result from {prev_job_id} but it was None"
                 )
 
-            result = (
-                get_dc_from_result(job_result[edge])
-                if edge != "default"
-                else get_dc_from_result(job_result)
-            )
+            result = (get_dc_from_result(job_result[edge])
+                      if edge != "default" else get_dc_from_result(job_result))
             if result is not None:
                 logger.debug(f"got job result from {prev_job_id}")
                 if multiple:
@@ -84,9 +80,9 @@ def fetch_inputs(previous_jobs: list[dict[str, str]]):
 
 
 class DefaultParams:
-    def __init__(
-        self, node_id: str, job_id: str, jobset_id: str, node_type: str
-    ) -> None:
+
+    def __init__(self, node_id: str, job_id: str, jobset_id: str,
+                 node_type: str) -> None:
         self.node_id = node_id
         self.job_id = job_id
         self.jobset_id = jobset_id
@@ -109,9 +105,8 @@ class cache_huggingface_to_flojoy(ContextDecorator):
         return False
 
 
-def display(
-    original_function: Callable[..., DataContainer | dict[str, Any]] | None = None
-):
+def display(original_function: Callable[..., DataContainer | dict[str, Any]]
+            | None = None):
     return original_function
 
 
@@ -123,7 +118,7 @@ def flojoy(
     deps: Optional[dict[str, str]] = None,
     inject_node_metadata: bool = False,
     inject_connection: bool = False,
-    visualizer: bool = False,
+    forward_result: bool = False,
 ):
     """
     Decorator to turn Python functions with numerical return
@@ -168,7 +163,8 @@ def flojoy(
     ```
     """
 
-    def decorator(func: Callable[..., Optional[DataContainer | dict[str, Any]]]):
+    def decorator(func: Callable[...,
+                                 Optional[DataContainer | dict[str, Any]]]):
         # Wrap func here to override the HF_HOME env var
         func = cache_huggingface_to_flojoy()(func)
 
@@ -188,7 +184,8 @@ def flojoy(
                     for _, input in ctrls.items():
                         param = input["param"]
                         value = input["value"]
-                        func_params[param] = format_param_value(value, input["type"])
+                        func_params[param] = format_param_value(
+                            value, input["type"])
                 func_params["type"] = "default"
 
                 logger.debug(
@@ -221,7 +218,8 @@ def flojoy(
 
                 # check if node has an init container and if so, inject it
                 if NodeInitService().has_init_store(node_id):
-                    args["init_container"] = NodeInitService().get_init_store(node_id)
+                    args["init_container"] = NodeInitService().get_init_store(
+                        node_id)
 
                 if inject_connection:
                     print("injecting connection", flush=True)
@@ -241,8 +239,7 @@ def flojoy(
 
                 # some special nodes like LOOP return dict instead of `DataContainer`
                 if isinstance(dc_obj, DataContainer) and not isinstance(
-                    dc_obj, Stateful
-                ):
+                        dc_obj, Stateful):
                     dc_obj.validate()  # Validate returned DataContainer object
                 elif dc_obj is not None:
                     for value in dc_obj.values():
@@ -254,7 +251,8 @@ def flojoy(
 
                 # Package the result and return it
                 FN = func.__name__
-                result = get_frontend_res_obj_from_result(dc_obj, visualizer)
+                result = get_frontend_res_obj_from_result(
+                    dc_obj, forward_result)
                 return JobSuccess(
                     result=result,
                     fn=FN,
